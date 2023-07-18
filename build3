@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+import sys
+import os
+import subprocess
+import argparse
+import datetime
+
+APP_NAME = 'mquery'
+
+KNOWN_VERSIONS = {
+    '2.167.8',
+    '2.167.10',
+    '2.208',
+    '2.214.1',
+    '2.223.6'
+}
+
+class Version:
+
+    def __init__(self, ver: str):
+        tmp = ver.split('.')
+        self.major = int(tmp[0])
+        self.minor = int(tmp[1])
+        self.patch = int(tmp[2]) if len(tmp) > 2 else 0
+
+    def ge(self, other: 'Version') -> bool:
+        if self.major > other.major:
+            return True
+        elif self.major < other.major:
+            return False
+        elif self.minor > other.minor:
+            return True
+        elif self.minor < other.minor:
+            return False
+        elif self.patch >= other.patch:
+            return True
+        return False
+
+
+class NoManatee(object):
+
+    @staticmethod
+    def version():
+        return None
+
+
+def autodetect_version(spec_path=None):
+    if spec_path:
+        sys.path.insert(0, spec_path)
+    try:
+        import manatee
+        v = manatee.version()
+        if v.endswith('-cnc'):
+            v = v[:-4]
+        return v[v.index('open-') + 5:]
+    except ImportError:
+        manatee = NoManatee()
+        return manatee.version()
+
+
+def find_manatee():
+    if os.path.exists('/usr/lib/libmanatee.so'):
+        return '/usr/lib'
+    elif os.path.exists('/usr/local/lib/libmanatee.so'):
+        return '/usr/local/lib'
+    return None
+
+
+def _download_file(url, target):
+    print('trying: {0}'.format(url))
+    with open(target, 'wb') as fw:
+        p = subprocess.Popen(['curl', '-fL', url], stdout=fw)
+        p.wait()
+    return p.returncode
+
+
+def download_manatee_src(version):
+    out_file = '/tmp/manatee-open-{0}.tar.gz'.format(version)
+    print('\nLooking for {0} ...'.format(os.path.basename(out_file)))
+    if not os.path.exists(out_file):
+        url = 'https://corpora.fi.muni.cz/noske/src/manatee-open/manatee-open-{0}.tar.gz'.format(version)
+        ans = _download_file(url, out_file)
+        if ans > 0:
+            url = 'https://corpora.fi.muni.cz/noske/src/manatee-open/archive/manatee-open-{0}.tar.gz'.format(version)
+            ans = _download_file(url, out_file)
+        if ans > 0:
+            url = 'http://corpora.fi.muni.cz/noske/current/src/manatee-open-{0}.tar.gz'.format(version)
+            ans = _download_file(url, out_file)
+    else:
+        print('...found in /tmp')
+        ans = 0
+    if ans == 0:
+        ans = unpack_archive(out_file)
+    if ans == 0:
+        return '/tmp/manatee-open-{0}'.format(version)
+    else:
+        raise Exception('Failed to download and extract manatee. Please do this manually and run the script with --manatee-src ...')
+
+def unpack_archive(path):
+    p = subprocess.Popen(['tar', 'xzf', path, '-C', '/tmp'])
+    p.wait()
+    return p.returncode
+
+def get_commit_info():
+    p = subprocess.Popen(['git', 'rev-parse', '--short', 'HEAD'], stdout=subprocess.PIPE)
+    p.wait()
+    return p.stdout.read().decode().strip()
+
+def get_version_info():
+    p = subprocess.Popen(['git', 'describe', '--tags'], stdout=subprocess.PIPE)
+    p.wait()
+    return p.stdout.read().decode().strip()
+
+def get_current_datetime():
+    return '{0:%Y-%m-%dT%H:%M:%S}'.format(datetime.datetime.now())
+
+def init_sources(version: Version, manatee_src):
+    if not os.path.isfile(os.path.join(manatee_src, 'config.hh')):
+        env = dict(os.environ)
+        env['PYTHON'] = '/usr/bin/python3'
+        subprocess.Popen('make clean', shell=True, cwd=manatee_src, env=env, executable='/bin/bash').wait()
+        subprocess.Popen(['./configure', '--with-pcre'], shell=True, env=env, cwd=manatee_src, executable='/bin/bash').wait()
+        if version.ge(Version('2.208')):
+            subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'hat-trie'), executable='/bin/bash').wait()
+            subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'fsa3'), executable='/bin/bash').wait()
+
+def build_project(version: Version, manatee_src, manatee_lib, test=False, out=None):
+    ver = get_version_info()
+    commit = get_commit_info()
+    dt = get_current_datetime()
+    LDFLAGS = f'-w -s -X main.version="{ver}" -X main.buildDate="{dt}" -X main.gitCommit="{commit}"'
+
+
+    subdirs = [f'-I{manatee_src}']
+    if version.ge(Version('2.208')):
+        subdirs += ['-I{}'.format(os.path.join(manatee_src, s)) for s in ['finlib', 'fsa3', 'hat-trie']]
+        build_env = {
+            'CGO_CXXFLAGS': f'-std=c++14 -I{manatee_src}/corp -I{manatee_src}/concord -I{manatee_src}/query',
+            'CGO_CPPFLAGS': ' '.join(subdirs),
+            'CGO_LDFLAGS': '-lmanatee -L{lm} -lhat-trie -L{lm} -lfsa3 -L{lfsa}'.format(
+                lm=manatee_lib, lfsa=os.path.join(manatee_src, 'fsa3/.libs'))}
+    else:
+        build_env = {
+        'CGO_CXXFLAGS': f'-std=c++14 -I{manatee_src}/corp -I{manatee_src}/concord -I{manatee_src}/query',
+        'CGO_CPPFLAGS': ' '.join(subdirs),
+        'CGO_LDFLAGS': '-lmanatee -L{lm}'.format(lm=manatee_lib)}
+    print('\nBuilding the project with the following env. variables:\n{0}'.format('\n'.join(['{0} {1}'.format(*x) for x in build_env.items()])))
+    env = dict(os.environ)
+    env.update(build_env)
+    if test:
+        print('Running TESTS:\n')
+        p = subprocess.Popen('go test ./...', shell=True, env=env, executable='/bin/bash')
+    else:
+        p = subprocess.Popen([f'go build -o {"mquery" if out is None else out} -ldflags "{LDFLAGS}"'], shell=True, env=env, executable='/bin/bash')
+    p.wait()
+
+def list_supported_versions():
+    return sorted(KNOWN_VERSIONS, reverse=True)
+
+
+def show_version_mismatch(found_v, expected_v):
+    print('\nERROR: Found Manatee {0}, you require {1}.'.format(found_v, expected_v))
+    print('\nA) If you prefer a different installed version of Manatee')
+    print('then please specify a path where a respective libmanatee.so')
+    print('can be found (./build {0} --manatee-lib /path/to/libmanatee.so/dir).'.format(expected_v))
+    print('')
+    print('B) If you want to use the detected installed version then run')
+    print('this script with proper version (./build {0})'.format(found_v))
+
+if __name__ == '__main__':
+    should_generate_run_script = False
+    argparser = argparse.ArgumentParser(description=None)
+    argparser.add_argument('version', metavar="VERSION",
+                           help="Manatee version used along with {0}. Supported versions: {1}".format(
+                               APP_NAME, ', '.join(list_supported_versions())))
+    argparser.add_argument('-t', '--test', action='store_const', const=True)
+    argparser.add_argument('-o', '--out', type=str, help='Build output location')
+    argparser.add_argument('-m', '--manatee-src', type=str, help='Location of Manatee source files')
+    argparser.add_argument('-M', '--manatee-lib', type=str, help='Location of libmanatee.so')
+    args = argparser.parse_args()
+
+    print('+-------------------------------------+')
+    print('| Manatee+GO build helper script v0.7 |')
+    print('+-------------------------------------+')
+
+    if args.version not in KNOWN_VERSIONS:
+        print('Unsupported version: {0}. Please use one of: {1}'.format(
+            args.version, ', '.join(list_supported_versions())))
+        sys.exit(1)
+
+    if not args.manatee_src:
+        manatee_src = download_manatee_src(args.version)
+    else:
+        print('\nAssuming that provided Manatee src path matches required version {0}'.format(args.version))
+        manatee_src = args.manatee_src
+
+
+    manatee_ver = None
+    if not args.manatee_lib:
+        manatee_lib = find_manatee()
+        if manatee_lib is None:
+            print('Manatee not found in system searched paths. Please run the script with --manatee-lib argument')
+            sys.exit(1)
+        else:
+            manatee_ver = autodetect_version()
+            if args.version != manatee_ver:
+                show_version_mismatch(manatee_ver, args.version)
+                sys.exit(1)
+            else:
+                print('\nFound system-installed Manatee version: {0}'.format(manatee_ver))
+    else:
+        print('\nAssuming that provided {0}/libmanatee.so matches required version {1}'.format(args.manatee_lib, args.version))
+        manatee_lib = args.manatee_lib
+        manatee_ver = args.version
+        should_generate_run_script = True
+
+    bin_path = os.path.join(os.path.dirname(__file__), '{0}.bin'.format(APP_NAME))
+    rs_path = os.path.join(os.path.dirname(__file__), APP_NAME)
+    try:
+        os.unlink(bin_path)
+    except:
+        pass
+    try:
+        os.unlink(rs_path)
+    except:
+        pass
+
+    init_sources(Version(manatee_ver), manatee_src)
+    build_project(Version(manatee_ver), manatee_src, manatee_lib, test=bool(args.test), out=args.out)
+
+    if should_generate_run_script:
+        os.rename(rs_path, bin_path)
+        with open(rs_path, 'w') as fw:
+            fw.write('#!/usr/bin/env bash\n')
+            fw.write('MYSELF=`which "$0" 2>/dev/null`\n')
+            fw.write('export LD_LIBRARY_PATH="{0}"\n'.format(manatee_lib))
+            fw.write('`dirname $0`/{0}.bin "${{@:1}}"\n'.format(APP_NAME))
+        os.chmod(rs_path, 0o0775)
+        print('\nGenerated run script to handle non-standard libmanatee.so location.')
+        print('\nTo install the application, copy files {0}.bin and {0}'.format(APP_NAME))
+        print('to a system searched path (recommended: /usr/local/bin).')
+    else:
+        print('\nTo install the application, copy file  {0}'.format(APP_NAME))
+        print('to a system searched path (recommended: /usr/local/bin).')
+
+

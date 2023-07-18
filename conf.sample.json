@@ -1,0 +1,28 @@
+{
+    "listenAddress" : "127.0.0.1",
+    "listenPort": 8080,
+    "logFile": "/a/path/to/a/log/file",
+    "logLevel": "info",
+    "serverReadTimeoutSecs": 120,
+    "corporaSetup": {
+        "registryDirPaths": ["/var/local/corpora/registry"],
+        "textTypesDbDirPath": "/var/local/corpora/metadata",
+        "corpusDataPath": {
+            "abstract": "/var/local/corpora/indexed-abstract",
+            "cnc": "/var/local/corpora/indexed",
+            "kontext": "/var/local/corpora/indexed-fast"
+        },
+        "altAccessMapping": {
+            "omezeni": ""
+        },
+        "syncAllowedCorpora": ["susanne", "syn2015"],
+        "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
+        "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
+    },
+    "cncDb": {
+        "host": "kontext_db_host",
+        "user": "kontext",
+        "passwd": "********",
+        "db": "kontext"
+    }
+}
