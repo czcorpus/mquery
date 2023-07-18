@@ -1,20 +1,20 @@
 // Copyright 2019 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2019 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
-//   This file is part of CNC-MASM.
+//   This file is part of MQUERY.
 //
-//  CNC-MASM is free software: you can redistribute it and/or modify
+//  MQUERY is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation, either version 3 of the License, or
 //  (at your option) any later version.
 //
-//  CNC-MASM is distributed in the hope that it will be useful,
+//  MQUERY is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
+//  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
 package corpus
 
@@ -295,7 +295,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 					regVertical,
 				)
 				log.Warn().Msgf(
-					"MASM will keep using inferred file %s for %s",
+					"MQUERY will keep using inferred file %s for %s",
 					ans.RegistryConf.Vertical.Path,
 					corpusID,
 				)
