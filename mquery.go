@@ -87,7 +87,7 @@ func main() {
 	engine.GET(
 		"/word-forms/:corpusId", concActions.WordForms)
 
-	sketchActions := sketch.NewActions(conf.CorporaSetup)
+	sketchActions := sketch.NewActions(conf.CorporaSetup, conf.SketchSetup)
 
 	engine.GET(
 		"/xxx/:corpusId/noun-modified-by", sketchActions.NounsModifiedBy)

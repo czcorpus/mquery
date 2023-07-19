@@ -24,18 +24,19 @@ import (
 	"mquery/corpus/query"
 	"mquery/mango"
 	"net/http"
+	"sort"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 type Actions struct {
-	conf *corpus.CorporaSetup
+	corpConf   *corpus.CorporaSetup
+	sketchConf *SketchSetup
 }
 
 func (a *Actions) getConcordance(corpusId, query string) (*mango.GoConc, error) {
-	corp, err := corpus.OpenCorpus(corpusId, a.conf)
+	corp, err := corpus.OpenCorpus(corpusId, a.corpConf)
 	if err != nil {
 		return nil, err
 	}
@@ -60,16 +61,29 @@ func (a *Actions) processFrequencies(freqs *mango.Freqs, corpSize int64) []*quer
 			Word: freqs.Words[i],
 		}
 	}
+	sort.Slice(ans, func(i, j int) bool { return ans[i].Freq > ans[j].Freq })
 	return ans
 }
 
 func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	log.Debug().
-		Str("lemma", w).
-		Msg("processing sketch - nouns modified by")
-	q := fmt.Sprintf("[lemma=\"%s\" & deprel=\"nmod\" & p_upos=\"NOUN\"]", w)
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+	corpusId := ctx.Param("corpusId")
+	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("Missing sketch conf for requested corpus"),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	q := fmt.Sprintf(
+		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+		sketchAttrs.LemmaAttr, w,
+		sketchAttrs.FuncAttr, sketchAttrs.NounModifiedValue,
+		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
+	)
+	conc, err := a.getConcordance(corpusId, q)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -78,7 +92,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, "p_lemma/e 0~0>0", 1)
+	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
 	ans := a.processFrequencies(freqs, conc.CorpSize())
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
@@ -91,11 +105,23 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 
 func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	log.Debug().
-		Str("p_lemma", w).
-		Msg("processing sketch - modifiers of")
-	q := fmt.Sprintf("[p_lemma=\"%s\" & deprel=\"nmod\" & upos=\"NOUN\"]", w)
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+	corpusId := ctx.Param("corpusId")
+	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("Missing sketch conf for requested corpus"),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	q := fmt.Sprintf(
+		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+		sketchAttrs.ParLemmaAttr, w,
+		sketchAttrs.FuncAttr, sketchAttrs.NounModifiedValue,
+		sketchAttrs.PosAttr, sketchAttrs.NounValue,
+	)
+	conc, err := a.getConcordance(corpusId, q)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -104,7 +130,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, "lemma/e 0~0>0", 1)
+	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.LemmaAttr), 1)
 	ans := a.processFrequencies(freqs, conc.CorpSize())
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
@@ -117,11 +143,23 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 
 func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	log.Debug().
-		Str("lemma", w).
-		Msg("processing sketch - modifiers of")
-	q := fmt.Sprintf("[lemma=\"%s\" & deprel=\"nsubj\" & p_upos=\"VERB\"]", w)
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+	corpusId := ctx.Param("corpusId")
+	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("Missing sketch conf for requested corpus"),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	q := fmt.Sprintf(
+		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+		sketchAttrs.LemmaAttr, w,
+		sketchAttrs.FuncAttr, sketchAttrs.NounSubjectValue,
+		sketchAttrs.ParPosAttr, sketchAttrs.VerbValue,
+	)
+	conc, err := a.getConcordance(corpusId, q)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -130,7 +168,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, "p_lemma/e 0~0>0", 1)
+	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
 	ans := a.processFrequencies(freqs, conc.CorpSize())
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
@@ -143,11 +181,23 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 
 func (a *Actions) VerbsObject(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	log.Debug().
-		Str("lemma", w).
-		Msg("processing sketch - modifiers of")
-	q := fmt.Sprintf("[lemma=\"%s\" & deprel=\"obj|iobj\" & p_upos=\"VERB\"]", w)
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+	corpusId := ctx.Param("corpusId")
+	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("Missing sketch conf for requested corpus"),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	q := fmt.Sprintf(
+		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+		sketchAttrs.LemmaAttr, w,
+		sketchAttrs.FuncAttr, sketchAttrs.NounObjectValue,
+		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
+	)
+	conc, err := a.getConcordance(corpusId, q)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -156,7 +206,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, "p_lemma/e 0~0>0", 1)
+	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
 	ans := a.processFrequencies(freqs, conc.CorpSize())
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
@@ -167,8 +217,9 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	)
 }
 
-func NewActions(conf *corpus.CorporaSetup) *Actions {
+func NewActions(corpConf *corpus.CorporaSetup, sketchConf *SketchSetup) *Actions {
 	return &Actions{
-		conf: conf,
+		corpConf:   corpConf,
+		sketchConf: sketchConf,
 	}
 }
