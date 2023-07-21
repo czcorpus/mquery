@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"mquery/corpus"
+	"mquery/corpus/sketch"
 	"os"
 	"path/filepath"
 
@@ -43,6 +44,7 @@ type Conf struct {
 	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
 	CorporaSetup           *corpus.CorporaSetup  `json:"corporaSetup"`
+	SketchSetup            *sketch.SketchSetup   `json:"sketchSetup"`
 	CNCDB                  *corpus.DatabaseSetup `json:"cncDb"`
 	LogFile                string                `json:"logFile"`
 	LogLevel               logging.LogLevel      `json:"logLevel"`

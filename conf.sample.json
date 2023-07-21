@@ -19,6 +19,34 @@
         "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
         "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
     },
+    "sketchSetup": {
+        "sketchAttrs": {
+            "intercorp_v13ud_en": {
+                "lemmaAttr": "lemma",
+                "parLemmaAttr": "p_lemma",
+                "posAttr": "upos",
+                "parPosAttr": "p_upos",
+                "funcAttr": "deprel",
+                "nounPosValue": "NOUN",
+                "verbPosValue": "VERB",
+                "nounModifiedValue": "nmod",
+                "nounSubjectValue": "nsubj",
+                "nounObjectValue": "obj|iobj"
+            },
+            "syn2015": {
+                "lemmaAttr": "lemma",
+                "parLemmaAttr": "ep_lemma",
+                "posAttr": "pos",
+                "parPosAttr": "ep_pos",
+                "funcAttr": "afun",
+                "nounPosValue": "N",
+                "verbPosValue": "V",
+                "nounModifiedValue": "???",
+                "nounSubjectValue": "???",
+                "nounObjectValue": "???"
+            }
+        }
+    },
     "cncDb": {
         "host": "kontext_db_host",
         "user": "kontext",

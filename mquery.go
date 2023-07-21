@@ -18,6 +18,7 @@ import (
 
 	"mquery/cnf"
 	"mquery/corpus/query"
+	"mquery/corpus/sketch"
 	"mquery/general"
 )
 
@@ -85,6 +86,20 @@ func main() {
 
 	engine.GET(
 		"/word-forms/:corpusId", concActions.WordForms)
+
+	sketchActions := sketch.NewActions(conf.CorporaSetup, conf.SketchSetup)
+
+	engine.GET(
+		"/xxx/:corpusId/noun-modified-by", sketchActions.NounsModifiedBy)
+
+	engine.GET(
+		"/xxx/:corpusId/modifiers-of", sketchActions.ModifiersOf)
+
+	engine.GET(
+		"/xxx/:corpusId/verbs-subject", sketchActions.VerbsSubject)
+
+	engine.GET(
+		"/xxx/:corpusId/verbs-object", sketchActions.VerbsObject)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
