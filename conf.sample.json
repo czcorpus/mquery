@@ -6,7 +6,6 @@
     "serverReadTimeoutSecs": 120,
     "corporaSetup": {
         "registryDirPaths": ["/var/local/corpora/registry"],
-        "textTypesDbDirPath": "/var/local/corpora/metadata",
         "corpusDataPath": {
             "abstract": "/var/local/corpora/indexed-abstract",
             "cnc": "/var/local/corpora/indexed",
@@ -14,10 +13,7 @@
         },
         "altAccessMapping": {
             "omezeni": ""
-        },
-        "syncAllowedCorpora": ["susanne", "syn2015"],
-        "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
-        "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
+        }
     },
     "sketchSetup": {
         "sketchAttrs": {

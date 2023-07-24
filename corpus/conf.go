@@ -44,10 +44,7 @@ type CorporaSetup struct {
 	RegistryTmpDir       string            `json:"registryTmpDir"`
 	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
-	WordSketchDefDirPath string            `json:"wordSketchDefDirPath"`
-	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`
 	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
-	ManateeDynlibPath    string            `json:"manateeDynlibPath"`
 }
 
 func (cs *CorporaSetup) GetFirstValidRegistry(corpusID string) string {
@@ -64,15 +61,6 @@ func (cs *CorporaSetup) GetFirstValidRegistry(corpusID string) string {
 
 func (cs *CorporaSetup) GetCorpusCNCDataPath() string {
 	return cs.CorpusDataPath.CNC
-}
-
-func (cs *CorporaSetup) AllowsSyncForCorpus(name string) bool {
-	for _, v := range cs.SyncAllowedCorpora {
-		if v == name {
-			return true
-		}
-	}
-	return false
 }
 
 func (cs *CorporaSetup) SubdirIsInAltAccessMapping(subdir string) bool {

@@ -147,32 +147,6 @@ func findVerticalFile(basePath, corpusID string) (FileMappedValue, error) {
 	return ans, nil
 }
 
-func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup, result *Info) error {
-	tmp := GenWSDefFilename(conf.WordSketchDefDirPath, corpusID)
-	value, err := bindValueToPath(tmp, tmp)
-	if err != nil {
-		return err
-	}
-	result.RegistryConf.WordSketches = WordSketchConf{
-		WSDef: value,
-	}
-
-	wsBaseFile, wsBaseVal := GenWSBaseFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
-	value, err = bindValueToPath(wsBaseVal, wsBaseFile)
-	if err != nil {
-		return err
-	}
-	result.RegistryConf.WordSketches.WSBase = value
-
-	wsThesFile, wsThesVal := GenWSThesFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
-	value, err = bindValueToPath(wsThesVal, wsThesFile)
-	if err != nil {
-		return err
-	}
-	result.RegistryConf.WordSketches.WSThes = value
-	return nil
-}
-
 // GetCorpusInfo provides miscellaneous corpus installation information mostly
 // related to different data files.
 // It should return an error only in case Manatee or filesystem produces some
@@ -331,12 +305,6 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			FileExists:   isDir,
 			Path:         dataDirPath,
 		}
-	}
-
-	// -----
-	err = attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
-	if err != nil {
-		return nil, InfoError{err}
 	}
 	return ans, nil
 }
