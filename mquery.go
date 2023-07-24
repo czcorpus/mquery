@@ -43,7 +43,7 @@ func main() {
 	}
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "MQUERY - Manatee administration setup middleware\n\nUsage:\n\t%s [options] start [config.json]\n\t%s [options] version\n",
+		fmt.Fprintf(os.Stderr, "MQUERY - Simple manatee querying\n\nUsage:\n\t%s [options] start [config.json]\n\t%s [options] version\n",
 			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
@@ -58,7 +58,7 @@ func main() {
 	}
 	conf := cnf.LoadConfig(flag.Arg(1))
 	logging.SetupLogging(conf.LogFile, conf.LogLevel)
-	log.Info().Msg("Starting MQUERY (Manatee Assets, Services and Metadata)")
+	log.Info().Msg("Starting MQUERY")
 	cnf.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -108,6 +108,14 @@ func main() {
 		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
 	}
+
+	go func() {
+		select {
+		case evt := <-syscallChan:
+			exitEvent <- evt
+			close(exitEvent)
+		}
+	}()
 
 	go func() {
 		err := srv.ListenAndServe()
