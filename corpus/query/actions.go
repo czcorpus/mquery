@@ -20,11 +20,10 @@ package query
 
 import (
 	"mquery/corpus"
-	"mquery/mango"
+	"mquery/rdb"
 	"mquery/results"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -32,21 +31,22 @@ import (
 )
 
 var (
-	collFunc = map[string]byte{
-		"absoluteFreq":  'f',
-		"LLH":           'l',
-		"logDice":       'd',
-		"minSens":       's',
-		"mutualInf":     'm',
-		"mutualInf3":    '3',
-		"mutualInfLogF": 'p',
-		"relativeFreq":  'r',
-		"tScore":        't',
+	collFunc = map[string]string{
+		"absoluteFreq":  "f",
+		"LLH":           "l",
+		"logDice":       "d",
+		"minSens":       "s",
+		"mutualInf":     "m",
+		"mutualInf3":    "3",
+		"mutualInfLogF": "p",
+		"relativeFreq":  "r",
+		"tScore":        "t",
 	}
 )
 
 type Actions struct {
-	conf *corpus.CorporaSetup
+	conf     *corpus.CorporaSetup
+	radapter *rdb.Adapter
 }
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
@@ -64,35 +64,35 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 				uniresp.NewActionErrorFrom(err),
 				http.StatusUnprocessableEntity,
 			)
+			return
 		}
 	}
-	freqs, err := mango.CalcFreqDist(ctx.Param("corpusId"), q, "lemma/e 0~0>0", flimit)
+
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{ctx.Param("corpusId"), q, "lemma/e 0~0>0", flimit},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
+		return
 	}
-	ans := make([]*results.FreqDistribItem, len(freqs.Freqs))
-	for i, _ := range ans {
-		norm := freqs.Norms[i]
-		if norm == 0 {
-			norm = freqs.CorpusSize
-		}
-		ans[i] = &results.FreqDistribItem{
-			Freq: freqs.Freqs[i],
-			Norm: norm,
-			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
-			Word: freqs.Words[i],
-		}
+	rawResult := <-wait
+	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
 	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		map[string]any{
-			"concSize": freqs.ConcSize,
-			"freqs":    ans,
-		},
+		result,
 	)
 }
 
@@ -112,33 +112,52 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		)
 		return
 	}
-	collocs, err := mango.GetCollcations(ctx.Param("corpusId"), q, "word", collFn, 20, 20)
+	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "collocations",
+		Args: []any{corpusPath, q, "word", collFn, 20, 20},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError, // TODO the status should be based on err type
+			http.StatusInternalServerError,
 		)
 		return
 	}
+	rawResult := <-wait
+	result, err := rdb.DeserializeCollocationsResult(rawResult)
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		map[string]any{
-			"collocs": collocs,
-		},
+		result,
 	)
 }
 
-func (a *Actions) findLemmas(corpusID string, word string, pos string) (*mango.Freqs, error) {
+func (a *Actions) findLemmas(corpusID string, word string, pos string) (*results.WordFormsItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
 	}
-	freqs, err := mango.CalcFreqDist(corpusID, "["+q+"]", "lemma 0~0>0 pos 0~0>0", 1)
+	corpusPath := a.conf.GetRegistryPath(corpusID)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{corpusPath, "[" + q + "]", "lemma 0~0>0 pos 0~0>0", 1},
+	})
 	if err != nil {
 		return nil, err
 	}
-	return freqs, nil
+	rawResult := <-wait
+	freqs, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if err != nil {
+		return nil, err
+	}
+
+	ans := &results.WordFormsItem{
+		Lemma: "-- TODO ---", // TODO !!
+		POS:   pos,
+		Forms: make([]*results.FreqDistribItem, len(freqs.Freqs)),
+	}
+	return ans, nil
 }
 
 func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*results.WordFormsItem, error) {
@@ -146,7 +165,16 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
 	}
-	freqs, err := mango.CalcFreqDist(corpusID, "["+q+"]", "word/i 0~0>0", 1)
+	corpusPath := a.conf.GetRegistryPath(corpusID)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{corpusPath, "[" + q + "]", "word/i 0~0>0", 1},
+	})
+	if err != nil {
+		return nil, err
+	}
+	rawResult := <-wait
+	freqs, err := rdb.DeserializeFreqDistribResult(rawResult)
 	if err != nil {
 		return nil, err
 	}
@@ -154,21 +182,8 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 	ans := &results.WordFormsItem{
 		Lemma: lemma,
 		POS:   pos,
-		Forms: make([]*results.FreqDistribItem, len(freqs.Words)),
+		Forms: make([]*results.FreqDistribItem, len(freqs.Freqs)),
 	}
-	for i, word := range freqs.Words {
-		norm := freqs.Norms[i]
-		if norm == 0 {
-			norm = freqs.CorpusSize
-		}
-		ans.Forms[i] = &results.FreqDistribItem{
-			Freq: freqs.Freqs[i],
-			Norm: norm,
-			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
-			Word: word,
-		}
-	}
-
 	return ans, nil
 }
 
@@ -198,7 +213,8 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			Str("word", word).
 			Str("pos", pos).
 			Msg("processing Mango query")
-		lemmas, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
+			/*lemmas */
+		_, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,
@@ -207,21 +223,23 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			)
 			return
 		}
-		for _, lemmaPos := range lemmas.Words {
-			lemmaPosSplit := strings.Split(lemmaPos, " ")
-			pos := lemmaPosSplit[len(lemmaPosSplit)-1]
-			lemma := strings.Join(lemmaPosSplit[:len(lemmaPosSplit)-1], " ")
-			wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
-			if err != nil {
-				uniresp.WriteJSONErrorResponse(
-					ctx.Writer,
-					uniresp.NewActionErrorFrom(err),
-					http.StatusInternalServerError,
-				)
-				return
+		/*
+			for _, lemmaPos := range lemmas.Words {
+				lemmaPosSplit := strings.Split(lemmaPos, " ")
+				pos := lemmaPosSplit[len(lemmaPosSplit)-1]
+				lemma := strings.Join(lemmaPosSplit[:len(lemmaPosSplit)-1], " ")
+				wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
+				if err != nil {
+					uniresp.WriteJSONErrorResponse(
+						ctx.Writer,
+						uniresp.NewActionErrorFrom(err),
+						http.StatusInternalServerError,
+					)
+					return
+				}
+				ans = append(ans, wordForms)
 			}
-			ans = append(ans, wordForms)
-		}
+		*/
 
 	} else {
 		uniresp.WriteJSONErrorResponse(
@@ -235,8 +253,9 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
-func NewActions(conf *corpus.CorporaSetup) *Actions {
+func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter) *Actions {
 	return &Actions{
-		conf: conf,
+		conf:     conf,
+		radapter: radapter,
 	}
 }

@@ -20,6 +20,7 @@ package worker
 
 import (
 	"fmt"
+	"math/rand"
 	"mquery/mango"
 	"mquery/rdb"
 	"mquery/results"
@@ -50,6 +51,7 @@ func (w *Worker) publishResult(res results.SerializableResult, channel string) e
 }
 
 func (w *Worker) tryNextQuery() error {
+	time.Sleep(time.Duration(rand.Intn(40)) * time.Millisecond)
 	query, err := w.radapter.DequeueQuery()
 	if err != nil {
 		return err
@@ -84,6 +86,11 @@ func (w *Worker) tryNextQuery() error {
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
+	case "collocations":
+		ans := w.collocations(query)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
 	default:
 		ans := &results.ErrorResult{Error: fmt.Sprintf("unknonw query function: %s", query.Func)}
 		if err = w.publishResult(ans, query.Channel); err != nil {
@@ -97,7 +104,6 @@ func (w *Worker) Listen() {
 	for {
 		select {
 		case <-w.ticker.C:
-			fmt.Println("----------------------- tick -------------------------------")
 			w.tryNextQuery()
 		case <-w.exitEvent:
 			log.Info().Msg("worker exiting")
@@ -141,6 +147,59 @@ func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize
+	return &ans
+}
+
+func (w *Worker) collocations(q rdb.Query) *results.Collocations {
+	var ans results.Collocations
+
+	corpusPath, ok := q.Args[0].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for collocations %v", q.Args[0])
+		return &ans
+	}
+	concQuery, ok := q.Args[1].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 1 (query) for collocations %v", q.Args[1])
+		return &ans
+	}
+	attrName, ok := q.Args[2].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 2 (attrName) for collocations %v", q.Args[2])
+		return &ans
+	}
+	funcName, ok := q.Args[3].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 3 (attrName) for collocations %v", q.Args[3])
+		return &ans
+	}
+	minFreq, ok := q.Args[4].(float64) // q.Args is []any, so json number interprets as float64
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 4 (minFreq) for collocations %v", q.Args[4])
+		return &ans
+	}
+	maxItems, ok := q.Args[5].(float64) // q.Args is []any, so json number interprets as float64
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 5 (maxItems) for collocations %v", q.Args[5])
+		return &ans
+	}
+
+	colls, err := mango.GetCollcations(
+		corpusPath, concQuery, attrName, byte(funcName[0]), int64(minFreq), int(maxItems))
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	ans.Colls = make([]results.CollItem, len(colls.Colls))
+	for i, v := range colls.Colls {
+		ans.Colls[i] = results.CollItem{
+			Word:  v.Word,
+			Value: v.Value,
+			Freq:  v.Freq,
+		}
+	}
+	ans.ConcSize = colls.ConcSize
+	ans.CorpusSize = colls.CorpusSize
 	return &ans
 }
 

@@ -73,6 +73,8 @@ typedef struct FreqsRetval {
 
 typedef struct CollsRetVal {
     CollsV value;
+    PosInt concSize;
+    PosInt corpusSize;
     const char * err;
 } CollsRetVal;
 
