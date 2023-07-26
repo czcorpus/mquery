@@ -57,10 +57,17 @@ typedef struct ConcRetval {
     const char * err;
 } ConcRetval;
 
+typedef struct ConcSizeRetVal {
+    PosInt size;
+    const char * err;
+} ConcSizeRetVal;
+
 typedef struct FreqsRetval {
     MVector words;
     MVector freqs;
     MVector norms;
+    PosInt concSize;
+    PosInt corpusSize;
     const char * err;
 } FreqsRetval;
 
@@ -82,7 +89,9 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 
 ConcRetval create_concordance(CorpusV corpus, char* query);
 
-PosInt concordance_size(ConcV conc);
+void close_concordance(ConcV conc);
+
+ConcSizeRetVal concordance_size(const char* corpusPath, const char* query);
 
 void delete_str_vector(MVector v);
 
@@ -96,10 +105,21 @@ PosInt int_vector_get_element(MVector v, int i);
 
 PosInt int_vector_get_size(MVector v);
 
-FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
+FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
 
-CollsRetVal collocations(ConcV conc, const char * attr_name, char sort_fun_code,
-             PosInt minfreq, PosInt minbgr, int fromw, int tow, int maxitems);
+FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcrit, PosInt flimit);
+
+CollsRetVal collocations(
+    const char* corpusPath,
+    const char* query,
+    const char * attr_name,
+    char sort_fun_code,
+    PosInt minfreq,
+    PosInt minbgr,
+    int fromw,
+    int tow,
+    int maxitems
+);
 
 typedef struct CollVal {
     const char* word;

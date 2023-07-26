@@ -21,6 +21,7 @@ package query
 import (
 	"mquery/corpus"
 	"mquery/mango"
+	"mquery/results"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,18 +49,6 @@ type Actions struct {
 	conf *corpus.CorporaSetup
 }
 
-func (a *Actions) getConcordance(corpusId, query string) (*mango.GoConc, error) {
-	corp, err := corpus.OpenCorpus(corpusId, a.conf)
-	if err != nil {
-		return nil, err
-	}
-	conc, err := mango.CreateConcordance(corp, query)
-	if err != nil {
-		return nil, err
-	}
-	return conc, nil
-}
-
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
 	log.Debug().
@@ -77,23 +66,21 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			)
 		}
 	}
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+	freqs, err := mango.CalcFreqDist(ctx.Param("corpusId"), q, "lemma/e 0~0>0", flimit)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError, // TODO the status should be based on err type
+			http.StatusInternalServerError,
 		)
-		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, "lemma/e 0~0>0", flimit)
-	ans := make([]*FreqDistribItem, len(freqs.Freqs))
+	ans := make([]*results.FreqDistribItem, len(freqs.Freqs))
 	for i, _ := range ans {
 		norm := freqs.Norms[i]
 		if norm == 0 {
-			norm = conc.CorpSize()
+			norm = freqs.CorpusSize
 		}
-		ans[i] = &FreqDistribItem{
+		ans[i] = &results.FreqDistribItem{
 			Freq: freqs.Freqs[i],
 			Norm: norm,
 			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
@@ -103,7 +90,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		map[string]any{
-			"concSize": conc.Size(),
+			"concSize": freqs.ConcSize,
 			"freqs":    ans,
 		},
 	)
@@ -114,15 +101,7 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	log.Debug().
 		Str("query", q).
 		Msg("processing Mango query")
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError, // TODO the status should be based on err type
-		)
-		return
-	}
+
 	collFnArg := ctx.Request.URL.Query().Get("fn")
 	collFn, ok := collFunc[collFnArg]
 	if !ok {
@@ -133,7 +112,7 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		)
 		return
 	}
-	collocs, err := mango.GetCollcations(conc, "word", collFn, 20, 20)
+	collocs, err := mango.GetCollcations(ctx.Param("corpusId"), q, "word", collFn, 20, 20)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -155,42 +134,34 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) (*mango.F
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
 	}
-	conc, err := a.getConcordance(corpusID, "["+q+"]")
-	if err != nil {
-		return nil, err
-	}
-	freqs, err := mango.CalcFreqDist(conc, "lemma 0~0>0 pos 0~0>0", 1)
+	freqs, err := mango.CalcFreqDist(corpusID, "["+q+"]", "lemma 0~0>0 pos 0~0>0", 1)
 	if err != nil {
 		return nil, err
 	}
 	return freqs, nil
 }
 
-func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*WordFormsItem, error) {
+func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*results.WordFormsItem, error) {
 	q := "lemma=\"" + lemma + "\""
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
 	}
-	conc, err := a.getConcordance(corpusID, "["+q+"]")
-	if err != nil {
-		return nil, err
-	}
-	freqs, err := mango.CalcFreqDist(conc, "word/i 0~0>0", 1)
+	freqs, err := mango.CalcFreqDist(corpusID, "["+q+"]", "word/i 0~0>0", 1)
 	if err != nil {
 		return nil, err
 	}
 
-	ans := &WordFormsItem{
+	ans := &results.WordFormsItem{
 		Lemma: lemma,
 		POS:   pos,
-		Forms: make([]*FreqDistribItem, len(freqs.Words)),
+		Forms: make([]*results.FreqDistribItem, len(freqs.Words)),
 	}
 	for i, word := range freqs.Words {
 		norm := freqs.Norms[i]
 		if norm == 0 {
-			norm = conc.CorpSize()
+			norm = freqs.CorpusSize
 		}
-		ans.Forms[i] = &FreqDistribItem{
+		ans.Forms[i] = &results.FreqDistribItem{
 			Freq: freqs.Freqs[i],
 			Norm: norm,
 			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
@@ -202,7 +173,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*Wor
 }
 
 func (a *Actions) WordForms(ctx *gin.Context) {
-	var ans []*WordFormsItem
+	var ans []*results.WordFormsItem
 	lemma := ctx.Request.URL.Query().Get("lemma")
 	word := ctx.Request.URL.Query().Get("word")
 	pos := ctx.Request.URL.Query().Get("pos")

@@ -20,8 +20,6 @@ package corpus
 
 import (
 	"path/filepath"
-
-	"github.com/czcorpus/cnc-gokit/fs"
 )
 
 // CorporaDataPaths describes three
@@ -40,23 +38,15 @@ type CorporaDataPaths struct {
 // CorporaSetup defines mquery application configuration related
 // to a corpus
 type CorporaSetup struct {
-	RegistryDirPaths     []string          `json:"registryDirPaths"`
+	RegistryDir          string            `json:"registryDir"`
 	RegistryTmpDir       string            `json:"registryTmpDir"`
 	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
 	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
 }
 
-func (cs *CorporaSetup) GetFirstValidRegistry(corpusID string) string {
-	for _, dir := range cs.RegistryDirPaths {
-		d := filepath.Join(dir, corpusID)
-		pe := fs.PathExists(d)
-		isf, _ := fs.IsFile(d)
-		if pe && isf {
-			return d
-		}
-	}
-	return ""
+func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
+	return filepath.Join(cs.RegistryDir, corpusID)
 }
 
 func (cs *CorporaSetup) GetCorpusCNCDataPath() string {

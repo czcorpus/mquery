@@ -26,19 +26,17 @@ type GoVector struct {
 }
 
 type Freqs struct {
-	Words []string
-	Freqs []int64
-	Norms []int64
+	Words      []string
+	Freqs      []int64
+	Norms      []int64
+	ConcSize   int64
+	CorpusSize int64
 }
 
 type GoConc struct {
 	conc     C.ConcV
 	corpSize int64
 	corpus   *GoCorpus
-}
-
-func (gc *GoConc) Size() int64 {
-	return int64(C.concordance_size(gc.conc))
 }
 
 func (gc *GoConc) CorpSize() int64 {
@@ -108,7 +106,7 @@ func GetCorpusConf(corpus *GoCorpus, prop string) (string, error) {
 
 func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	var ret GoConc
-	ans := (C.create_concordance(corpus.corp, C.CString(query)))
+	ans := C.create_concordance(corpus.corp, C.CString(query))
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -125,9 +123,13 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	return &ret, nil
 }
 
-func CalcFreqDist(conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
+func CloseConcordance(conc *GoConc) {
+	C.close_concordance(conc.conc)
+}
+
+func CalcFreqDistFromConc(conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
 	var ret Freqs
-	ans := C.freq_dist(conc.Corpus().corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
+	ans := C.freq_dist_from_conc(conc.Corpus().corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
 	defer func() { // the 'new' was called before any possible error so we have to do this
 		C.delete_int_vector(ans.freqs)
 		C.delete_int_vector(ans.norms)
@@ -141,6 +143,37 @@ func CalcFreqDist(conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
 	ret.Freqs = IntVectorToSlice(GoVector{ans.freqs})
 	ret.Norms = IntVectorToSlice(GoVector{ans.norms})
 	ret.Words = StrVectorToSlice(GoVector{ans.words})
+	return &ret, nil
+}
+
+func GetConcSize(corpusPath, query string) (int64, error) {
+	ans := C.concordance_size(C.CString(corpusPath), C.CString(query))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return 0, err
+	}
+	return int64(ans.size), nil
+}
+
+func CalcFreqDist(corpusID, query, fcrit string, flimit int) (*Freqs, error) {
+	var ret Freqs
+	ans := C.freq_dist(C.CString(corpusID), C.CString(query), C.CString(fcrit), C.longlong(flimit))
+	defer func() { // the 'new' was called before any possible error so we have to do this
+		C.delete_int_vector(ans.freqs)
+		C.delete_int_vector(ans.norms)
+		C.delete_str_vector(ans.words)
+	}()
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return &ret, err
+	}
+	ret.Freqs = IntVectorToSlice(GoVector{ans.freqs})
+	ret.Norms = IntVectorToSlice(GoVector{ans.norms})
+	ret.Words = StrVectorToSlice(GoVector{ans.words})
+	ret.ConcSize = int64(ans.concSize)
+	ret.CorpusSize = int64(ans.corpusSize)
 	return &ret, nil
 }
 
@@ -185,13 +218,13 @@ func IntVectorToSlice(vector GoVector) []int64 {
 // 'f': 'absolute freq.',
 // 'd': 'logDice'
 func GetCollcations(
-	conc *GoConc,
+	corpusID, query string,
 	attrName string,
 	calcFn byte,
 	minFreq int64,
 	maxItems int,
 ) ([]*GoColls, error) {
-	colls := C.collocations(conc.conc, C.CString(attrName), C.char(calcFn),
+	colls := C.collocations(C.CString(corpusID), C.CString(query), C.CString(attrName), C.char(calcFn),
 		C.longlong(minFreq), C.longlong(minFreq), -5, 5, C.int(maxItems))
 	if colls.err != nil {
 		err := fmt.Errorf(C.GoString(colls.err))
