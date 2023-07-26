@@ -24,6 +24,7 @@ import (
 	"mquery/results"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -182,7 +183,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 	ans := &results.WordFormsItem{
 		Lemma: lemma,
 		POS:   pos,
-		Forms: make([]*results.FreqDistribItem, len(freqs.Freqs)),
+		Forms: freqs.Freqs,
 	}
 	return ans, nil
 }
@@ -192,7 +193,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 	lemma := ctx.Request.URL.Query().Get("lemma")
 	word := ctx.Request.URL.Query().Get("word")
 	pos := ctx.Request.URL.Query().Get("pos")
-	if len(lemma) > 0 {
+	if lemma != "" {
 		log.Debug().
 			Str("lemma", lemma).
 			Str("pos", pos).
@@ -213,8 +214,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			Str("word", word).
 			Str("pos", pos).
 			Msg("processing Mango query")
-			/*lemmas */
-		_, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
+		lemmas, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,
@@ -223,23 +223,22 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			)
 			return
 		}
-		/*
-			for _, lemmaPos := range lemmas.Words {
-				lemmaPosSplit := strings.Split(lemmaPos, " ")
-				pos := lemmaPosSplit[len(lemmaPosSplit)-1]
-				lemma := strings.Join(lemmaPosSplit[:len(lemmaPosSplit)-1], " ")
-				wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
-				if err != nil {
-					uniresp.WriteJSONErrorResponse(
-						ctx.Writer,
-						uniresp.NewActionErrorFrom(err),
-						http.StatusInternalServerError,
-					)
-					return
-				}
-				ans = append(ans, wordForms)
+
+		for _, lemmaPos := range lemmas.Forms {
+			lemmaPosSplit := strings.Split(lemmaPos.Word, " ")
+			pos := lemmaPosSplit[len(lemmaPosSplit)-1]
+			lemma := strings.Join(lemmaPosSplit[:len(lemmaPosSplit)-1], " ")
+			wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
+			if err != nil {
+				uniresp.WriteJSONErrorResponse(
+					ctx.Writer,
+					uniresp.NewActionErrorFrom(err),
+					http.StatusInternalServerError,
+				)
+				return
 			}
-		*/
+			ans = append(ans, wordForms)
+		}
 
 	} else {
 		uniresp.WriteJSONErrorResponse(
