@@ -35,6 +35,91 @@ type ReorderCalculator struct {
 	radapter   *rdb.Adapter
 }
 
+func (rc *ReorderCalculator) calcFy(
+	items []*results.FreqDistribItem,
+	wg chan<- error,
+	fyValues []int64,
+	fromIdx,
+	toIdx int,
+) {
+	for i := fromIdx; i < toIdx; i++ {
+		item := items[i]
+		q := fmt.Sprintf(
+			`[%s="%s" & %s="%s" & %s="%s"]`,
+			rc.sketchConf.FuncAttr, rc.sketchConf.NounSubjectValue,
+			rc.sketchConf.ParPosAttr, rc.sketchConf.VerbValue,
+			rc.sketchConf.ParLemmaAttr, item.Word,
+		)
+		log.Debug().
+			Int("query", i).
+			Str("value", q).
+			Msg("entering F(y) concSize query")
+		wait, err := rc.radapter.PublishQuery(rdb.Query{
+			Func: "concSize",
+			Args: []any{rc.corpusPath, q},
+		})
+		if err != nil {
+			wg <- err
+			return
+		}
+		ans := <-wait
+		result, err := rdb.DeserializeConcSizeResult(ans)
+		if err != nil {
+			wg <- err
+			return
+		}
+		fyValues[i] = result.ConcSize
+		log.Debug().
+			Int("query", i).
+			Int64("concSize", result.ConcSize).
+			Msg("finished conc size query")
+	}
+	wg <- nil
+}
+
+func (rc *ReorderCalculator) calcFxy(
+	items []*results.FreqDistribItem,
+	wg chan<- error,
+	fxyValues []int64,
+	word string,
+	fromIdx,
+	toIdx int,
+) {
+	for i, item := range items {
+		q := fmt.Sprintf(
+			`[%s="%s" & %s="%s" & %s="%s" & %s="%s"]`,
+			rc.sketchConf.LemmaAttr, word,
+			rc.sketchConf.FuncAttr, rc.sketchConf.NounSubjectValue,
+			rc.sketchConf.ParPosAttr, rc.sketchConf.VerbValue,
+			rc.sketchConf.ParLemmaAttr, item.Word,
+		)
+		log.Debug().
+			Int("query", i).
+			Str("value", q).
+			Msg("entering F(xy) concSize query")
+		wait, err := rc.radapter.PublishQuery(rdb.Query{
+			Func: "concSize",
+			Args: []any{rc.corpusPath, q},
+		})
+		if err != nil {
+			wg <- err
+			return
+		}
+		ans := <-wait
+		result, err := rdb.DeserializeConcSizeResult(ans)
+		if err != nil {
+			wg <- err
+			return
+		}
+		fxyValues[i] = result.ConcSize
+		log.Debug().
+			Int("query", i).
+			Int64("concSize", result.ConcSize).
+			Msg("finished conc size query")
+	}
+	wg <- nil
+}
+
 func (rc *ReorderCalculator) SortByLogDiceColl(
 	word string, items []*results.FreqDistribItem,
 ) ([]*results.FreqDistribItem, error) {
@@ -58,88 +143,29 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	fxyValues := make([]int64, len(items))
 
 	wg := make(chan error)
+	defer close(wg)
 
+	// F(y)
 	go func() {
-		for i, item := range items {
-			q := fmt.Sprintf(
-				`[%s="%s" & %s="%s" & %s="%s"]`,
-				rc.sketchConf.FuncAttr, rc.sketchConf.NounSubjectValue,
-				rc.sketchConf.ParPosAttr, rc.sketchConf.VerbValue,
-				rc.sketchConf.ParLemmaAttr, item.Word,
-			)
-			log.Debug().
-				Int("query", i).
-				Str("value", q).
-				Msg("entering F(y) concSize query")
-			wait, err := rc.radapter.PublishQuery(rdb.Query{
-				Func: "concSize",
-				Args: []any{rc.corpusPath, q},
-			})
-			if err != nil {
-				wg <- err
-				return
-			}
-			ans := <-wait
-			result, err := rdb.DeserializeConcSizeResult(ans)
-			if err != nil {
-				wg <- err
-				return
-			}
-			fyValues[i] = result.ConcSize
-			log.Debug().
-				Int("query", i).
-				Int64("concSize", result.ConcSize).
-				Msg("finished conc size query")
-		}
-		wg <- nil
+		rc.calcFy(items, wg, fyValues, 0, 10)
+	}()
+	go func() {
+		rc.calcFy(items, wg, fyValues, 10, 20)
 	}()
 
 	// F(xy)
 	go func() {
-		for i, item := range items {
-			q := fmt.Sprintf(
-				`[%s="%s" & %s="%s" & %s="%s" & %s="%s"]`,
-				rc.sketchConf.LemmaAttr, word,
-				rc.sketchConf.FuncAttr, rc.sketchConf.NounSubjectValue,
-				rc.sketchConf.ParPosAttr, rc.sketchConf.VerbValue,
-				rc.sketchConf.ParLemmaAttr, item.Word,
-			)
-			log.Debug().
-				Int("query", i).
-				Str("value", q).
-				Msg("entering F(xy) concSize query")
-			wait, err := rc.radapter.PublishQuery(rdb.Query{
-				Func: "concSize",
-				Args: []any{rc.corpusPath, q},
-			})
-			if err != nil {
-				wg <- err
-				return
-			}
-			ans := <-wait
-			result, err := rdb.DeserializeConcSizeResult(ans)
-			if err != nil {
-				wg <- err
-				return
-			}
-			fxyValues[i] = result.ConcSize
-			log.Debug().
-				Int("query", i).
-				Int64("concSize", result.ConcSize).
-				Msg("finished conc size query")
-		}
-		wg <- nil
+		rc.calcFxy(items, wg, fxyValues, word, 0, 10)
+	}()
+	go func() {
+		rc.calcFxy(items, wg, fxyValues, word, 10, 20)
 	}()
 
-	err1 := <-wg // TODO
-	err2 := <-wg // TODO
-	close(wg)
-
-	if err1 != nil {
-		return items, err1
-	}
-	if err2 != nil {
-		return items, err2
+	for i := 0; i < 4; i++ {
+		err := <-wg
+		if err != nil {
+			return []*results.FreqDistribItem{}, err
+		}
 	}
 
 	for i, item := range items {
