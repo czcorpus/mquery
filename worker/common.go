@@ -16,17 +16,28 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package query
+package worker
 
-type FreqDistribItem struct {
-	Word string  `json:"word"`
-	Freq int64   `json:"freq"`
-	Norm int64   `json:"norm"`
-	IPM  float32 `json:"ipm"`
-}
+import (
+	"mquery/mango"
+	"mquery/results"
+	"sort"
+)
 
-type WordFormsItem struct {
-	Lemma string             `json:"lemma"`
-	POS   string             `json:"pos"`
-	Forms []*FreqDistribItem `json:"forms"`
+func MergeFreqVectors(freqs *mango.Freqs, corpSize int64) []*results.FreqDistribItem {
+	ans := make([]*results.FreqDistribItem, len(freqs.Freqs))
+	for i, _ := range ans {
+		norm := freqs.Norms[i]
+		if norm == 0 {
+			norm = corpSize
+		}
+		ans[i] = &results.FreqDistribItem{
+			Freq: freqs.Freqs[i],
+			Norm: norm,
+			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
+			Word: freqs.Words[i],
+		}
+	}
+	sort.Slice(ans, func(i, j int) bool { return ans[i].Freq > ans[j].Freq })
+	return ans
 }

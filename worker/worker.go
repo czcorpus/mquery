@@ -1,0 +1,175 @@
+// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Institute of the Czech National Corpus,
+//                Faculty of Arts, Charles University
+//   This file is part of MQUERY.
+//
+//  MQUERY is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  MQUERY is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
+
+package worker
+
+import (
+	"fmt"
+	"mquery/mango"
+	"mquery/rdb"
+	"mquery/results"
+	"os"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	DefaultTickerInterval = 2 * time.Second
+)
+
+type Worker struct {
+	messages  <-chan *redis.Message
+	radapter  *rdb.Adapter
+	exitEvent chan os.Signal
+	ticker    time.Ticker
+}
+
+func (w *Worker) publishResult(res results.SerializableResult, channel string) error {
+	ans, err := rdb.CreateWorkerResult(res)
+	if err != nil {
+		return err
+	}
+	return w.radapter.PublishResult(channel, ans)
+}
+
+func (w *Worker) tryNextQuery() error {
+	query, err := w.radapter.DequeueQuery()
+	if err != nil {
+		return err
+	}
+	log.Debug().
+		Str("channel", query.Channel).
+		Str("func", query.Func).
+		Any("args", query.Args).
+		Msg("received query")
+
+	isActive, err := w.radapter.SomeoneListens(query)
+	if err != nil {
+		return err
+	}
+	if !isActive {
+		log.Warn().
+			Str("func", query.Func).
+			Str("channel", query.Channel).
+			Any("args", query.Args).
+			Msg("worker found an inactive query")
+		return nil
+	}
+
+	switch query.Func {
+	case "freqDistrib":
+		ans := w.freqDistrib(query)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "concSize":
+		ans := w.concSize(query)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	default:
+		ans := &results.ErrorResult{Error: fmt.Sprintf("unknonw query function: %s", query.Func)}
+		if err = w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *Worker) Listen() {
+	for {
+		select {
+		case <-w.ticker.C:
+			fmt.Println("----------------------- tick -------------------------------")
+			w.tryNextQuery()
+		case <-w.exitEvent:
+			log.Info().Msg("worker exiting")
+			return
+		case msg := <-w.messages:
+			if msg.Payload == rdb.MsgNewQuery {
+				w.tryNextQuery()
+			}
+		}
+	}
+}
+
+func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
+	var ans results.FreqDistrib
+	corpusPath, ok := q.Args[0].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for freqDistrib %v", q.Args[0])
+		return &ans
+	}
+	concQuery, ok := q.Args[1].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 1 (query) for freqDistrib %v", q.Args[1])
+		return &ans
+	}
+	fcrit, ok := q.Args[2].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 2 (fcrit) for freqDistrib %v", q.Args[2])
+		return &ans
+	}
+	flimit, ok := q.Args[3].(float64) // q.Args is []any, so json number interprets as float64
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 3 (flimit) for freqDistrib %v", q.Args[3])
+		return &ans
+	}
+	freqs, err := mango.CalcFreqDist(corpusPath, concQuery, fcrit, int(flimit))
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	mergedFreqs := MergeFreqVectors(freqs, freqs.CorpusSize)
+	ans.Freqs = mergedFreqs
+	ans.ConcSize = freqs.ConcSize
+	ans.CorpusSize = freqs.CorpusSize
+	return &ans
+}
+
+func (w *Worker) concSize(q rdb.Query) *results.ConcSize {
+	var ans results.ConcSize
+	corpusPath, ok := q.Args[0].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for concSize %v", q.Args[0])
+		return &ans
+	}
+	concQuery, ok := q.Args[1].(string)
+	if !ok {
+		ans.Error = fmt.Sprintf("invalid argument 1 (query) for concSize %v", q.Args[1])
+		return &ans
+	}
+	concSize, err := mango.GetConcSize(corpusPath, concQuery)
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	ans.ConcSize = concSize
+	return &ans
+}
+
+func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal) *Worker {
+	return &Worker{
+		radapter:  radapter,
+		messages:  messages,
+		exitEvent: exitEvent,
+		ticker:    *time.NewTicker(DefaultTickerInterval),
+	}
+}

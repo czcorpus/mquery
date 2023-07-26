@@ -21,10 +21,10 @@ package sketch
 import (
 	"fmt"
 	"mquery/corpus"
-	"mquery/corpus/query"
 	"mquery/mango"
+	"mquery/rdb"
+	"mquery/worker"
 	"net/http"
-	"sort"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -33,36 +33,7 @@ import (
 type Actions struct {
 	corpConf   *corpus.CorporaSetup
 	sketchConf *SketchSetup
-}
-
-func (a *Actions) getConcordance(corpusId, query string) (*mango.GoConc, error) {
-	corp, err := corpus.OpenCorpus(corpusId, a.corpConf)
-	if err != nil {
-		return nil, err
-	}
-	conc, err := mango.CreateConcordance(corp, query)
-	if err != nil {
-		return nil, err
-	}
-	return conc, nil
-}
-
-func (a *Actions) processFrequencies(freqs *mango.Freqs, corpSize int64) []*query.FreqDistribItem {
-	ans := make([]*query.FreqDistribItem, len(freqs.Freqs))
-	for i, _ := range ans {
-		norm := freqs.Norms[i]
-		if norm == 0 {
-			norm = corpSize
-		}
-		ans[i] = &query.FreqDistribItem{
-			Freq: freqs.Freqs[i],
-			Norm: norm,
-			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
-			Word: freqs.Words[i],
-		}
-	}
-	sort.Slice(ans, func(i, j int) bool { return ans[i].Freq > ans[j].Freq })
-	return ans
+	radapter   *rdb.Adapter
 }
 
 func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
@@ -83,7 +54,8 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		sketchAttrs.FuncAttr, sketchAttrs.NounModifiedValue,
 		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
 	)
-	conc, err := a.getConcordance(corpusId, q)
+	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	freqs, err := mango.CalcFreqDist(corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -92,12 +64,11 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
-	ans := a.processFrequencies(freqs, conc.CorpSize())
+	ans := worker.MergeFreqVectors(freqs, freqs.CorpusSize)
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		map[string]any{
-			"concSize": conc.Size(),
+			"concSize": freqs.ConcSize,
 			"freqs":    ans,
 		},
 	)
@@ -121,7 +92,8 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		sketchAttrs.FuncAttr, sketchAttrs.NounModifiedValue,
 		sketchAttrs.PosAttr, sketchAttrs.NounValue,
 	)
-	conc, err := a.getConcordance(corpusId, q)
+	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	freqs, err := mango.CalcFreqDist(corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.LemmaAttr), 1)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -130,12 +102,11 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.LemmaAttr), 1)
-	ans := a.processFrequencies(freqs, conc.CorpSize())
+	ans := worker.MergeFreqVectors(freqs, freqs.CorpusSize)
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		map[string]any{
-			"concSize": conc.Size(),
+			"concSize": freqs.ConcSize,
 			"freqs":    ans,
 		},
 	)
@@ -159,7 +130,11 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		sketchAttrs.FuncAttr, sketchAttrs.NounSubjectValue,
 		sketchAttrs.ParPosAttr, sketchAttrs.VerbValue,
 	)
-	conc, err := a.getConcordance(corpusId, q)
+	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -168,14 +143,29 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
-	ans := a.processFrequencies(freqs, conc.CorpSize())
+
+	rawResult := <-wait
+	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	rc := NewReorderCalculator(
+		a.corpConf,
+		corpusPath,
+		sketchAttrs,
+		a.radapter,
+	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs)
+
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		map[string]any{
-			"concSize": conc.Size(),
-			"freqs":    ans,
-		},
+		ans,
 	)
 }
 
@@ -197,7 +187,9 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		sketchAttrs.FuncAttr, sketchAttrs.NounObjectValue,
 		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
 	)
-	conc, err := a.getConcordance(corpusId, q)
+
+	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	freqs, err := mango.CalcFreqDist(corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -206,20 +198,21 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
-	ans := a.processFrequencies(freqs, conc.CorpSize())
+	ans := worker.MergeFreqVectors(freqs, freqs.CorpusSize)
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		map[string]any{
-			"concSize": conc.Size(),
+			"concSize": freqs.ConcSize,
 			"freqs":    ans,
 		},
 	)
 }
 
-func NewActions(corpConf *corpus.CorporaSetup, sketchConf *SketchSetup) *Actions {
-	return &Actions{
+func NewActions(corpConf *corpus.CorporaSetup, sketchConf *SketchSetup, radapter *rdb.Adapter) *Actions {
+	ans := &Actions{
 		corpConf:   corpConf,
 		sketchConf: sketchConf,
+		radapter:   radapter,
 	}
+	return ans
 }

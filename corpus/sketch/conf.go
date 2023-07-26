@@ -18,19 +18,45 @@
 
 package sketch
 
+type SketchConfig map[string]CorpusSketchSetup
+
 type SketchSetup struct {
-	SketchAttrs map[string]CorpusSketchSetup `json:"sketchAttrs"`
+	SketchAttrs SketchConfig `json:"sketchAttrs"`
 }
 
 type CorpusSketchSetup struct {
-	LemmaAttr         string `json:"lemmaAttr"`
-	ParLemmaAttr      string `json:"parLemmaAttr"`
-	PosAttr           string `json:"posAttr"`
-	ParPosAttr        string `json:"parPosAttr"`
-	FuncAttr          string `json:"funcAttr"`
-	NounValue         string `json:"nounPosValue"`
-	VerbValue         string `json:"verbPosValue"`
+
+	// LemmaAttr - an attribute specifying lemma
+	// (in intercorp_v13ud: `lemma`)
+	LemmaAttr string `json:"lemmaAttr"`
+
+	// ParLemmaAttr - an attribute specifying lemma in parent
+	// (in intercorp_v13ud: `p_lemma`)
+	ParLemmaAttr string `json:"parLemmaAttr"`
+
+	// PosAttr - an attr specifying part of speech
+	// (in intercorp_v13ud: `p_lemma`)
+	PosAttr string `json:"posAttr"`
+
+	// ParPosAttr - an attr specifying part of speech in parent
+	// (in intercorp_v13ud: `p_upos`)
+	ParPosAttr string `json:"parPosAttr"`
+
+	// (in intercorp_v13ud: `deprel`)
+	FuncAttr string `json:"funcAttr"`
+
+	// (in intercorp_v13ud: `NOUN`)
+	NounValue string `json:"nounPosValue"`
+
+	// (in intercorp_v13ud: `VERB`)
+	VerbValue string `json:"verbPosValue"`
+
+	// (in intercorp_v13ud: `nmod`)
 	NounModifiedValue string `json:"nounModifiedValue"`
-	NounSubjectValue  string `json:"nounSubjectValue"`
-	NounObjectValue   string `json:"nounObjectValue"`
+
+	// (in intercorp_v13ud: `nsubj`)
+	NounSubjectValue string `json:"nounSubjectValue"`
+
+	// (in intercorp_v13ud: `obj|iobj`)
+	NounObjectValue string `json:"nounObjectValue"`
 }

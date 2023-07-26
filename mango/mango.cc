@@ -37,6 +37,7 @@ CorpusRetval open_corpus(const char* corpusPath) {
     string tmp(corpusPath);
     CorpusRetval ans;
     ans.err = nullptr;
+    ans.value = nullptr;
     try {
         ans.value = new Corpus(tmp);
 
@@ -65,6 +66,7 @@ CorpusSizeRetrval get_corpus_size(CorpusV corpus) {
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
     CorpusStringRetval ans;
     ans.err = nullptr;
+    ans.value = nullptr;
     string tmp(prop);
     try {
         const char * s = ((Corpus*)corpus)->get_conf(tmp).c_str();
@@ -82,6 +84,7 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
     string q(query);
     ConcRetval ans;
     ans.err = nullptr;
+    ans.value = nullptr;
     Corpus* corpusObj = (Corpus*)corpus;
 
     try {
@@ -94,11 +97,39 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
     return ans;
 }
 
-PosInt concordance_size(ConcV conc) {
-    return ((Concordance *)conc)->size();
+void close_concordance(ConcV conc) {
+    delete (Concordance *)conc;
 }
 
-FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
+ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
+    string cPath(corpusPath);
+    ConcSizeRetVal ans;
+    ans.err = nullptr;
+    ans.size = 0;
+    Corpus* corp = nullptr;
+    Concordance* conc = nullptr;
+    try {
+        corp = new Corpus(cPath);
+        conc = new Concordance(
+            corp, corp->filter_query(eval_cqpquery(query, corp)));
+        conc->sync();
+        ans.size = conc->size();
+        if (conc != nullptr) {
+            delete conc;
+            conc = nullptr;
+        }
+        if (corp != nullptr) {
+            delete corp;
+            corp = nullptr;
+        }
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    return ans;
+}
+
+FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
     Corpus* corpusObj = (Corpus*)corpus;
     Concordance* concObj = (Concordance *)conc;
 
@@ -113,9 +144,53 @@ FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
     FreqsRetval ans {
         static_cast<void*>(xwords),
         static_cast<void*>(xfreqs),
-        static_cast<void*>(xnorms)
+        static_cast<void*>(xnorms),
+        0, // TODO
+        0, // TODO
+        nullptr
     };
     return ans;
+}
+
+
+FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcrit, PosInt flimit) {
+    string cPath(corpusPath);
+    try {
+        Corpus* corp = new Corpus(cPath);
+        Concordance* conc = new Concordance(
+            corp, corp->filter_query(eval_cqpquery(query, corp)));
+        conc->sync();
+        auto xwords = new vector<string>;
+        vector<string>& words = *xwords;
+        auto xfreqs = new vector<PosInt>;
+        vector<PosInt>& freqs = *xfreqs;
+        auto xnorms = new vector<PosInt>;
+        vector<PosInt>& norms = *xnorms;
+
+        corp->freq_dist(conc->RS(), fcrit, flimit, words, freqs, norms);
+        FreqsRetval ans {
+            static_cast<void*>(xwords),
+            static_cast<void*>(xfreqs),
+            static_cast<void*>(xnorms),
+            conc->size(),
+            corp->size(),
+            nullptr
+        };
+        delete conc;
+        delete corp;
+        return ans;
+
+    } catch (std::exception &e) {
+        FreqsRetval ans {
+            nullptr,
+            nullptr,
+            nullptr,
+            0,
+            0,
+            strdup(e.what())
+        };
+        return ans;
+    }
 }
 
 
@@ -150,14 +225,26 @@ PosInt int_vector_get_size(MVector v) {
     return vectorObj->size();
 }
 
-CollsRetVal collocations(ConcV conc, const char * attr_name, char sort_fun_code,
-             PosInt minfreq, PosInt minbgr, int fromw, int tow, int maxitems) {
+CollsRetVal collocations(
+    const char* corpusPath,
+    const char* query,
+    const char * attr_name,
+    char sort_fun_code,
+    PosInt minfreq,
+    PosInt minbgr,
+    int fromw,
+    int tow,
+    int maxitems
+) {
     CollsRetVal ans;
     ans.err = nullptr;
-    Concordance* concObj = (Concordance*)conc;
-
+    string cPath(corpusPath);
     try {
-        ans.value = new CollocItems(concObj, string(attr_name), sort_fun_code, minfreq, minbgr, fromw, tow, maxitems);
+        Corpus* corp = new Corpus(cPath);
+        Concordance* conc = new Concordance(
+            corp, corp->filter_query(eval_cqpquery(query, corp)));
+        conc->sync();
+        ans.value = new CollocItems(conc, string(attr_name), sort_fun_code, minfreq, minbgr, fromw, tow, maxitems);
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
     }

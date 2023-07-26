@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"mquery/corpus"
 	"mquery/corpus/sketch"
+	"mquery/rdb"
 	"os"
 	"path/filepath"
 
@@ -46,6 +47,7 @@ type Conf struct {
 	CorporaSetup           *corpus.CorporaSetup  `json:"corporaSetup"`
 	SketchSetup            *sketch.SketchSetup   `json:"sketchSetup"`
 	CNCDB                  *corpus.DatabaseSetup `json:"cncDb"`
+	Redis                  *rdb.Conf             `json:"redis"`
 	LogFile                string                `json:"logFile"`
 	LogLevel               logging.LogLevel      `json:"logLevel"`
 	Language               string                `json:"language"`
