@@ -21,9 +21,7 @@ package sketch
 import (
 	"fmt"
 	"mquery/corpus"
-	"mquery/mango"
 	"mquery/rdb"
-	"mquery/worker"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -55,7 +53,10 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
 	)
 	corpusPath := a.corpConf.GetRegistryPath(corpusId)
-	freqs, err := mango.CalcFreqDist(corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{corpusPath, q, fmt.Sprintf("%s/i 0~0>0", sketchAttrs.ParLemmaAttr), 1},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -64,13 +65,19 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		)
 		return
 	}
-	ans := worker.MergeFreqVectors(freqs, freqs.CorpusSize)
+	rawResult := <-wait
+	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		map[string]any{
-			"concSize": freqs.ConcSize,
-			"freqs":    ans,
-		},
+		result,
 	)
 }
 
@@ -93,7 +100,10 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		sketchAttrs.PosAttr, sketchAttrs.NounValue,
 	)
 	corpusPath := a.corpConf.GetRegistryPath(corpusId)
-	freqs, err := mango.CalcFreqDist(corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.LemmaAttr), 1)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.LemmaAttr), 1},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -102,13 +112,19 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		)
 		return
 	}
-	ans := worker.MergeFreqVectors(freqs, freqs.CorpusSize)
+	rawResult := <-wait
+	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		map[string]any{
-			"concSize": freqs.ConcSize,
-			"freqs":    ans,
-		},
+		result,
 	)
 }
 
@@ -189,7 +205,10 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	)
 
 	corpusPath := a.corpConf.GetRegistryPath(corpusId)
-	freqs, err := mango.CalcFreqDist(corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "freqDistrib",
+		Args: []any{corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -198,13 +217,19 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		)
 		return
 	}
-	ans := worker.MergeFreqVectors(freqs, freqs.CorpusSize)
+	rawResult := <-wait
+	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		map[string]any{
-			"concSize": freqs.ConcSize,
-			"freqs":    ans,
-		},
+		result,
 	)
 }
 

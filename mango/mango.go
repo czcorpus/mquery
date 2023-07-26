@@ -49,10 +49,16 @@ func (gc *GoConc) Corpus() *GoCorpus {
 
 // ---
 
-type GoColls struct {
+type GoCollsItem struct {
 	Word  string
 	Value float64
 	Freq  int64
+}
+
+type GoColls struct {
+	Colls      []GoCollsItem
+	ConcSize   int64
+	CorpusSize int64
 }
 
 // OpenCorpus is a factory function creating
@@ -223,31 +229,34 @@ func GetCollcations(
 	calcFn byte,
 	minFreq int64,
 	maxItems int,
-) ([]*GoColls, error) {
+) (GoColls, error) {
 	colls := C.collocations(C.CString(corpusID), C.CString(query), C.CString(attrName), C.char(calcFn),
 		C.longlong(minFreq), C.longlong(minFreq), -5, 5, C.int(maxItems))
 	if colls.err != nil {
 		err := fmt.Errorf(C.GoString(colls.err))
 		defer C.free(unsafe.Pointer(colls.err))
-		return []*GoColls{}, err
+		return GoColls{}, err
 	}
-	ret := make([]*GoColls, 0, 50) // TODO capacity
+	items := make([]GoCollsItem, 0, 50) // TODO capacity
 	for C.has_next_colloc(colls.value) == 1 {
 		ans := C.next_colloc_item(colls.value, C.char(calcFn))
 		if ans.err != nil {
 			err := fmt.Errorf(C.GoString(ans.err))
 			defer C.free(unsafe.Pointer(ans.err))
-			return []*GoColls{}, err
+			return GoColls{}, err
 		}
-		ret = append(
-			ret,
-			&GoColls{
+		items = append(
+			items,
+			GoCollsItem{
 				Word:  C.GoString(ans.word),
 				Value: float64(ans.value),
 				Freq:  int64(ans.freq),
 			},
 		)
 	}
-
-	return ret, nil
+	return GoColls{
+		Colls:      items,
+		ConcSize:   int64(colls.concSize),
+		CorpusSize: int64(colls.corpusSize),
+	}, nil
 }

@@ -243,7 +243,9 @@ CollsRetVal collocations(
         Corpus* corp = new Corpus(cPath);
         Concordance* conc = new Concordance(
             corp, corp->filter_query(eval_cqpquery(query, corp)));
+        ans.corpusSize = corp->size();
         conc->sync();
+        ans.concSize = conc->size();
         ans.value = new CollocItems(conc, string(attr_name), sort_fun_code, minfreq, minbgr, fromw, tow, maxitems);
     } catch (std::exception &e) {
         ans.err = strdup(e.what());

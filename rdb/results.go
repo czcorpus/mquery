@@ -63,3 +63,12 @@ func DeserializeConcSizeResult(w *WorkerResult) (results.ConcSize, error) {
 	}
 	return ans, nil
 }
+
+func DeserializeCollocationsResult(w *WorkerResult) (results.Collocations, error) {
+	var ans results.Collocations
+	err := json.Unmarshal(w.Value, &ans)
+	if err != nil {
+		return ans, fmt.Errorf("failed to deserialize Collocations: %w", err)
+	}
+	return ans, nil
+}

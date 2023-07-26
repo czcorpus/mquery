@@ -54,7 +54,7 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	concActions := query.NewActions(conf.CorporaSetup)
+	concActions := query.NewActions(conf.CorporaSetup, radapter)
 
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)

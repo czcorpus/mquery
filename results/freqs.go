@@ -56,3 +56,20 @@ type ConcSize struct {
 func (res *ConcSize) Type() string {
 	return "ConcSize"
 }
+
+type CollItem struct {
+	Word  string  `json:"word"`
+	Value float64 `json:"value"`
+	Freq  int64   `json:"freq"`
+}
+
+type Collocations struct {
+	ConcSize   int64      `json:"concSize"`
+	CorpusSize int64      `json:"corpusSize"`
+	Colls      []CollItem `json:"colls"`
+	Error      string     `json:"error"`
+}
+
+func (res *Collocations) Type() string {
+	return "Collocations"
+}
