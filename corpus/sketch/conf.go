@@ -18,7 +18,7 @@
 
 package sketch
 
-type SketchConfig map[string]CorpusSketchSetup
+type SketchConfig map[string]*CorpusSketchSetup
 
 type SketchSetup struct {
 	SketchAttrs SketchConfig `json:"sketchAttrs"`

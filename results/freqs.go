@@ -18,6 +18,8 @@
 
 package results
 
+import "errors"
+
 type WordFormsItem struct {
 	Lemma string             `json:"lemma"`
 	POS   string             `json:"pos"`
@@ -34,7 +36,10 @@ type FreqDistribItem struct {
 
 type SerializableResult interface {
 	Type() string
+	Err() error
 }
+
+// ----
 
 type FreqDistrib struct {
 	ConcSize   int64              `json:"concSize"`
@@ -47,6 +52,15 @@ func (res *FreqDistrib) Type() string {
 	return "ConcSizeResult"
 }
 
+func (res *FreqDistrib) Err() error {
+	if res.Error != "" {
+		return errors.New(res.Error)
+	}
+	return nil
+}
+
+// ----
+
 type ConcSize struct {
 	ConcSize   int64  `json:"concSize"`
 	CorpusSize int64  `json:"corpusSize"`
@@ -56,6 +70,15 @@ type ConcSize struct {
 func (res *ConcSize) Type() string {
 	return "ConcSize"
 }
+
+func (res *ConcSize) Err() error {
+	if res.Error != "" {
+		return errors.New(res.Error)
+	}
+	return nil
+}
+
+// ----
 
 type CollItem struct {
 	Word  string  `json:"word"`
@@ -72,4 +95,11 @@ type Collocations struct {
 
 func (res *Collocations) Type() string {
 	return "Collocations"
+}
+
+func (res *Collocations) Err() error {
+	if res.Error != "" {
+		return errors.New(res.Error)
+	}
+	return nil
 }

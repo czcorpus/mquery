@@ -19,7 +19,6 @@
 package sketch
 
 import (
-	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/results"
@@ -32,6 +31,7 @@ type ReorderCalculator struct {
 	corpConf   *corpus.CorporaSetup
 	corpusPath string
 	sketchConf CorpusSketchSetup
+	qGen       QueryGenerator
 	radapter   *rdb.Adapter
 }
 
@@ -44,12 +44,7 @@ func (rc *ReorderCalculator) calcFy(
 ) {
 	for i := fromIdx; i < toIdx; i++ {
 		item := items[i]
-		q := fmt.Sprintf(
-			`[%s="%s" & %s="%s" & %s="%s"]`,
-			rc.sketchConf.FuncAttr, rc.sketchConf.NounSubjectValue,
-			rc.sketchConf.ParPosAttr, rc.sketchConf.VerbValue,
-			rc.sketchConf.ParLemmaAttr, item.Word,
-		)
+		q := rc.qGen.FyQuery(item.Word)
 		log.Debug().
 			Int("query", i).
 			Str("value", q).
@@ -86,13 +81,7 @@ func (rc *ReorderCalculator) calcFxy(
 	toIdx int,
 ) {
 	for i, item := range items {
-		q := fmt.Sprintf(
-			`[%s="%s" & %s="%s" & %s="%s" & %s="%s"]`,
-			rc.sketchConf.LemmaAttr, word,
-			rc.sketchConf.FuncAttr, rc.sketchConf.NounSubjectValue,
-			rc.sketchConf.ParPosAttr, rc.sketchConf.VerbValue,
-			rc.sketchConf.ParLemmaAttr, item.Word,
-		)
+		q := rc.qGen.FxyQuery(word, item.Word)
 		log.Debug().
 			Int("query", i).
 			Str("value", q).
@@ -185,14 +174,14 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 func NewReorderCalculator(
 	corpConf *corpus.CorporaSetup,
 	corpusPath string,
-	sketchConf CorpusSketchSetup,
+	qGen QueryGenerator,
 	radapter *rdb.Adapter,
 ) *ReorderCalculator {
 
 	return &ReorderCalculator{
 		corpConf:   corpConf,
 		corpusPath: corpusPath,
-		sketchConf: sketchConf,
+		qGen:       qGen,
 		radapter:   radapter,
 	}
 }
