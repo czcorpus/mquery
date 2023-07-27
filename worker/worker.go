@@ -53,7 +53,7 @@ func (w *Worker) publishResult(res results.SerializableResult, channel string) e
 func (w *Worker) tryNextQuery() error {
 	time.Sleep(time.Duration(rand.Intn(40)) * time.Millisecond)
 	query, err := w.radapter.DequeueQuery()
-	if err == rdb.ErrorNoQueuedQuery {
+	if err == rdb.ErrorEmptyQueue {
 		return nil
 
 	} else if err != nil {
