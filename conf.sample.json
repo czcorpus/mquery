@@ -4,6 +4,7 @@
     "logFile": "",
     "logLevel": "debug",
     "serverReadTimeoutSecs": 120,
+    "serverWriteTimeoutSecs": 60,
     "corporaSetup": {
         "registryDir": "/home/tomas/work/data/corpora/registry"
     },

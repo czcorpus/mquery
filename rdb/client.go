@@ -21,6 +21,7 @@ package rdb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mquery/results"
 	"time"
@@ -37,6 +38,10 @@ const (
 	DefaultResultChannelPrefix = "mqueryResults"
 	DefaultQueryChannel        = "mqueryQueries"
 	DefaultResultExpiration    = 10 * time.Minute
+)
+
+var (
+	ErrorNoQueuedQuery = errors.New("no queries in the queue")
 )
 
 type Query struct {
@@ -115,8 +120,15 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 	return ans, a.c.Publish(a.ctx, a.channelQuery, MsgNewQuery).Err()
 }
 
+// DequeueQuery looks for a query queued for processing.
+// In case nothing is found, ErrorNoQueuedQuery is returned
+// as an error.
 func (a *Adapter) DequeueQuery() (Query, error) {
 	cmd := a.c.RPop(a.ctx, DefaultQueueKey)
+
+	if cmd.Val() == "" {
+		return Query{}, ErrorNoQueuedQuery
+	}
 	if cmd.Err() != nil {
 		return Query{}, fmt.Errorf("failed to dequeue query: %w", cmd.Err())
 	}

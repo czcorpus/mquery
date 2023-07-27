@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	dfltServerWriteTimeoutSecs = 10
+	dfltServerWriteTimeoutSecs = 30
 	dfltLanguage               = "en"
 	dfltMaxNumConcurrentJobs   = 4
 	dfltVertMaxNumErrors       = 100

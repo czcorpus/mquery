@@ -18,10 +18,16 @@
 
 package results
 
+import "errors"
+
 type ErrorResult struct {
 	Error string `json:"error"`
 }
 
 func (res *ErrorResult) Type() string {
 	return "ErrorResult"
+}
+
+func (res *ErrorResult) Err() error {
+	return errors.New(res.Error)
 }

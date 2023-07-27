@@ -19,14 +19,23 @@
 package sketch
 
 import (
-	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
+	"mquery/results"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
+
+const (
+	QueryNounsModifiedBy QueryType = iota
+	QueryModifiersOf
+	QueryVerbsSubject
+	QueryVerbsObject
+)
+
+type QueryType int
 
 type Actions struct {
 	corpConf   *corpus.CorporaSetup
@@ -34,28 +43,55 @@ type Actions struct {
 	radapter   *rdb.Adapter
 }
 
-func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
-	w := ctx.Request.URL.Query().Get("w")
-	corpusId := ctx.Param("corpusId")
-	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
+func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *CorpusSketchSetup {
+	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusID]
 	if !ok {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionError("Missing sketch conf for requested corpus"),
 			http.StatusInternalServerError,
 		)
+		return nil
+	}
+	return sketchAttrs
+}
+
+func (a *Actions) handleResultOrWriteErr(
+	ctx *gin.Context,
+	res results.SerializableResult,
+	deserializeErr error,
+) bool {
+	if deserializeErr != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(deserializeErr),
+			http.StatusInternalServerError,
+		)
+		return true
+	}
+	if res.Err() != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(res.Err()),
+			http.StatusInternalServerError,
+		)
+		return true
+	}
+	return false
+}
+
+func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
+	w := ctx.Request.URL.Query().Get("w")
+	corpusID := ctx.Param("corpusId")
+	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
 		return
 	}
-	q := fmt.Sprintf(
-		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		sketchAttrs.LemmaAttr, w,
-		sketchAttrs.FuncAttr, sketchAttrs.NounModifiedValue,
-		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
-	)
-	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	queryGen := NewQueryGenerator(QueryNounsModifiedBy, sketchAttrs)
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{corpusPath, q, fmt.Sprintf("%s/i 0~0>0", sketchAttrs.ParLemmaAttr), 1},
+		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -67,12 +103,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	}
 	rawResult := <-wait
 	result, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if failed := a.handleResultOrWriteErr(ctx, &result, err); failed {
 		return
 	}
 	uniresp.WriteJSONResponse(
@@ -83,26 +114,16 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 
 func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	corpusId := ctx.Param("corpusId")
-	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
-	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("Missing sketch conf for requested corpus"),
-			http.StatusInternalServerError,
-		)
+	corpusID := ctx.Param("corpusId")
+	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
 		return
 	}
-	q := fmt.Sprintf(
-		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		sketchAttrs.ParLemmaAttr, w,
-		sketchAttrs.FuncAttr, sketchAttrs.NounModifiedValue,
-		sketchAttrs.PosAttr, sketchAttrs.NounValue,
-	)
-	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	queryGen := NewQueryGenerator(QueryModifiersOf, sketchAttrs)
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.LemmaAttr), 1},
+		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -114,12 +135,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	}
 	rawResult := <-wait
 	result, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if failed := a.handleResultOrWriteErr(ctx, &result, err); failed {
 		return
 	}
 	uniresp.WriteJSONResponse(
@@ -130,26 +146,16 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 
 func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	corpusId := ctx.Param("corpusId")
-	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
-	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("Missing sketch conf for requested corpus"),
-			http.StatusInternalServerError,
-		)
+	corpusID := ctx.Param("corpusId")
+	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
 		return
 	}
-	q := fmt.Sprintf(
-		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		sketchAttrs.LemmaAttr, w,
-		sketchAttrs.FuncAttr, sketchAttrs.NounSubjectValue,
-		sketchAttrs.ParPosAttr, sketchAttrs.VerbValue,
-	)
-	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	queryGen := NewQueryGenerator(QueryVerbsSubject, sketchAttrs)
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1},
+		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -159,9 +165,19 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		)
 		return
 	}
-
 	rawResult := <-wait
 	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	if failed := a.handleResultOrWriteErr(ctx, &result, err); failed {
+		return
+	}
+
+	rc := NewReorderCalculator(
+		a.corpConf,
+		corpusPath,
+		queryGen,
+		a.radapter,
+	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -170,14 +186,6 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		)
 		return
 	}
-
-	rc := NewReorderCalculator(
-		a.corpConf,
-		corpusPath,
-		sketchAttrs,
-		a.radapter,
-	)
-	ans, err := rc.SortByLogDiceColl(w, result.Freqs)
 
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
@@ -187,27 +195,16 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 
 func (a *Actions) VerbsObject(ctx *gin.Context) {
 	w := ctx.Request.URL.Query().Get("w")
-	corpusId := ctx.Param("corpusId")
-	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusId]
-	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("Missing sketch conf for requested corpus"),
-			http.StatusInternalServerError,
-		)
+	corpusID := ctx.Param("corpusId")
+	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
 		return
 	}
-	q := fmt.Sprintf(
-		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		sketchAttrs.LemmaAttr, w,
-		sketchAttrs.FuncAttr, sketchAttrs.NounObjectValue,
-		sketchAttrs.ParPosAttr, sketchAttrs.NounValue,
-	)
-
-	corpusPath := a.corpConf.GetRegistryPath(corpusId)
+	queryGen := NewQueryGenerator(QueryVerbsObject, sketchAttrs)
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{corpusPath, q, fmt.Sprintf("%s/e 0~0>0", sketchAttrs.ParLemmaAttr), 1},
+		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -219,12 +216,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	}
 	rawResult := <-wait
 	result, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if failed := a.handleResultOrWriteErr(ctx, &result, err); failed {
 		return
 	}
 	uniresp.WriteJSONResponse(
