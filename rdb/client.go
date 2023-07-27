@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	ErrorNoQueuedQuery = errors.New("no queries in the queue")
+	ErrorEmptyQueue = errors.New("no queries in the queue")
 )
 
 type Query struct {
@@ -64,22 +64,32 @@ func DecodeQuery(q string) (Query, error) {
 	return ans, err
 }
 
+// Adapter provides functions for query producers and consumers
+// using Redis database. It leverages Redis' PUBSUB functionality
+// to notify about incoming data.
 type Adapter struct {
 	ctx                 context.Context
-	c                   *redis.Client
+	redis               *redis.Client
 	channelQuery        string
 	channelResultPrefix string
 }
 
+// SomeoneListens tests if there is a listener for a channel
+// specified in the provided `query`. If false, then there
+// is nobody interested in the query anymore.
 func (a *Adapter) SomeoneListens(query Query) (bool, error) {
-	cmd := a.c.PubSubNumSub(a.ctx, query.Channel)
+	cmd := a.redis.PubSubNumSub(a.ctx, query.Channel)
 	if cmd.Err() != nil {
 		return false, fmt.Errorf("failed to check channel listeners: %w", cmd.Err())
 	}
 	return cmd.Val()[query.Channel] > 0, nil
 }
 
-// PublishQuery publishes a new query and returns query ID
+// PublishQuery publishes a new query and returns a channel
+// by which a respective result will be returned. In case the
+// process fails during the calculation, a respective error
+// is packed into the WorkerResult value. The error returned
+// by this method means that the publishing itself failed.
 func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 	query.Channel = fmt.Sprintf("%s:%s", a.channelResultPrefix, uuid.New().String())
 	log.Debug().
@@ -92,10 +102,10 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := a.c.LPush(a.ctx, DefaultQueueKey, msg).Err(); err != nil {
+	if err := a.redis.LPush(a.ctx, DefaultQueueKey, msg).Err(); err != nil {
 		return nil, err
 	}
-	sub := a.c.Subscribe(a.ctx, query.Channel)
+	sub := a.redis.Subscribe(a.ctx, query.Channel)
 	ans := make(chan *WorkerResult)
 
 	// now we wait for response and send result via `ans`
@@ -103,7 +113,7 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		result := new(WorkerResult)
 
 		item := <-sub.Channel()
-		cmd := a.c.Get(a.ctx, item.Payload)
+		cmd := a.redis.Get(a.ctx, item.Payload)
 		if cmd.Err() != nil {
 			result.AttachValue(&results.ErrorResult{Error: cmd.Err().Error()})
 
@@ -117,17 +127,17 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		sub.Close()
 		close(ans)
 	}()
-	return ans, a.c.Publish(a.ctx, a.channelQuery, MsgNewQuery).Err()
+	return ans, a.redis.Publish(a.ctx, a.channelQuery, MsgNewQuery).Err()
 }
 
 // DequeueQuery looks for a query queued for processing.
-// In case nothing is found, ErrorNoQueuedQuery is returned
+// In case nothing is found, ErrorEmptyQueue is returned
 // as an error.
 func (a *Adapter) DequeueQuery() (Query, error) {
-	cmd := a.c.RPop(a.ctx, DefaultQueueKey)
+	cmd := a.redis.RPop(a.ctx, DefaultQueueKey)
 
 	if cmd.Val() == "" {
-		return Query{}, ErrorNoQueuedQuery
+		return Query{}, ErrorEmptyQueue
 	}
 	if cmd.Err() != nil {
 		return Query{}, fmt.Errorf("failed to dequeue query: %w", cmd.Err())
@@ -139,6 +149,9 @@ func (a *Adapter) DequeueQuery() (Query, error) {
 	return q, nil
 }
 
+// PublishResult sends notification via Redis PUBSUB mechanism
+// and also stores the result so a notified listener can retrieve
+// it.
 func (a *Adapter) PublishResult(channelName string, value *WorkerResult) error {
 	log.Debug().
 		Str("channel", channelName).
@@ -148,15 +161,18 @@ func (a *Adapter) PublishResult(channelName string, value *WorkerResult) error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize result: %w", err)
 	}
-	a.c.Set(a.ctx, channelName, string(data), DefaultResultExpiration)
-	return a.c.Publish(a.ctx, channelName, channelName).Err()
+	a.redis.Set(a.ctx, channelName, string(data), DefaultResultExpiration)
+	return a.redis.Publish(a.ctx, channelName, channelName).Err()
 }
 
+// Subscribe subscribes to query queue.
 func (a *Adapter) Subscribe() <-chan *redis.Message {
-	sub := a.c.Subscribe(a.ctx, a.channelQuery)
+	sub := a.redis.Subscribe(a.ctx, a.channelQuery)
 	return sub.Channel()
 }
 
+// NewAdapter is a recommended factory function
+// for creating new `Adapter` instances
 func NewAdapter(conf *Conf) *Adapter {
 	chRes := conf.ChannelResultPrefix
 	chQuery := conf.ChannelQuery
@@ -174,7 +190,7 @@ func NewAdapter(conf *Conf) *Adapter {
 	}
 
 	ans := &Adapter{
-		c: redis.NewClient(&redis.Options{
+		redis: redis.NewClient(&redis.Options{
 			Addr:     fmt.Sprintf("%s:%d", conf.Host, conf.Port),
 			Password: conf.Password,
 			DB:       conf.DB,
