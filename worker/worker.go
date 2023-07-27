@@ -54,7 +54,6 @@ func (w *Worker) tryNextQuery() error {
 	time.Sleep(time.Duration(rand.Intn(40)) * time.Millisecond)
 	query, err := w.radapter.DequeueQuery()
 	if err == rdb.ErrorNoQueuedQuery {
-		log.Debug().Msg("trying but query queue is empty")
 		return nil
 
 	} else if err != nil {

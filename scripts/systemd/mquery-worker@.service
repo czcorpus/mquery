@@ -11,6 +11,7 @@ ExecStart=/usr/local/bin/mquery worker /usr/local/etc/mquery.json
 ExecReload=/bin/kill -s HUP $MAINPID
 ExecStop=/bin/kill -s TERM $MAINPID
 Restart=always
+Environment="WORKER_ID=%i"
 
 [Install]
 WantedBy=multi-user.target

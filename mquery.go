@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -30,8 +31,14 @@ var (
 	gitCommit string
 )
 
-type ExitHandler interface {
-	OnExit()
+func getEnv(name string) string {
+	for _, p := range os.Environ() {
+		items := strings.Split(p, "=")
+		if len(items) == 2 && items[0] == name {
+			return items[1]
+		}
+	}
+	return ""
 }
 
 func init() {
@@ -132,7 +139,22 @@ func main() {
 		return
 	}
 	conf := cnf.LoadConfig(flag.Arg(1))
-	logging.SetupLogging(conf.LogFile, conf.LogLevel)
+
+	if action == "worker" {
+		var wPath string
+		if conf.LogFile != "" {
+			wPath = filepath.Join(filepath.Dir(conf.LogFile), "worker.log")
+		}
+		logging.SetupLogging(wPath, conf.LogLevel)
+		workerID := getEnv("WORKER_ID")
+		if action == "worker" && workerID == "" {
+			workerID = "0"
+		}
+		log.Logger = log.Logger.With().Str("worker", workerID).Logger()
+
+	} else {
+		logging.SetupLogging(conf.LogFile, conf.LogLevel)
+	}
 	log.Info().Msg("Starting MQUERY")
 	cnf.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
