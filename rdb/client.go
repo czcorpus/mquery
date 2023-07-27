@@ -83,7 +83,7 @@ func (a *Adapter) SomeoneListens(query Query) (bool, error) {
 func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 	query.Channel = fmt.Sprintf("%s:%s", a.channelResultPrefix, uuid.New().String())
 	log.Debug().
-		Str("channe", query.Channel).
+		Str("channel", query.Channel).
 		Str("func", query.Func).
 		Any("args", query.Args).
 		Msg("publishing query")
