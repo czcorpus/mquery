@@ -38,24 +38,11 @@ type CorporaDataPaths struct {
 // CorporaSetup defines mquery application configuration related
 // to a corpus
 type CorporaSetup struct {
-	RegistryDir          string            `json:"registryDir"`
-	RegistryTmpDir       string            `json:"registryTmpDir"`
-	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
-	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
-	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
+	RegistryDir string `json:"registryDir"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
 	return filepath.Join(cs.RegistryDir, corpusID)
-}
-
-func (cs *CorporaSetup) GetCorpusCNCDataPath() string {
-	return cs.CorpusDataPath.CNC
-}
-
-func (cs *CorporaSetup) SubdirIsInAltAccessMapping(subdir string) bool {
-	_, ok := cs.AltAccessMapping[subdir]
-	return ok
 }
 
 type DatabaseSetup struct {

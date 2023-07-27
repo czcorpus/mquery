@@ -1,19 +1,11 @@
 {
     "listenAddress" : "127.0.0.1",
     "listenPort": 8080,
-    "logFile": "/a/path/to/a/log/file",
-    "logLevel": "info",
+    "logFile": "",
+    "logLevel": "debug",
     "serverReadTimeoutSecs": 120,
     "corporaSetup": {
-        "registryDirPaths": ["/var/local/corpora/registry"],
-        "corpusDataPath": {
-            "abstract": "/var/local/corpora/indexed-abstract",
-            "cnc": "/var/local/corpora/indexed",
-            "kontext": "/var/local/corpora/indexed-fast"
-        },
-        "altAccessMapping": {
-            "omezeni": ""
-        }
+        "registryDir": "/home/tomas/work/data/corpora/registry"
     },
     "sketchSetup": {
         "sketchAttrs": {
@@ -44,9 +36,14 @@
         }
     },
     "cncDb": {
-        "host": "kontext_db_host",
+        "host": "10.0.3.130",
         "user": "kontext",
         "passwd": "********",
         "db": "kontext"
+    },
+    "redis": {
+        "host": "10.0.3.130",
+        "port": 6379,
+        "db": 7
     }
 }
