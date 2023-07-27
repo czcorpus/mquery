@@ -1,0 +1,6 @@
+[Unit]
+Description=Mquery workers as a single group
+Requires=mquery-worker@1.service mquery-worker@2.service mquery-worker@3.service mquery-worker@4.service mquery-worker@5.service mquery-worker@6.service mquery-worker@7.service mquery-worker@8.service
+
+[Install]
+WantedBy=multi-user.target

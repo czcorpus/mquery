@@ -1,0 +1,16 @@
+[Unit]
+Description=MQuery worker num. %i
+After=network.target
+PartOf=mquery-worker-all.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/mquery
+ExecStart=/usr/local/bin/mquery worker /usr/local/etc/mquery.json
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
