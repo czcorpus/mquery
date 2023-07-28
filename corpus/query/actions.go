@@ -167,7 +167,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 		q += " & pos=\"" + pos + "\""
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
-	wait, err := rdb.CacheResult(
+	wait, err := a.radapter.CacheResult(
 		a.radapter.PublishQuery,
 		rdb.Query{
 			Func: "freqDistrib",

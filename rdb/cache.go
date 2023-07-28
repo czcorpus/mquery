@@ -1,4 +1,4 @@
-// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Martin Zimandl <martin.zimandl@gmail.com>
 // Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
@@ -30,13 +30,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func CacheResult(fn func(Query) (<-chan *WorkerResult, error), query Query) (<-chan *WorkerResult, error) {
+func (a *Adapter) CacheResult(fn func(Query) (<-chan *WorkerResult, error), query Query) (<-chan *WorkerResult, error) {
+	if len(a.cachePath) == 0 {
+		return fn(query)
+	}
+
 	argKey := ""
 	for _, v := range query.Args {
 		argKey += fmt.Sprintf("%s", v)
 	}
 	hashKey := sha1.Sum([]byte(argKey))
-	path := "/var/lib/manatee/cache.masm/" + query.Func + hex.EncodeToString(hashKey[:])
+	path := a.cachePath + "/" + query.Func + hex.EncodeToString(hashKey[:])
 
 	pe := fs.PathExists(path)
 	isf, _ := fs.IsFile(path)

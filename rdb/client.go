@@ -64,6 +64,7 @@ type Adapter struct {
 	c                   *redis.Client
 	channelQuery        string
 	channelResultPrefix string
+	cachePath           string
 }
 
 func (a *Adapter) SomeoneListens(query Query) (bool, error) {
@@ -170,6 +171,7 @@ func NewAdapter(conf *Conf) *Adapter {
 		ctx:                 context.Background(),
 		channelQuery:        chQuery,
 		channelResultPrefix: chRes,
+		cachePath:           conf.CachePath,
 	}
 	return ans
 }

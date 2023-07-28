@@ -25,4 +25,5 @@ type Conf struct {
 	Password            string `json:"password"`
 	ChannelQuery        string `json:"channelQuery"`
 	ChannelResultPrefix string `json:"channelResultPrefix"`
+	CachePath           string `json:"cachePath"`
 }
