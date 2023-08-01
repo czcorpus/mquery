@@ -1,5 +1,5 @@
-// Copyright 2019 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2019 Institute of the Czech National Corpus,
+// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
 //
@@ -18,16 +18,8 @@
 
 package corpus
 
-import (
-	"path/filepath"
-)
+import "mquery/rdb"
 
-// CorporaSetup defines mquery application configuration related
-// to a corpus
-type CorporaSetup struct {
-	RegistryDir string `json:"registryDir"`
-}
-
-func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
-	return filepath.Join(cs.RegistryDir, corpusID)
+type QueryHandler interface {
+	PublishQuery(query rdb.Query) (<-chan *rdb.WorkerResult, error)
 }

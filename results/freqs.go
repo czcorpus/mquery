@@ -20,6 +20,13 @@ package results
 
 import "errors"
 
+const (
+	FreqDistribResultType  = "Freqs"
+	ConcSizeResultType     = "ConcSize"
+	CollocationsResultType = "Collocations"
+	ErrorResultType        = "ErrorResult"
+)
+
 type WordFormsItem struct {
 	Lemma string             `json:"lemma"`
 	POS   string             `json:"pos"`
@@ -49,7 +56,7 @@ type FreqDistrib struct {
 }
 
 func (res *FreqDistrib) Type() string {
-	return "ConcSizeResult"
+	return FreqDistribResultType
 }
 
 func (res *FreqDistrib) Err() error {
@@ -68,7 +75,7 @@ type ConcSize struct {
 }
 
 func (res *ConcSize) Type() string {
-	return "ConcSize"
+	return ConcSizeResultType
 }
 
 func (res *ConcSize) Err() error {
@@ -94,7 +101,7 @@ type Collocations struct {
 }
 
 func (res *Collocations) Type() string {
-	return "Collocations"
+	return CollocationsResultType
 }
 
 func (res *Collocations) Err() error {

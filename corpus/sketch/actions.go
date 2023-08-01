@@ -20,6 +20,7 @@ package sketch
 
 import (
 	"mquery/corpus"
+	"mquery/corpus/sketch/qgen"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -28,22 +29,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const (
-	QueryNounsModifiedBy QueryType = iota
-	QueryModifiersOf
-	QueryVerbsSubject
-	QueryVerbsObject
-)
-
-type QueryType int
-
 type Actions struct {
 	corpConf   *corpus.CorporaSetup
-	sketchConf *SketchSetup
+	sketchConf *qgen.SketchSetup
 	radapter   *rdb.Adapter
+	qExecutor  *qgen.QueryExecutor
 }
 
-func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *CorpusSketchSetup {
+func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *qgen.CorpusSketchSetup {
 	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusID]
 	if !ok {
 		uniresp.WriteJSONErrorResponse(
@@ -87,12 +80,9 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryNounsModifiedBy, sketchAttrs)
+	queryGen := qgen.NewQueryGenerator(qgen.QueryNounsModifiedBy, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
-	})
+	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -119,12 +109,9 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryModifiersOf, sketchAttrs)
+	queryGen := qgen.NewQueryGenerator(qgen.QueryModifiersOf, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
-	})
+	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -151,12 +138,9 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryVerbsSubject, sketchAttrs)
+	queryGen := qgen.NewQueryGenerator(qgen.QueryVerbsSubject, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
-	})
+	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -171,11 +155,10 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 
-	rc := NewReorderCalculator(
+	rc := a.qExecutor.NewReorderCalculator(
 		a.corpConf,
 		corpusPath,
 		queryGen,
-		a.radapter,
 	)
 	ans, err := rc.SortByLogDiceColl(w, result.Freqs)
 	if err != nil {
@@ -200,12 +183,9 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryVerbsObject, sketchAttrs)
+	queryGen := qgen.NewQueryGenerator(qgen.QueryVerbsObject, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: []any{corpusPath, queryGen.FxQuery(w), queryGen.FxCrit(), 1},
-	})
+	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -225,11 +205,17 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	)
 }
 
-func NewActions(corpConf *corpus.CorporaSetup, sketchConf *SketchSetup, radapter *rdb.Adapter) *Actions {
+func NewActions(
+	corpConf *corpus.CorporaSetup,
+	sketchConf *qgen.SketchSetup,
+	radapter *rdb.Adapter,
+	qExecutor *qgen.QueryExecutor,
+) *Actions {
 	ans := &Actions{
 		corpConf:   corpConf,
 		sketchConf: sketchConf,
 		radapter:   radapter,
+		qExecutor:  qExecutor,
 	}
 	return ans
 }

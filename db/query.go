@@ -16,18 +16,41 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package results
+package db
 
-import "errors"
+import (
+	"database/sql"
+	"mquery/rdb"
+)
 
-type ErrorResult struct {
-	Error string `json:"error"`
+type Backend struct {
+	db *sql.DB
 }
 
-func (res *ErrorResult) Type() string {
-	return ErrorResultType
+func (b *Backend) Insert(query string, args []any) (int64, error) {
+	ans, err := b.db.Exec(query, args...)
+	if err != nil {
+		return -1, err
+	}
+	lid, err := ans.LastInsertId()
+	if err != nil {
+		return -1, err
+	}
+	return lid, nil
 }
 
-func (res *ErrorResult) Err() error {
-	return errors.New(res.Error)
+func (b *Backend) Select(query string, args []any) (*rdb.WorkerResult, error) {
+	row := b.db.QueryRow(query, args...)
+	ans := new(rdb.WorkerResult)
+	err := row.Scan(&ans.Value, &ans.ResultType)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return ans, err
+}
+
+func NewBackend(db *sql.DB) *Backend {
+	return &Backend{
+		db: db,
+	}
 }
