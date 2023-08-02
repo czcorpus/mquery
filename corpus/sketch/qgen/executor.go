@@ -70,7 +70,7 @@ func (qe *QueryExecutor) FxQuery(
 			ch <- res
 			close(ch)
 			// now let's store data to db
-			query, args := gen.FxQueryInsertSQL(word, nil)
+			query, args := gen.FxQueryInsertSQL(word, &rdb.WorkerResult{ResultType: res.ResultType})
 			newID, err := qe.backend.Insert(query, args)
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to insert cache data (Fx)")

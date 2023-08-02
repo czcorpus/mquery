@@ -24,9 +24,16 @@ import (
 	"sort"
 )
 
-func MergeFreqVectors(freqs *mango.Freqs, corpSize int64) []*results.FreqDistribItem {
-	ans := make([]*results.FreqDistribItem, len(freqs.Freqs))
+func MergeFreqVectors(freqs *mango.Freqs, corpSize int64, maxItems int) []*results.FreqDistribItem {
+	lenLimit := len(freqs.Freqs)
+	if maxItems < lenLimit {
+		lenLimit = maxItems
+	}
+	ans := make([]*results.FreqDistribItem, maxItems)
 	for i, _ := range ans {
+		if i == maxItems {
+			break
+		}
 		norm := freqs.Norms[i]
 		if norm == 0 {
 			norm = corpSize
