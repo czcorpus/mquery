@@ -169,10 +169,10 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		)
 		return
 	}
-
+	result.Freqs = ans
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		ans,
+		result,
 	)
 }
 
@@ -199,6 +199,22 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	if failed := a.handleResultOrWriteErr(ctx, &result, err); failed {
 		return
 	}
+
+	rc := a.qExecutor.NewReorderCalculator(
+		a.corpConf,
+		corpusPath,
+		queryGen,
+	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	result.Freqs = ans
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,

@@ -38,17 +38,39 @@ func (gen *VerbObjectQGen) FxQuery(word string) string {
 }
 
 func (gen *VerbObjectQGen) FxQuerySelectSQL(word string) (sql string, args []any) {
-	sql = ""       // TODO
-	args = []any{} // TODO
+	sql = fmt.Sprintf("SELECT f.result, f.result_type FROM scoll_query AS q "+
+		"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
+		"WHERE q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+		gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr)
+	args = []any{
+		word,
+		gen.SketchConf.NounObjectValue,
+		gen.SketchConf.VerbValue,
+		gen.SketchConf.ParLemmaAttr,
+	}
 	return
 }
 
 func (gen *VerbObjectQGen) FxQueryInsertSQL(word string, result *rdb.WorkerResult) (sql string, args []any) {
-	if result.ResultType != results.FreqDistribResultType {
+	if result != nil && result.ResultType != results.FreqDistribResultType {
 		panic("invalid worker result type for VerbObjectQGen")
 	}
-	sql = ""       // TODO
-	args = []any{} // TODO
+	sql = fmt.Sprintf(
+		"INSERT INTO scoll_query (%s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
+		gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+	)
+	var val, rType string
+	if result != nil {
+		val = string(result.Value)
+		rType = result.ResultType
+	}
+	args = []any{
+		word,
+		gen.SketchConf.NounObjectValue,
+		gen.SketchConf.VerbValue,
+		val,
+		rType,
+	}
 	return
 }
 
@@ -57,6 +79,14 @@ func (gen *VerbObjectQGen) FxCrit() string {
 }
 
 func (gen *VerbObjectQGen) FxCritInsertSQL(query_id int64, result *rdb.WorkerResult) (sql string, args []any) {
+	sql = "INSERT INTO scoll_fcrit (scoll_query_id, attr, result, result_type) VALUES (?, ?, ?, ?)"
+	args = append(
+		args,
+		query_id,
+		gen.SketchConf.ParLemmaAttr,
+		result.Value,
+		result.ResultType,
+	)
 	return
 }
 
@@ -70,10 +100,30 @@ func (gen *VerbObjectQGen) FyQuery(collCandidate string) string {
 }
 
 func (gen *VerbObjectQGen) FyQuerySelectSQL(collCandidate string) (sql string, args []any) {
+	sql = fmt.Sprintf(
+		"SELECT result, result_type FROM scoll_query WHERE %s = ? AND %s = ? AND %s = ? ",
+		gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+	)
+	args = append(args, gen.SketchConf.NounObjectValue, gen.SketchConf.VerbValue, collCandidate)
 	return
 }
 
-func (gen *VerbObjectQGen) FyQueryInsertSQL(word string, result *rdb.WorkerResult) (sql string, args []any) {
+func (gen *VerbObjectQGen) FyQueryInsertSQL(collCandidate string, result *rdb.WorkerResult) (sql string, args []any) {
+	if result.ResultType != results.ConcSizeResultType {
+		panic("invalid worker result type for VerbObjectQGen")
+	}
+	sql = fmt.Sprintf(
+		"INSERT INTO scoll_query (%s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
+		gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+	)
+	args = append(
+		args,
+		gen.SketchConf.NounObjectValue,
+		gen.SketchConf.VerbValue,
+		collCandidate,
+		result.Value,
+		result.ResultType,
+	)
 	return
 }
 
@@ -88,9 +138,27 @@ func (gen *VerbObjectQGen) FxyQuery(word, collCandidate string) string {
 }
 
 func (gen *VerbObjectQGen) FxyQuerySelectSQL(word, collCandidate string) (sql string, args []any) {
+	sql = fmt.Sprintf(
+		"SELECT result, result_type FROM scoll_query WHERE %s = ? AND %s = ? AND %s = ? AND %s = ? ",
+		gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+	)
+	args = append(args, word, gen.SketchConf.NounObjectValue, gen.SketchConf.VerbValue, collCandidate)
 	return
 }
 
 func (gen *VerbObjectQGen) FxyQueryInsertSQL(word, collCandidate string, result *rdb.WorkerResult) (sql string, args []any) {
+	sql = fmt.Sprintf(
+		"INSERT INTO scoll_query (%s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?)",
+		gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+	)
+	args = append(
+		args,
+		word,
+		gen.SketchConf.NounObjectValue,
+		gen.SketchConf.VerbValue,
+		collCandidate,
+		result.Value,
+		result.ResultType,
+	)
 	return
 }

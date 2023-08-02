@@ -107,7 +107,12 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	// is a chance that some lower freq items
 	// with higher collocation value will
 	// promote higher
-	items = items[:20]
+	chunkSize := len(items)
+	if chunkSize > 20 {
+		chunkSize = 20
+	}
+	chunkHalf := chunkSize / 2
+	items = items[:chunkSize]
 
 	// Fy -> [deprel="nsubj" & p_upos="VERB" & p_lemma="win"]
 	fyValues := make([]int64, len(items))
@@ -120,18 +125,18 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 
 	// F(y)
 	go func() {
-		rc.calcFy(items, wg, fyValues, 0, 10)
+		rc.calcFy(items, wg, fyValues, 0, chunkHalf)
 	}()
 	go func() {
-		rc.calcFy(items, wg, fyValues, 10, 20)
+		rc.calcFy(items, wg, fyValues, chunkHalf, chunkSize)
 	}()
 
 	// F(xy)
 	go func() {
-		rc.calcFxy(items, wg, fxyValues, word, 0, 10)
+		rc.calcFxy(items, wg, fxyValues, word, 0, chunkHalf)
 	}()
 	go func() {
-		rc.calcFxy(items, wg, fxyValues, word, 10, 20)
+		rc.calcFxy(items, wg, fxyValues, word, chunkHalf, chunkSize)
 	}()
 
 	for i := 0; i < 4; i++ {
@@ -151,6 +156,9 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 			return items[i].CollWeight > items[j].CollWeight
 		},
 	)
-
-	return items[:10], nil
+	resultChunkSize := 10
+	if len(items) < resultChunkSize {
+		resultChunkSize = len(items)
+	}
+	return items[:resultChunkSize], nil
 }

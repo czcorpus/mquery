@@ -20,6 +20,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"mquery/rdb"
 )
 
@@ -28,25 +29,33 @@ type Backend struct {
 }
 
 func (b *Backend) Insert(query string, args []any) (int64, error) {
+	if query == "" {
+		return -1, fmt.Errorf("empty insert... (probably not implemented yet in generator)")
+	}
 	ans, err := b.db.Exec(query, args...)
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("failed to INSERT: %w", err)
 	}
 	lid, err := ans.LastInsertId()
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("failed to INSERT: %w", err)
 	}
 	return lid, nil
 }
 
 func (b *Backend) Select(query string, args []any) (*rdb.WorkerResult, error) {
+	if query == "" {
+		return nil, nil
+	}
 	row := b.db.QueryRow(query, args...)
 	ans := new(rdb.WorkerResult)
 	err := row.Scan(&ans.Value, &ans.ResultType)
 	if err == sql.ErrNoRows {
 		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to SELECT: %w", err)
 	}
-	return ans, err
+	return ans, nil
 }
 
 func NewBackend(db *sql.DB) *Backend {

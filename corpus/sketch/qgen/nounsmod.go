@@ -44,7 +44,7 @@ func (gen *NounsModifiedByQGen) FxQuerySelectSQL(word string) (sql string, args 
 }
 
 func (gen *NounsModifiedByQGen) FxQueryInsertSQL(word string, result *rdb.WorkerResult) (sql string, args []any) {
-	if result.ResultType != results.FreqDistribResultType {
+	if result != nil && result.ResultType != results.FreqDistribResultType {
 		panic("invalid worker result type for NounsModifiedByQGen")
 	}
 	sql = ""       // TODO
