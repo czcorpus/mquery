@@ -22,7 +22,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"mquery/corpus"
-	"mquery/corpus/sketch"
+	"mquery/corpus/sketch/qgen"
+	"mquery/db"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -40,17 +41,17 @@ const (
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress          string                `json:"listenAddress"`
-	ListenPort             int                   `json:"listenPort"`
-	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
-	CorporaSetup           *corpus.CorporaSetup  `json:"corporaSetup"`
-	SketchSetup            *sketch.SketchSetup   `json:"sketchSetup"`
-	CNCDB                  *corpus.DatabaseSetup `json:"cncDb"`
-	Redis                  *rdb.Conf             `json:"redis"`
-	LogFile                string                `json:"logFile"`
-	LogLevel               logging.LogLevel      `json:"logLevel"`
-	Language               string                `json:"language"`
+	ListenAddress          string               `json:"listenAddress"`
+	ListenPort             int                  `json:"listenPort"`
+	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
+	CorporaSetup           *corpus.CorporaSetup `json:"corporaSetup"`
+	SketchSetup            *qgen.SketchSetup    `json:"sketchSetup"`
+	DB                     *db.Conf             `json:"db"`
+	Redis                  *rdb.Conf            `json:"redis"`
+	LogFile                string               `json:"logFile"`
+	LogLevel               logging.LogLevel     `json:"logLevel"`
+	Language               string               `json:"language"`
 	srcPath                string
 }
 

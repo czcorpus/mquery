@@ -1,5 +1,5 @@
-// Copyright 2019 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2019 Institute of the Czech National Corpus,
+// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
 //
@@ -16,18 +16,35 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package corpus
+package db
 
 import (
-	"path/filepath"
+	"database/sql"
+	"time"
+
+	"github.com/go-sql-driver/mysql"
 )
 
-// CorporaSetup defines mquery application configuration related
-// to a corpus
-type CorporaSetup struct {
-	RegistryDir string `json:"registryDir"`
+type Conf struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
-func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
-	return filepath.Join(cs.RegistryDir, corpusID)
+func Open(conf *Conf) (*sql.DB, error) {
+	mconf := mysql.NewConfig()
+	mconf.Net = "tcp"
+	mconf.Addr = conf.Host
+	mconf.User = conf.User
+	mconf.Passwd = conf.Password
+	mconf.DBName = conf.Name
+	mconf.ParseTime = true
+	mconf.Loc = time.Local
+	mconf.Params = map[string]string{"autocommit": "true"}
+	db, err := sql.Open("mysql", mconf.FormatDSN())
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }

@@ -20,6 +20,8 @@ import (
 	"mquery/cnf"
 	"mquery/corpus/query"
 	"mquery/corpus/sketch"
+	"mquery/corpus/sketch/qgen"
+	"mquery/db"
 	"mquery/general"
 	"mquery/rdb"
 	"mquery/worker"
@@ -54,6 +56,13 @@ func runApiServer(
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	sqlDB, err := db.Open(conf.DB)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize cache database")
+	}
+	backend := db.NewBackend(sqlDB)
+	scollQueryExecutor := qgen.NewQueryExecutor(backend, radapter)
+
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
@@ -72,7 +81,12 @@ func runApiServer(
 	engine.GET(
 		"/word-forms/:corpusId", concActions.WordForms)
 
-	sketchActions := sketch.NewActions(conf.CorporaSetup, conf.SketchSetup, radapter)
+	sketchActions := sketch.NewActions(
+		conf.CorporaSetup,
+		conf.SketchSetup,
+		radapter,
+		scollQueryExecutor,
+	)
 
 	engine.GET(
 		"/scoll/:corpusId/noun-modified-by", sketchActions.NounsModifiedBy)

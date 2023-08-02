@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package sketch
+package qgen
 
 type SketchConfig map[string]*CorpusSketchSetup
 
@@ -35,7 +35,7 @@ type CorpusSketchSetup struct {
 	ParLemmaAttr string `json:"parLemmaAttr"`
 
 	// PosAttr - an attr specifying part of speech
-	// (in intercorp_v13ud: `p_lemma`)
+	// (in intercorp_v13ud: `upos`)
 	PosAttr string `json:"posAttr"`
 
 	// ParPosAttr - an attr specifying part of speech in parent

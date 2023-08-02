@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package sketch
+package qgen
 
 import (
 	"mquery/corpus"
@@ -30,9 +30,9 @@ import (
 type ReorderCalculator struct {
 	corpConf   *corpus.CorporaSetup
 	corpusPath string
-	sketchConf CorpusSketchSetup
 	qGen       QueryGenerator
 	radapter   *rdb.Adapter
+	executor   *QueryExecutor
 }
 
 func (rc *ReorderCalculator) calcFy(
@@ -44,15 +44,7 @@ func (rc *ReorderCalculator) calcFy(
 ) {
 	for i := fromIdx; i < toIdx; i++ {
 		item := items[i]
-		q := rc.qGen.FyQuery(item.Word)
-		log.Debug().
-			Int("query", i).
-			Str("value", q).
-			Msg("entering F(y) concSize query")
-		wait, err := rc.radapter.PublishQuery(rdb.Query{
-			Func: "concSize",
-			Args: []any{rc.corpusPath, q},
-		})
+		wait, err := rc.executor.FyQuery(rc.qGen, rc.corpusPath, item.Word)
 		if err != nil {
 			wg <- err
 			return
@@ -81,15 +73,7 @@ func (rc *ReorderCalculator) calcFxy(
 	toIdx int,
 ) {
 	for i, item := range items {
-		q := rc.qGen.FxyQuery(word, item.Word)
-		log.Debug().
-			Int("query", i).
-			Str("value", q).
-			Msg("entering F(xy) concSize query")
-		wait, err := rc.radapter.PublishQuery(rdb.Query{
-			Func: "concSize",
-			Args: []any{rc.corpusPath, q},
-		})
+		wait, err := rc.executor.FxyQuery(rc.qGen, rc.corpusPath, word, item.Word)
 		if err != nil {
 			wg <- err
 			return
@@ -169,19 +153,4 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	)
 
 	return items[:10], nil
-}
-
-func NewReorderCalculator(
-	corpConf *corpus.CorporaSetup,
-	corpusPath string,
-	qGen QueryGenerator,
-	radapter *rdb.Adapter,
-) *ReorderCalculator {
-
-	return &ReorderCalculator{
-		corpConf:   corpConf,
-		corpusPath: corpusPath,
-		qGen:       qGen,
-		radapter:   radapter,
-	}
 }
