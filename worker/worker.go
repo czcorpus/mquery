@@ -33,6 +33,7 @@ import (
 
 const (
 	DefaultTickerInterval = 2 * time.Second
+	MaxFreqResultItems    = 100
 )
 
 type Worker struct {
@@ -146,7 +147,7 @@ func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
 		ans.Error = err.Error()
 		return &ans
 	}
-	mergedFreqs := MergeFreqVectors(freqs, freqs.CorpusSize)
+	mergedFreqs := MergeFreqVectors(freqs, freqs.CorpusSize, MaxFreqResultItems)
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize
