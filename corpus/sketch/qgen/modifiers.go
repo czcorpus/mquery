@@ -40,8 +40,8 @@ func (gen *ModifiersOfQGen) FxQuery(word string) string {
 func (gen *ModifiersOfQGen) FxQuerySelectSQL(word string) (sql string, args []any) {
 	sql = fmt.Sprintf("SELECT f.result, f.result_type FROM scoll_query AS q "+
 		"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
-		"WHERE q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-		gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr)
+		"WHERE q.%s = ? AND q.%s IS NULL AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+		gen.SketchConf.ParLemmaAttr, gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr)
 	args = []any{
 		word,
 		gen.SketchConf.NounModifiedValue,
