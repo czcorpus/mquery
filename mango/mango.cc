@@ -105,15 +105,16 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
     string cPath(corpusPath);
     ConcSizeRetVal ans;
     ans.err = nullptr;
-    ans.size = 0;
+    ans.value = 0;
     Corpus* corp = nullptr;
     Concordance* conc = nullptr;
     try {
         corp = new Corpus(cPath);
+        ans.corpusSize = corp->size();
         conc = new Concordance(
             corp, corp->filter_query(eval_cqpquery(query, corp)));
         conc->sync();
-        ans.size = conc->size();
+        ans.value = conc->size();
         if (conc != nullptr) {
             delete conc;
             conc = nullptr;

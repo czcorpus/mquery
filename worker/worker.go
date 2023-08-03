@@ -219,12 +219,13 @@ func (w *Worker) concSize(q rdb.Query) *results.ConcSize {
 		ans.Error = fmt.Sprintf("invalid argument 1 (query) for concSize %v", q.Args[1])
 		return &ans
 	}
-	concSize, err := mango.GetConcSize(corpusPath, concQuery)
+	concSizeInfo, err := mango.GetConcSize(corpusPath, concQuery)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
 	}
-	ans.ConcSize = concSize
+	ans.ConcSize = concSizeInfo.Value
+	ans.CorpusSize = concSizeInfo.CorpusSize
 	return &ans
 }
 
