@@ -19,10 +19,11 @@
 package rdb
 
 type Conf struct {
-	Host                string `json:"host"`
-	Port                int    `json:"port"`
-	DB                  int    `json:"db"`
-	Password            string `json:"password"`
-	ChannelQuery        string `json:"channelQuery"`
-	ChannelResultPrefix string `json:"channelResultPrefix"`
+	Host                   string `json:"host"`
+	Port                   int    `json:"port"`
+	DB                     int    `json:"db"`
+	Password               string `json:"password"`
+	ChannelQuery           string `json:"channelQuery"`
+	ChannelResultPrefix    string `json:"channelResultPrefix"`
+	QueryAnswerTimeoutSecs int    `json:"queryAnswerTimeoutSecs"`
 }
