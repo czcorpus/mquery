@@ -40,8 +40,8 @@ func (gen *VerbObjectQGen) FxQuery(word string) string {
 func (gen *VerbObjectQGen) FxQuerySelectSQL(word string) (sql string, args []any) {
 	sql = fmt.Sprintf("SELECT f.result, f.result_type FROM scoll_query AS q "+
 		"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
-		"WHERE q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-		gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr)
+		"WHERE q.%s = ? AND q.%s IS NULL AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+		gen.SketchConf.LemmaAttr, gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr)
 	args = []any{
 		word,
 		gen.SketchConf.NounObjectValue,
@@ -101,8 +101,9 @@ func (gen *VerbObjectQGen) FyQuery(collCandidate string) string {
 
 func (gen *VerbObjectQGen) FyQuerySelectSQL(collCandidate string) (sql string, args []any) {
 	sql = fmt.Sprintf(
-		"SELECT result, result_type FROM scoll_query WHERE %s = ? AND %s = ? AND %s = ? ",
-		gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+		"SELECT result, result_type FROM scoll_query "+
+			"WHERE %s = ? AND %s = ? AND %s = ? AND %s IS NULL ",
+		gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr, gen.SketchConf.LemmaAttr,
 	)
 	args = append(args, gen.SketchConf.NounObjectValue, gen.SketchConf.VerbValue, collCandidate)
 	return
