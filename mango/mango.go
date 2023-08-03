@@ -49,6 +49,11 @@ func (gc *GoConc) Corpus() *GoCorpus {
 
 // ---
 
+type GoConcSize struct {
+	Value      int64
+	CorpusSize int64
+}
+
 type GoCollsItem struct {
 	Word  string
 	Value float64
@@ -152,14 +157,17 @@ func CalcFreqDistFromConc(conc *GoConc, fcrit string, flimit int) (*Freqs, error
 	return &ret, nil
 }
 
-func GetConcSize(corpusPath, query string) (int64, error) {
+func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 	ans := C.concordance_size(C.CString(corpusPath), C.CString(query))
+	var ret GoConcSize
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
-		return 0, err
+		return ret, err
 	}
-	return int64(ans.size), nil
+	ret.CorpusSize = int64(ans.corpusSize)
+	ret.Value = int64(ans.value)
+	return ret, nil
 }
 
 func CalcFreqDist(corpusID, query, fcrit string, flimit int) (*Freqs, error) {

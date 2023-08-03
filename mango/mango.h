@@ -58,7 +58,8 @@ typedef struct ConcRetval {
 } ConcRetval;
 
 typedef struct ConcSizeRetVal {
-    PosInt size;
+    PosInt value;
+    PosInt corpusSize;
     const char * err;
 } ConcSizeRetVal;
 
