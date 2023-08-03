@@ -29,11 +29,8 @@ func MergeFreqVectors(freqs *mango.Freqs, corpSize int64, maxItems int) []*resul
 	if maxItems < lenLimit {
 		lenLimit = maxItems
 	}
-	ans := make([]*results.FreqDistribItem, maxItems)
+	ans := make([]*results.FreqDistribItem, lenLimit)
 	for i, _ := range ans {
-		if i == maxItems {
-			break
-		}
 		norm := freqs.Norms[i]
 		if norm == 0 {
 			norm = corpSize
