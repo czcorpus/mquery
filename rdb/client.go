@@ -38,6 +38,7 @@ const (
 	DefaultResultChannelPrefix = "mqueryResults"
 	DefaultQueryChannel        = "mqueryQueries"
 	DefaultResultExpiration    = 10 * time.Minute
+	DefaultQueryAnswerTimeout  = 60 * time.Second
 )
 
 var (
@@ -72,6 +73,7 @@ type Adapter struct {
 	redis               *redis.Client
 	channelQuery        string
 	channelResultPrefix string
+	queryAnswerTimeout  time.Duration
 }
 
 // SomeoneListens tests if there is a listener for a channel
@@ -111,19 +113,29 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 	// now we wait for response and send result via `ans`
 	go func() {
 		result := new(WorkerResult)
+		tmr := time.NewTimer(a.queryAnswerTimeout)
 
-		item := <-sub.Channel()
-		cmd := a.redis.Get(a.ctx, item.Payload)
-		if cmd.Err() != nil {
-			result.AttachValue(&results.ErrorResult{Error: cmd.Err().Error()})
+		select {
+		case item := <-sub.Channel():
+			cmd := a.redis.Get(a.ctx, item.Payload)
+			if cmd.Err() != nil {
+				result.AttachValue(&results.ErrorResult{Error: cmd.Err().Error()})
 
-		} else {
-			err := json.Unmarshal([]byte(cmd.Val()), &result)
-			if err != nil {
-				result.AttachValue(&results.ErrorResult{Error: err.Error()})
+			} else {
+				err := json.Unmarshal([]byte(cmd.Val()), &result)
+				if err != nil {
+					result.AttachValue(&results.ErrorResult{Error: err.Error()})
+				}
 			}
+			ans <- result
+		case <-tmr.C:
+			result.AttachValue(
+				&results.ErrorResult{
+					Error: fmt.Sprintf("worker result waiting timeout (%v)", DefaultQueryAnswerTimeout),
+				},
+			)
 		}
-		ans <- result
+
 		sub.Close()
 		close(ans)
 	}()
@@ -188,7 +200,13 @@ func NewAdapter(conf *Conf) *Adapter {
 			Str("channel", chQuery).
 			Msg("Redis channel for queries not specified, using default")
 	}
-
+	queryAnswerTimeout := time.Duration(conf.QueryAnswerTimeoutSecs) * time.Second
+	if queryAnswerTimeout == 0 {
+		queryAnswerTimeout = DefaultQueryAnswerTimeout
+		log.Warn().
+			Float64("value", queryAnswerTimeout.Seconds()).
+			Msg("queryAnswerTimeoutSecs not specified for Redis adapter, using default")
+	}
 	ans := &Adapter{
 		redis: redis.NewClient(&redis.Options{
 			Addr:     fmt.Sprintf("%s:%d", conf.Host, conf.Port),
@@ -198,6 +216,7 @@ func NewAdapter(conf *Conf) *Adapter {
 		ctx:                 context.Background(),
 		channelQuery:        chQuery,
 		channelResultPrefix: chRes,
+		queryAnswerTimeout:  queryAnswerTimeout,
 	}
 	return ans
 }
