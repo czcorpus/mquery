@@ -72,7 +72,8 @@ func (rc *ReorderCalculator) calcFxy(
 	fromIdx,
 	toIdx int,
 ) {
-	for i, item := range items {
+	for i := fromIdx; i < toIdx; i++ {
+		item := items[i]
 		wait, err := rc.executor.FxyQuery(rc.qGen, rc.corpusPath, word, item.Word)
 		if err != nil {
 			wg <- err
