@@ -102,10 +102,10 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	sub := a.redis.Subscribe(a.ctx, query.Channel)
 	if err := a.redis.LPush(a.ctx, DefaultQueueKey, msg).Err(); err != nil {
 		return nil, err
 	}
-	sub := a.redis.Subscribe(a.ctx, query.Channel)
 	ans := make(chan *WorkerResult)
 
 	// now we wait for response and send result via `ans`
