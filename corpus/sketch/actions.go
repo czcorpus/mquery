@@ -142,6 +142,21 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	if failed := a.handleResultOrWriteErr(ctx, &result, err); failed {
 		return
 	}
+	rc := a.qExecutor.NewReorderCalculator(
+		a.corpConf,
+		corpusPath,
+		queryGen,
+	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	result.Freqs = ans
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
