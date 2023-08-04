@@ -25,8 +25,8 @@ import (
 )
 
 type WorkerResult struct {
-	ResultType string          `json:"resultType"`
-	Value      json.RawMessage `json:"value"`
+	ResultType results.ResultType `json:"resultType"`
+	Value      json.RawMessage    `json:"value"`
 }
 
 func (wr *WorkerResult) AttachValue(value results.SerializableResult) error {

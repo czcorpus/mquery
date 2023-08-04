@@ -21,11 +21,22 @@ package results
 import "errors"
 
 const (
-	FreqDistribResultType  = "Freqs"
-	ConcSizeResultType     = "ConcSize"
-	CollocationsResultType = "Collocations"
-	ErrorResultType        = "ErrorResult"
+	ResultTypeFx           = "Fx"
+	ResultTypeFy           = "Fy"
+	ResultTypeFxy          = "Fxy"
+	ResultTypeCollocations = "Collocations"
+	ResultTypeError        = "Error"
 )
+
+type ResultType string
+
+func (rt ResultType) IsValid() bool {
+	return rt == ResultTypeFx || rt == ResultTypeFy || rt == ResultTypeFxy
+}
+
+func (rt ResultType) String() string {
+	return string(rt)
+}
 
 type WordFormsItem struct {
 	Lemma string             `json:"lemma"`
@@ -42,7 +53,7 @@ type FreqDistribItem struct {
 }
 
 type SerializableResult interface {
-	Type() string
+	Type() ResultType
 	Err() error
 }
 
@@ -52,11 +63,8 @@ type FreqDistrib struct {
 	ConcSize   int64              `json:"concSize"`
 	CorpusSize int64              `json:"corpusSize"`
 	Freqs      []*FreqDistribItem `json:"freqs"`
+	ResultType ResultType         `json:"resultType"`
 	Error      string             `json:"error"`
-}
-
-func (res *FreqDistrib) Type() string {
-	return FreqDistribResultType
 }
 
 func (res *FreqDistrib) Err() error {
@@ -66,16 +74,17 @@ func (res *FreqDistrib) Err() error {
 	return nil
 }
 
+func (res *FreqDistrib) Type() ResultType {
+	return res.ResultType
+}
+
 // ----
 
 type ConcSize struct {
-	ConcSize   int64  `json:"concSize"`
-	CorpusSize int64  `json:"corpusSize"`
-	Error      string `json:"error"`
-}
-
-func (res *ConcSize) Type() string {
-	return ConcSizeResultType
+	ConcSize   int64      `json:"concSize"`
+	CorpusSize int64      `json:"corpusSize"`
+	ResultType ResultType `json:"resultType"`
+	Error      string     `json:"error"`
 }
 
 func (res *ConcSize) Err() error {
@@ -83,6 +92,10 @@ func (res *ConcSize) Err() error {
 		return errors.New(res.Error)
 	}
 	return nil
+}
+
+func (res *ConcSize) Type() ResultType {
+	return res.ResultType
 }
 
 // ----
@@ -100,13 +113,13 @@ type Collocations struct {
 	Error      string     `json:"error"`
 }
 
-func (res *Collocations) Type() string {
-	return CollocationsResultType
-}
-
 func (res *Collocations) Err() error {
 	if res.Error != "" {
 		return errors.New(res.Error)
 	}
 	return nil
+}
+
+func (res *Collocations) Type() ResultType {
+	return ResultTypeCollocations
 }

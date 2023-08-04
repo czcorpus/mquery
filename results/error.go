@@ -21,13 +21,14 @@ package results
 import "errors"
 
 type ErrorResult struct {
-	Error string `json:"error"`
-}
-
-func (res *ErrorResult) Type() string {
-	return ErrorResultType
+	ResultType ResultType `json:"resultType"`
+	Error      string     `json:"error"`
 }
 
 func (res *ErrorResult) Err() error {
 	return errors.New(res.Error)
+}
+
+func (res *ErrorResult) Type() ResultType {
+	return res.ResultType
 }
