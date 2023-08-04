@@ -82,11 +82,13 @@ func (w *Worker) tryNextQuery() error {
 	switch query.Func {
 	case "freqDistrib":
 		ans := w.freqDistrib(query)
+		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
 	case "concSize":
 		ans := w.concSize(query)
+		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}

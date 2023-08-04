@@ -52,14 +52,15 @@ func (gen *ModifiersOfQGen) FxQuerySelectSQL(word string) (sql string, args []an
 }
 
 func (gen *ModifiersOfQGen) FxQueryInsertSQL(word string, result *rdb.WorkerResult) (sql string, args []any) {
-	if result != nil && result.ResultType != results.FreqDistribResultType {
+	if result != nil && result.ResultType != results.ResultTypeFx {
 		panic("invalid worker result type for ModifiersOfQGen")
 	}
 	sql = fmt.Sprintf(
 		"INSERT INTO scoll_query (%s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
 		gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr,
 	)
-	var val, rType string
+	var val string
+	var rType results.ResultType
 	if result != nil {
 		val = string(result.Value)
 		rType = result.ResultType

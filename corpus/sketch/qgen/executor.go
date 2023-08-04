@@ -22,6 +22,7 @@ import (
 	"mquery/corpus"
 	"mquery/db"
 	"mquery/rdb"
+	"mquery/results"
 
 	"github.com/rs/zerolog/log"
 )
@@ -55,8 +56,9 @@ func (qe *QueryExecutor) FxQuery(
 	} else {
 		ch2, err := qe.radapter.PublishQuery(
 			rdb.Query{
-				Func: "freqDistrib",
-				Args: []any{corpusPath, gen.FxQuery(word), gen.FxCrit(), 1},
+				ResultType: results.ResultTypeFx,
+				Func:       "freqDistrib",
+				Args:       []any{corpusPath, gen.FxQuery(word), gen.FxCrit(), 1},
 			},
 		)
 		if err != nil {
@@ -110,8 +112,9 @@ func (qe *QueryExecutor) FyQuery(
 	} else {
 		ch2, err := qe.radapter.PublishQuery(
 			rdb.Query{
-				Func: "concSize",
-				Args: []any{corpusPath, gen.FyQuery(word)},
+				ResultType: results.ResultTypeFy,
+				Func:       "concSize",
+				Args:       []any{corpusPath, gen.FyQuery(word)},
 			},
 		)
 		if err != nil {
@@ -158,8 +161,9 @@ func (qe *QueryExecutor) FxyQuery(
 	} else {
 		ch2, err := qe.radapter.PublishQuery(
 			rdb.Query{
-				Func: "concSize",
-				Args: []any{corpusPath, gen.FxyQuery(word, collCandidate)},
+				ResultType: results.ResultTypeFxy,
+				Func:       "concSize",
+				Args:       []any{corpusPath, gen.FxyQuery(word, collCandidate)},
 			},
 		)
 		if err != nil {

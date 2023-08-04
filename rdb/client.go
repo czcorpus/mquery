@@ -46,9 +46,10 @@ var (
 )
 
 type Query struct {
-	Channel string `json:"channel"`
-	Func    string `json:"func"`
-	Args    []any  `json:"args"`
+	ResultType results.ResultType `json:"resultType"`
+	Channel    string             `json:"channel"`
+	Func       string             `json:"func"`
+	Args       []any              `json:"args"`
 }
 
 func (q Query) ToJSON() (string, error) {
@@ -119,7 +120,12 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		case item := <-sub.Channel():
 			cmd := a.redis.Get(a.ctx, item.Payload)
 			if cmd.Err() != nil {
-				result.AttachValue(&results.ErrorResult{Error: cmd.Err().Error()})
+				result.AttachValue(
+					&results.ErrorResult{
+						ResultType: query.ResultType,
+						Error:      cmd.Err().Error(),
+					},
+				)
 
 			} else {
 				err := json.Unmarshal([]byte(cmd.Val()), &result)
@@ -167,7 +173,7 @@ func (a *Adapter) DequeueQuery() (Query, error) {
 func (a *Adapter) PublishResult(channelName string, value *WorkerResult) error {
 	log.Debug().
 		Str("channel", channelName).
-		Str("resultType", value.ResultType).
+		Str("resultType", value.ResultType.String()).
 		Msg("publishing result")
 	data, err := json.Marshal(value)
 	if err != nil {
