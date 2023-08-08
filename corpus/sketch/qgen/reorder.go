@@ -19,6 +19,7 @@
 package qgen
 
 import (
+	"math"
 	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/results"
@@ -94,22 +95,20 @@ func (rc *ReorderCalculator) calcFxy(
 	wg <- nil
 }
 
-// SortByLogDiceColl calculates log dice collocation
-// for at most `preliminarySelSize` most frequent items and
-// returns at most `resultSize` those items sorted by
-// the collocation score.
-// In case the `preliminarySelSize` is greater than
-// the `resultSize`, the method call panics.
+// SortByLogDiceColl calculates best freq. candidates by
+// cutting provided slice to a reasonable size specified
+// in the `conf.CollPreliminarySel.Size`, then calculating
+// collocation score for all the items and returning a slice
+// of size `conf.CollResultSize`.
+// The method creates multiple goroutines (configurable via
+// `conf.NumParallelChunks`) where each goroutine handles
+// a communication with a worker process.
 func (rc *ReorderCalculator) SortByLogDiceColl(
 	word string,
 	items []*results.FreqDistribItem,
-	preliminarySelSize int,
-	resultSize int,
+	conf *SketchSetup,
 ) ([]*results.FreqDistribItem, error) {
 
-	if preliminarySelSize < resultSize {
-		panic("preliminarySelSize must be >= resultSize")
-	}
 	sort.SliceStable(
 		items,
 		func(i, j int) bool {
@@ -124,7 +123,6 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	if chunkSize > 20 {
 		chunkSize = 20
 	}
-	chunkHalf := chunkSize / 2
 	items = items[:chunkSize]
 
 	// Fy -> [deprel="nsubj" & p_upos="VERB" & p_lemma="win"]
@@ -136,23 +134,30 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	wg := make(chan error)
 	defer close(wg)
 
-	// F(y)
-	go func() {
-		rc.calcFy(items, wg, fyValues, 0, chunkHalf)
-	}()
-	go func() {
-		rc.calcFy(items, wg, fyValues, chunkHalf, chunkSize)
-	}()
+	runFx := func(from, to int) {
+		rc.calcFy(items, wg, fyValues, from, to)
+	}
+	runFxy := func(from, to int) {
+		rc.calcFxy(items, wg, fxyValues, word, from, to)
+	}
 
-	// F(xy)
-	go func() {
-		rc.calcFxy(items, wg, fxyValues, word, 0, chunkHalf)
-	}()
-	go func() {
-		rc.calcFxy(items, wg, fxyValues, word, chunkHalf, chunkSize)
-	}()
+	min := func(x, y int) int {
+		if x < y {
+			return x
+		}
+		return y
+	}
 
-	for i := 0; i < 4; i++ {
+	procChunkSize := int(math.Ceil(float64(chunkSize) / float64(conf.NumParallelChunks)))
+	var numRoutines int
+	for i := 0; i < chunkSize; i += procChunkSize {
+		to := min(i+procChunkSize, chunkSize)
+		go runFx(i, to)
+		go runFxy(i, to)
+		numRoutines += 2
+	}
+
+	for i := 0; i < numRoutines; i++ {
 		err := <-wg
 		if err != nil {
 			return []*results.FreqDistribItem{}, err
@@ -169,7 +174,7 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 			return items[i].CollWeight > items[j].CollWeight
 		},
 	)
-	resultChunkSize := 10
+	resultChunkSize := conf.CollResultSize
 	if len(items) < resultChunkSize {
 		resultChunkSize = len(items)
 	}

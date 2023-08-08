@@ -23,6 +23,7 @@ import "github.com/rs/zerolog/log"
 const (
 	DfltCollPreliminarySelSize = 20
 	DfltCollResultSize         = 10
+	DfltNumParallelChunks      = 2
 )
 
 type SketchConfig map[string]*CorpusSketchSetup
@@ -31,6 +32,13 @@ type SketchSetup struct {
 	SketchAttrs            SketchConfig `json:"sketchAttrs"`
 	CollPreliminarySelSize int          `json:"collPreliminarySelSize"`
 	CollResultSize         int          `json:"collResultSize"`
+
+	// NumParallelChunks specifies how many parallel chunks should
+	// be solved when dealing with Fx or Fxy. Please note that
+	// due to the fact that there are two functions (Fx, Fxy), MQuery
+	// will actually create twice as many goroutines when calculating
+	// required collocations.
+	NumParallelChunks int `json:"numParallelChunks"`
 }
 
 func (setup *SketchSetup) ApplyDefaults() {
@@ -45,6 +53,12 @@ func (setup *SketchSetup) ApplyDefaults() {
 			Int("value", DfltCollResultSize).
 			Msg("collResultSize not set, using default")
 		setup.CollResultSize = DfltCollResultSize
+	}
+	if setup.NumParallelChunks == 0 {
+		log.Warn().
+			Int("value", DfltNumParallelChunks).
+			Msg("numParallelChunks not set, using default")
+		setup.NumParallelChunks = DfltNumParallelChunks
 	}
 }
 
