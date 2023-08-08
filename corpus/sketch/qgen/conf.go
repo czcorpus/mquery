@@ -18,10 +18,34 @@
 
 package qgen
 
+import "github.com/rs/zerolog/log"
+
+const (
+	DfltCollPreliminarySelSize = 20
+	DfltCollResultSize         = 10
+)
+
 type SketchConfig map[string]*CorpusSketchSetup
 
 type SketchSetup struct {
-	SketchAttrs SketchConfig `json:"sketchAttrs"`
+	SketchAttrs            SketchConfig `json:"sketchAttrs"`
+	CollPreliminarySelSize int          `json:"collPreliminarySelSize"`
+	CollResultSize         int          `json:"collResultSize"`
+}
+
+func (setup *SketchSetup) ApplyDefaults() {
+	if setup.CollPreliminarySelSize == 0 {
+		log.Warn().
+			Int("value", DfltCollPreliminarySelSize).
+			Msg("collPreliminarySelSize not set, using default")
+		setup.CollPreliminarySelSize = DfltCollPreliminarySelSize
+	}
+	if setup.CollResultSize == 0 {
+		log.Warn().
+			Int("value", DfltCollResultSize).
+			Msg("collResultSize not set, using default")
+		setup.CollResultSize = DfltCollResultSize
+	}
 }
 
 type CorpusSketchSetup struct {
