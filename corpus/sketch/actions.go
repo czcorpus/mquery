@@ -102,12 +102,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		corpusPath,
 		queryGen,
 	)
-	ans, err := rc.SortByLogDiceColl(
-		w,
-		result.Freqs,
-		a.sketchConf.CollPreliminarySelSize,
-		a.sketchConf.CollResultSize,
-	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -152,12 +147,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		corpusPath,
 		queryGen,
 	)
-	ans, err := rc.SortByLogDiceColl(
-		w,
-		result.Freqs,
-		a.sketchConf.CollPreliminarySelSize,
-		a.sketchConf.CollResultSize,
-	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -202,12 +192,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		corpusPath,
 		queryGen,
 	)
-	ans, err := rc.SortByLogDiceColl(
-		w,
-		result.Freqs,
-		a.sketchConf.CollPreliminarySelSize,
-		a.sketchConf.CollResultSize,
-	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -252,12 +237,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		corpusPath,
 		queryGen,
 	)
-	ans, err := rc.SortByLogDiceColl(
-		w,
-		result.Freqs,
-		a.sketchConf.CollPreliminarySelSize,
-		a.sketchConf.CollResultSize,
-	)
+	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
