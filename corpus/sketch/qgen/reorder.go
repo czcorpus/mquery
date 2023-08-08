@@ -94,10 +94,22 @@ func (rc *ReorderCalculator) calcFxy(
 	wg <- nil
 }
 
+// SortByLogDiceColl calculates log dice collocation
+// for at most `preliminarySelSize` most frequent items and
+// returns at most `resultSize` those items sorted by
+// the collocation score.
+// In case the `preliminarySelSize` is greater than
+// the `resultSize`, the method call panics.
 func (rc *ReorderCalculator) SortByLogDiceColl(
-	word string, items []*results.FreqDistribItem,
+	word string,
+	items []*results.FreqDistribItem,
+	preliminarySelSize int,
+	resultSize int,
 ) ([]*results.FreqDistribItem, error) {
 
+	if preliminarySelSize < resultSize {
+		panic("preliminarySelSize must be >= resultSize")
+	}
 	sort.SliceStable(
 		items,
 		func(i, j int) bool {
