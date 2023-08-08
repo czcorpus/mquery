@@ -33,7 +33,7 @@ func (gen *VerbObjectQGen) FxQuery(word string) string {
 		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
 		gen.SketchConf.LemmaAttr, word,
 		gen.SketchConf.FuncAttr, gen.SketchConf.NounObjectValue,
-		gen.SketchConf.ParPosAttr, gen.SketchConf.NounValue,
+		gen.SketchConf.ParPosAttr, gen.SketchConf.VerbValue,
 	)
 }
 
