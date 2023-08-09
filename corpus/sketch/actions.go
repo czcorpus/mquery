@@ -74,7 +74,15 @@ func (a *Actions) handleResultOrWriteErr(
 }
 
 func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
-	w := ctx.Request.URL.Query().Get("w")
+	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	corpusID := ctx.Param("corpusId")
 	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
@@ -120,7 +128,15 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 }
 
 func (a *Actions) ModifiersOf(ctx *gin.Context) {
-	w := ctx.Request.URL.Query().Get("w")
+	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	corpusID := ctx.Param("corpusId")
 	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
@@ -164,7 +180,15 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 }
 
 func (a *Actions) VerbsSubject(ctx *gin.Context) {
-	w := ctx.Request.URL.Query().Get("w")
+	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	corpusID := ctx.Param("corpusId")
 	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
@@ -209,7 +233,15 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 }
 
 func (a *Actions) VerbsObject(ctx *gin.Context) {
-	w := ctx.Request.URL.Query().Get("w")
+	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	corpusID := ctx.Param("corpusId")
 	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
