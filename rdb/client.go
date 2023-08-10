@@ -72,9 +72,31 @@ func DecodeQuery(q string) (Query, error) {
 type Adapter struct {
 	ctx                 context.Context
 	redis               *redis.Client
+	conf                *Conf
 	channelQuery        string
 	channelResultPrefix string
 	queryAnswerTimeout  time.Duration
+}
+
+func (a *Adapter) TestConnection(timeout time.Duration) error {
+
+	tick := time.NewTicker(2 * time.Second)
+	timeoutCh := time.After(timeout)
+	for {
+		select {
+		case <-timeoutCh:
+			return fmt.Errorf("failed to connect to the Redis server at %s", a.conf.ServerInfo())
+		case <-tick.C:
+			_, err := a.redis.Ping(a.ctx).Result()
+			if err == nil {
+				return nil
+			}
+			log.Info().
+				Err(err).
+				Str("server", a.conf.ServerInfo()).
+				Msg("waiting for Redis server...")
+		}
+	}
 }
 
 // SomeoneListens tests if there is a listener for a channel
@@ -214,6 +236,7 @@ func NewAdapter(conf *Conf) *Adapter {
 			Msg("queryAnswerTimeoutSecs not specified for Redis adapter, using default")
 	}
 	ans := &Adapter{
+		conf: conf,
 		redis: redis.NewClient(&redis.Options{
 			Addr:     fmt.Sprintf("%s:%d", conf.Host, conf.Port),
 			Password: conf.Password,
