@@ -29,10 +29,18 @@ const (
 
 type QueryType int
 
+// QueryGenerator defines an object capable of producing
+// both CQL and SQL queries for a single "sketch" (e.g. 'nouns modified by...')
+//
+// Please note that while the `word` argument has its own type `Word` (to include
+// also the optional PoS), the `collCandidate` is just a string. This is due to the
+// fact, that the PoS of collocation candidates is specified in queries themselves.
+// E.g. in Fx `[lemma="team" & deprel="nmod" & p_upos="NOUN"]` we look for NOUNs which
+// means that in Fy, Fxy, the respective words for `collCandidate` are already NOUNs.
 type QueryGenerator interface {
-	FxQuery(word string) string
-	FxQuerySelectSQL(word string) (string, []any)
-	FxQueryInsertSQL(word string, result *rdb.WorkerResult) (string, []any)
+	FxQuery(word Word) string
+	FxQuerySelectSQL(word Word) (string, []any)
+	FxQueryInsertSQL(word Word, result *rdb.WorkerResult) (string, []any)
 	FxCrit() string
 	FxCritInsertSQL(query_id int64, result *rdb.WorkerResult) (string, []any) // we need `word` here to be able to join tables
 
@@ -40,9 +48,9 @@ type QueryGenerator interface {
 	FyQuerySelectSQL(collCandidate string) (string, []any)
 	FyQueryInsertSQL(collCandidate string, result *rdb.WorkerResult) (string, []any)
 
-	FxyQuery(word, collCandidate string) string
-	FxyQuerySelectSQL(word, collCandidate string) (string, []any)
-	FxyQueryInsertSQL(word, collCandidate string, result *rdb.WorkerResult) (string, []any)
+	FxyQuery(word Word, collCandidate string) string
+	FxyQuerySelectSQL(word Word, collCandidate string) (string, []any)
+	FxyQueryInsertSQL(word Word, collCandidate string, result *rdb.WorkerResult) (string, []any)
 }
 
 func NewQueryGenerator(qType QueryType, conf *CorpusSketchSetup) QueryGenerator {

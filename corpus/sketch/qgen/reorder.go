@@ -69,13 +69,14 @@ func (rc *ReorderCalculator) calcFxy(
 	items []*results.FreqDistribItem,
 	wg chan<- error,
 	fxyValues []int64,
-	word string,
+	word Word,
 	fromIdx,
 	toIdx int,
 ) {
 	for i := fromIdx; i < toIdx; i++ {
 		item := items[i]
-		wait, err := rc.executor.FxyQuery(rc.qGen, rc.corpusPath, word, item.Word)
+		wait, err := rc.executor.FxyQuery(
+			rc.qGen, rc.corpusPath, word, item.Word)
 		if err != nil {
 			wg <- err
 			return
@@ -104,7 +105,7 @@ func (rc *ReorderCalculator) calcFxy(
 // `conf.NumParallelChunks`) where each goroutine handles
 // a communication with a worker process.
 func (rc *ReorderCalculator) SortByLogDiceColl(
-	word string,
+	word Word,
 	items []*results.FreqDistribItem,
 	conf *SketchSetup,
 ) ([]*results.FreqDistribItem, error) {

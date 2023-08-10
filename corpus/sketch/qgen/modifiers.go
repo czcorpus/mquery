@@ -19,6 +19,7 @@
 package qgen
 
 import (
+	sqlLib "database/sql"
 	"fmt"
 	"mquery/rdb"
 	"mquery/results"
@@ -32,30 +33,52 @@ type ModifiersOfQGen struct {
 	SketchConf *CorpusSketchSetup
 }
 
-func (gen *ModifiersOfQGen) FxQuery(word string) string {
+func (gen *ModifiersOfQGen) FxQuery(word Word) string {
+	if word.PoS == "" {
+		return fmt.Sprintf(
+			"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+			gen.SketchConf.ParLemmaAttr, word.V,
+			gen.SketchConf.FuncAttr, gen.SketchConf.NounModifiedValue,
+			gen.SketchConf.PosAttr, gen.SketchConf.NounValue,
+		)
+	}
 	return fmt.Sprintf(
-		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		gen.SketchConf.ParLemmaAttr, word,
+		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+		gen.SketchConf.ParLemmaAttr, word.V,
+		gen.SketchConf.ParPosAttr, word.PoS,
 		gen.SketchConf.FuncAttr, gen.SketchConf.NounModifiedValue,
 		gen.SketchConf.PosAttr, gen.SketchConf.NounValue,
 	)
 }
 
-func (gen *ModifiersOfQGen) FxQuerySelectSQL(word string) (sql string, args []any) {
+func (gen *ModifiersOfQGen) FxQuerySelectSQL(word Word) (sql string, args []any) {
+	if word.PoS == "" {
+		sql = fmt.Sprintf(
+			"SELECT f.result, f.result_type FROM scoll_query AS q "+
+				"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
+				"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+			gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+		)
+		args = append(
+			args,
+			word.V, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, gen.SketchConf.ParLemmaAttr,
+		)
+		return
+	}
 	sql = fmt.Sprintf(
 		"SELECT f.result, f.result_type FROM scoll_query AS q "+
 			"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
-			"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-		gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+			"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+		gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
 	)
 	args = append(
 		args,
-		word, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, gen.SketchConf.ParLemmaAttr,
+		word.V, word.PoS, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, gen.SketchConf.ParLemmaAttr,
 	)
 	return
 }
 
-func (gen *ModifiersOfQGen) FxQueryInsertSQL(word string, result *rdb.WorkerResult) (sql string, args []any) {
+func (gen *ModifiersOfQGen) FxQueryInsertSQL(word Word, result *rdb.WorkerResult) (sql string, args []any) {
 	if result != nil && result.ResultType != results.ResultTypeFx {
 		panic(fmt.Sprintf("invalid worker result type for ModifiersOfQGen.Fx: %s", result.ResultType))
 	}
@@ -69,8 +92,14 @@ func (gen *ModifiersOfQGen) FxQueryInsertSQL(word string, result *rdb.WorkerResu
 		val = string(result.Value)
 		rType = result.ResultType
 	}
+	var posValue sqlLib.NullString
+	if word.PoS != "" {
+		posValue.String = word.PoS
+		posValue.Valid = true
+	}
 	args = []any{
-		word,
+		word.V,
+		posValue,
 		gen.SketchConf.NounModifiedValue,
 		gen.SketchConf.NounValue,
 		val,
@@ -133,27 +162,53 @@ func (gen *ModifiersOfQGen) FyQueryInsertSQL(collCandidate string, result *rdb.W
 	return
 }
 
-func (gen *ModifiersOfQGen) FxyQuery(word, collCandidate string) string {
+func (gen *ModifiersOfQGen) FxyQuery(word Word, collCandidate string) string {
+	if word.PoS == "" {
+		return fmt.Sprintf(
+			"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+			gen.SketchConf.ParLemmaAttr, word.V,
+			gen.SketchConf.FuncAttr, gen.SketchConf.NounModifiedValue,
+			gen.SketchConf.PosAttr, gen.SketchConf.NounValue,
+			gen.SketchConf.LemmaAttr, collCandidate,
+		)
+	}
 	return fmt.Sprintf(
-		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		gen.SketchConf.LemmaAttr, word,
-		gen.SketchConf.ParLemmaAttr, collCandidate,
+		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
+		gen.SketchConf.ParLemmaAttr, word.V,
+		gen.SketchConf.ParPosAttr, word.PoS,
 		gen.SketchConf.FuncAttr, gen.SketchConf.NounModifiedValue,
-		gen.SketchConf.ParPosAttr, gen.SketchConf.NounValue,
+		gen.SketchConf.PosAttr, gen.SketchConf.NounValue,
+		gen.SketchConf.LemmaAttr, collCandidate,
 	)
 }
 
-func (gen *ModifiersOfQGen) FxyQuerySelectSQL(word, collCandidate string) (sql string, args []any) {
+func (gen *ModifiersOfQGen) FxyQuerySelectSQL(word Word, collCandidate string) (sql string, args []any) {
+	if word.PoS == "" {
+		sql = fmt.Sprintf(
+			"SELECT result, result_type FROM scoll_query "+
+				"WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
+			gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.LemmaAttr,
+		)
+		args = append(
+			args,
+			word.V, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, collCandidate,
+		)
+		return
+	}
 	sql = fmt.Sprintf(
 		"SELECT result, result_type FROM scoll_query "+
-			"WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
-		gen.SketchConf.LemmaAttr, gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+			"WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
+		gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.LemmaAttr,
 	)
-	args = append(args, word, collCandidate, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue)
+	args = append(
+		args,
+		word.V, word.PoS, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, collCandidate,
+	)
 	return
+
 }
 
-func (gen *ModifiersOfQGen) FxyQueryInsertSQL(word, collCandidate string, result *rdb.WorkerResult) (sql string, args []any) {
+func (gen *ModifiersOfQGen) FxyQueryInsertSQL(word Word, collCandidate string, result *rdb.WorkerResult) (sql string, args []any) {
 	if result.ResultType != results.ResultTypeFxy {
 		panic(fmt.Sprintf("invalid worker result type for ModifiersOfQGen.Fxy: %s", result.ResultType))
 	}
@@ -163,7 +218,7 @@ func (gen *ModifiersOfQGen) FxyQueryInsertSQL(word, collCandidate string, result
 	)
 	args = append(
 		args,
-		word,
+		word.V,
 		collCandidate,
 		gen.SketchConf.NounModifiedValue,
 		gen.SketchConf.NounValue,

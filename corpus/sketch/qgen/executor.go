@@ -33,7 +33,7 @@ type QueryExecutor struct {
 }
 
 func (qe *QueryExecutor) FxQuery(
-	gen QueryGenerator, corpusPath, word string,
+	gen QueryGenerator, corpusPath string, word Word,
 ) (<-chan *rdb.WorkerResult, error) {
 
 	sql, args := gen.FxQuerySelectSQL(word)
@@ -90,9 +90,9 @@ func (qe *QueryExecutor) FxQuery(
 }
 
 func (qe *QueryExecutor) FyQuery(
-	gen QueryGenerator, corpusPath, word string,
+	gen QueryGenerator, corpusPath string, collCandidate string,
 ) (<-chan *rdb.WorkerResult, error) {
-	sql, args := gen.FyQuerySelectSQL(word)
+	sql, args := gen.FyQuerySelectSQL(collCandidate)
 	ans, err := qe.backend.Select(sql, args)
 	ch := make(chan *rdb.WorkerResult)
 
@@ -114,7 +114,7 @@ func (qe *QueryExecutor) FyQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFy,
 				Func:       "concSize",
-				Args:       []any{corpusPath, gen.FyQuery(word)},
+				Args:       []any{corpusPath, gen.FyQuery(collCandidate)},
 			},
 		)
 		if err != nil {
@@ -128,7 +128,7 @@ func (qe *QueryExecutor) FyQuery(
 			ch <- res
 			close(ch)
 			// now let's store data to db
-			query, args := gen.FyQueryInsertSQL(word, res)
+			query, args := gen.FyQueryInsertSQL(collCandidate, res)
 			_, err := qe.backend.Insert(query, args)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to insert cache data for FyQuery")
@@ -139,7 +139,7 @@ func (qe *QueryExecutor) FyQuery(
 }
 
 func (qe *QueryExecutor) FxyQuery(
-	gen QueryGenerator, corpusPath, word, collCandidate string,
+	gen QueryGenerator, corpusPath string, word Word, collCandidate string,
 ) (<-chan *rdb.WorkerResult, error) {
 	sql, args := gen.FxyQuerySelectSQL(word, collCandidate)
 	ans, err := qe.backend.Select(sql, args)

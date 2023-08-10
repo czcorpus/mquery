@@ -26,6 +26,15 @@ const (
 	DfltNumParallelChunks      = 2
 )
 
+type Word struct {
+	V   string
+	PoS string
+}
+
+func (w Word) IsValid() bool {
+	return w.V != ""
+}
+
 type SketchConfig map[string]*CorpusSketchSetup
 
 type SketchSetup struct {
