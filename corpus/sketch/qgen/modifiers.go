@@ -56,12 +56,12 @@ func (gen *ModifiersOfQGen) FxQuerySelectSQL(word Word) (sql string, args []any)
 		sql = fmt.Sprintf(
 			"SELECT f.result, f.result_type FROM scoll_query AS q "+
 				"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
-				"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-			gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+				"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s IS NULL AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+			gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr,
 		)
 		args = append(
 			args,
-			word.V, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, gen.SketchConf.ParLemmaAttr,
+			word.V, gen.SketchConf.NounModifiedValue, gen.SketchConf.NounValue, gen.SketchConf.LemmaAttr,
 		)
 		return
 	}
@@ -69,7 +69,7 @@ func (gen *ModifiersOfQGen) FxQuerySelectSQL(word Word) (sql string, args []any)
 		"SELECT f.result, f.result_type FROM scoll_query AS q "+
 			"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
 			"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-		gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+		gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr,
 	)
 	args = append(
 		args,
@@ -83,8 +83,8 @@ func (gen *ModifiersOfQGen) FxQueryInsertSQL(word Word, result *rdb.WorkerResult
 		panic(fmt.Sprintf("invalid worker result type for ModifiersOfQGen.Fx: %s", result.ResultType))
 	}
 	sql = fmt.Sprintf(
-		"INSERT INTO scoll_query (%s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
-		gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+		"INSERT INTO scoll_query (%s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?)",
+		gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr,
 	)
 	var val string
 	var rType results.ResultType
@@ -186,8 +186,8 @@ func (gen *ModifiersOfQGen) FxyQuerySelectSQL(word Word, collCandidate string) (
 	if word.PoS == "" {
 		sql = fmt.Sprintf(
 			"SELECT result, result_type FROM scoll_query "+
-				"WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
-			gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.LemmaAttr,
+				"WHERE result_type = 'Fxy' AND %s = ? AND %s IS NULL AND %s = ? AND %s = ? AND %s = ? ",
+			gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.LemmaAttr,
 		)
 		args = append(
 			args,
@@ -213,12 +213,18 @@ func (gen *ModifiersOfQGen) FxyQueryInsertSQL(word Word, collCandidate string, r
 		panic(fmt.Sprintf("invalid worker result type for ModifiersOfQGen.Fxy: %s", result.ResultType))
 	}
 	sql = fmt.Sprintf(
-		"INSERT INTO scoll_query (%s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?)",
-		gen.SketchConf.LemmaAttr, gen.SketchConf.ParLemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+		"INSERT INTO scoll_query (%s, %s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		gen.SketchConf.ParLemmaAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.PosAttr,
 	)
+	var posValue sqlLib.NullString
+	if word.PoS != "" {
+		posValue.String = word.PoS
+		posValue.Valid = true
+	}
 	args = append(
 		args,
 		word.V,
+		posValue,
 		collCandidate,
 		gen.SketchConf.NounModifiedValue,
 		gen.SketchConf.NounValue,
