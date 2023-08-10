@@ -53,8 +53,8 @@ func (gen *VerbSubjectQGen) FxQuerySelectSQL(word Word) (sql string, args []any)
 	if word.PoS == "" {
 		sql = fmt.Sprintf("SELECT f.result, f.result_type FROM scoll_query AS q "+
 			"JOIN scoll_fcrit AS f ON q.id = f.scoll_query_id "+
-			"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-			gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParLemmaAttr)
+			"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s IS NULL AND q.%s = ? AND q.%s = ? AND f.attr = ?",
+			gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParLemmaAttr)
 		args = []any{
 			word.V,
 			gen.SketchConf.NounSubjectValue,
@@ -82,7 +82,7 @@ func (gen *VerbSubjectQGen) FxQueryInsertSQL(word Word, result *rdb.WorkerResult
 		panic("invalid worker result type for VerbSubjectQGen")
 	}
 	sql = fmt.Sprintf(
-		"INSERT INTO scoll_query (%s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO scoll_query (%s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?)",
 		gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
 	)
 	var val string
@@ -186,8 +186,8 @@ func (gen *VerbSubjectQGen) FxyQuerySelectSQL(word Word, collCandidate string) (
 	if word.PoS == "" {
 		sql = fmt.Sprintf(
 			"SELECT result, result_type FROM scoll_query "+
-				" WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
-			gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+				" WHERE result_type = 'Fxy' AND %s = ? AND %s IS NULL AND %s = ? AND %s = ? AND %s = ? ",
+			gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
 		)
 		args = append(args, word.V, gen.SketchConf.NounSubjectValue, gen.SketchConf.VerbValue, collCandidate)
 		return
@@ -209,7 +209,7 @@ func (gen *VerbSubjectQGen) FxyQueryInsertSQL(word Word, collCandidate string, r
 		panic("invalid worker result type for VerbSubjectQGen")
 	}
 	sql = fmt.Sprintf(
-		"INSERT INTO scoll_query (%s, %s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?)",
+		"INSERT INTO scoll_query (%s, %s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
 	)
 	var posValue sqlLib.NullString
