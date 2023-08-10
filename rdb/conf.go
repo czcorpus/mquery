@@ -18,6 +18,8 @@
 
 package rdb
 
+import "fmt"
+
 type Conf struct {
 	Host                   string `json:"host"`
 	Port                   int    `json:"port"`
@@ -26,4 +28,8 @@ type Conf struct {
 	ChannelQuery           string `json:"channelQuery"`
 	ChannelResultPrefix    string `json:"channelResultPrefix"`
 	QueryAnswerTimeoutSecs int    `json:"queryAnswerTimeoutSecs"`
+}
+
+func (conf *Conf) ServerInfo() string {
+	return fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 }

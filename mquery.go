@@ -188,8 +188,16 @@ func main() {
 
 	switch action {
 	case "server":
+		err := radapter.TestConnection(20 * time.Second)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to connect to Redis")
+		}
 		runApiServer(conf, syscallChan, exitEvent, radapter)
 	case "worker":
+		err := radapter.TestConnection(20 * time.Second)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to connect to Redis")
+		}
 		runWorker(radapter, exitEvent)
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
