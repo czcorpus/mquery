@@ -44,6 +44,7 @@ type Conf struct {
 	ListenPort             int                  `json:"listenPort"`
 	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
+	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
 	CorporaSetup           *corpus.CorporaSetup `json:"corporaSetup"`
 	SketchSetup            *qgen.SketchSetup    `json:"sketchSetup"`
 	DB                     *db.Conf             `json:"db"`

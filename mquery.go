@@ -46,6 +46,43 @@ func getEnv(name string) string {
 func init() {
 }
 
+func getRequestOrigin(ctx *gin.Context) string {
+	currOrigin, ok := ctx.Request.Header["Origin"]
+	if ok {
+		return currOrigin[0]
+	}
+	return ""
+}
+
+func CORSMiddleware(conf *cnf.Conf) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var allowedOrigin string
+		currOrigin := getRequestOrigin(ctx)
+		for _, origin := range conf.CorsAllowedOrigins {
+			if currOrigin == origin {
+				allowedOrigin = origin
+				break
+			}
+		}
+		if allowedOrigin != "" {
+			ctx.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+			ctx.Writer.Header().Set(
+				"Access-Control-Allow-Headers",
+				"Content-Type, Content-Length, Accept-Encoding, Authorization, Accept, Origin, Cache-Control, X-Requested-With",
+			)
+			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		}
+
+		if ctx.Request.Method == "OPTIONS" {
+			ctx.AbortWithStatus(204)
+			return
+		}
+
+		ctx.Next()
+	}
+}
+
 func runApiServer(
 	conf *cnf.Conf,
 	syscallChan chan os.Signal,
@@ -67,6 +104,7 @@ func runApiServer(
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
 	engine.Use(uniresp.AlwaysJSONContentType())
+	engine.Use(CORSMiddleware(conf))
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
