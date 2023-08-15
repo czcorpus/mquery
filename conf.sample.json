@@ -5,6 +5,7 @@
     "logLevel": "debug",
     "serverReadTimeoutSecs": 120,
     "serverWriteTimeoutSecs": 60,
+    "corsAllowedOrigins": ["http://localhost:8081", "http://localhost:8082"],
     "corporaSetup": {
         "registryDir": "/home/tomas/work/data/corpora/registry"
     },
