@@ -54,6 +54,11 @@ type GoConcSize struct {
 	CorpusSize int64
 }
 
+type GoConcExamples struct {
+	Lines    []string
+	ConcSize int
+}
+
 type GoCollsItem struct {
 	Word  string
 	Value float64
@@ -117,6 +122,7 @@ func GetCorpusConf(corpus *GoCorpus, prop string) (string, error) {
 
 func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	var ret GoConc
+
 	ans := C.create_concordance(corpus.corp, C.CString(query))
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
@@ -167,6 +173,26 @@ func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 	}
 	ret.CorpusSize = int64(ans.corpusSize)
 	ret.Value = int64(ans.value)
+	return ret, nil
+}
+
+func GetConcExamples(corpusPath, query string, attrs []string, maxItems int) (GoConcExamples, error) {
+	ans := C.conc_examples(
+		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")), C.longlong(maxItems))
+	var ret GoConcExamples
+	ret.Lines = make([]string, maxItems)
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return ret, err
+
+	} else {
+		defer C.conc_examples_free(ans.value, C.int(ans.size))
+	}
+	tmp := (*[1000]*C.char)(unsafe.Pointer(ans.value))
+	for i := 0; i < int(ans.size); i++ {
+		ret.Lines[i] = C.GoString(tmp[i])
+	}
 	return ret, nil
 }
 

@@ -20,12 +20,14 @@
 #include "corp/corpus.hh"
 #include "concord/concord.hh"
 #include "concord/concstat.hh"
+#include "concord/concget.hh"
 #include "query/cqpeval.hh"
 #include "mango.h"
 #include <string.h>
 #include <stdio.h>
 #include <iostream>
 #include <memory>
+#include <sstream>
 
 using namespace std;
 
@@ -195,6 +197,78 @@ FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcr
 }
 
 
+KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const char* attrs, PosInt limit) {
+    string cPath(corpusPath);
+    try {
+        Corpus* corp = new Corpus(cPath);
+        Concordance* conc = new Concordance(
+            corp, corp->filter_query(eval_cqpquery(query, corp)));
+        conc->sync();
+        conc->shuffle();
+        KWICLines* kl = new KWICLines(
+            corp, conc->RS(true, 0, 100), "-1:s", "1:s",
+			attrs, attrs, "", "", limit, false);
+        if (conc->size() < limit) {
+            limit = conc->size();
+        }
+        char** lines = (char**)malloc(limit * sizeof(char*));
+        int i = 0;
+        while (kl->nextline()) {
+            auto lft = kl->get_left();
+            auto kwc = kl->get_kwic();
+            auto rgt = kl->get_right();
+            std::ostringstream buffer;
+
+            for (size_t i = 0; i < lft.size(); ++i) {
+                if (i > 0) {
+                    buffer << " ";
+                }
+                buffer << lft.at(i);
+            }
+            for (size_t i = 0; i < kwc.size(); ++i) {
+                if (i > 0) {
+                    buffer << " ";
+                }
+                buffer << kwc.at(i);
+            }
+            for (size_t i = 0; i < rgt.size(); ++i) {
+                if (i > 0) {
+                    buffer << " ";
+                }
+                buffer << rgt.at(i);
+            }
+            lines[i] = strdup(buffer.str().c_str());
+            i++;
+            if (i == limit) {
+                break;
+            }
+        }
+        KWICRowsRetval ans {
+            lines,
+            limit,
+            nullptr
+        };
+        return ans;
+
+    } catch (std::exception &e) {
+        KWICRowsRetval ans {
+            nullptr,
+            0,
+            strdup(e.what())
+        };
+        return ans;
+    }
+}
+
+void conc_examples_free(KWICRowsV value, int numItems) {
+    char** tValue = (char**)value;
+    for (int i = 0; i < numItems; i++) {
+        free(tValue[i]);
+    }
+    free(tValue);
+}
+
+
 void delete_str_vector(MVector v) {
     vector<string>* vectorObj = (vector<string>*)v;
     delete vectorObj;
@@ -214,7 +288,6 @@ PosInt str_vector_get_size(MVector v) {
     vector<string>* vectorObj = (vector<string>*)v;
     return vectorObj->size();
 }
-
 
 PosInt int_vector_get_element(MVector v, int i) {
     vector<PosInt>* vectorObj = (vector<PosInt>*)v;

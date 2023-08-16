@@ -119,6 +119,9 @@ func runApiServer(
 	engine.GET(
 		"/word-forms/:corpusId", concActions.WordForms)
 
+	engine.GET(
+		"/conc-examples/:corpusId", concActions.ConcExample)
+
 	sketchActions := sketch.NewActions(
 		conf.CorporaSetup,
 		conf.SketchSetup,

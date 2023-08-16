@@ -120,6 +120,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		return
 	}
 	result.Freqs = ans
+	result.ExamplesQueryTpl = queryGen.FxyQuery(w, "%s")
 
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
@@ -173,6 +174,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 	result.Freqs = ans
+	result.ExamplesQueryTpl = queryGen.FxyQuery(w, "%s")
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
@@ -226,6 +228,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 	result.Freqs = ans
+	result.ExamplesQueryTpl = queryGen.FxyQuery(w, "%s")
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
@@ -279,6 +282,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		return
 	}
 	result.Freqs = ans
+	result.ExamplesQueryTpl = queryGen.FxyQuery(w, "%s")
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
