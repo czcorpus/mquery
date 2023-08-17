@@ -20,6 +20,7 @@ package query
 
 import (
 	"mquery/corpus"
+	"mquery/mango"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -249,6 +250,24 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 		return
 	}
 
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
+}
+
+func (a *Actions) ConcExample(ctx *gin.Context) {
+	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	q := ctx.Query("query")
+	attrs := []string{"word", "lemma", "p_lemma"}
+	concEx, err := mango.GetConcExamples(corpusPath, q, attrs, 10)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	parser := corpus.NewLineParser(attrs)
+	ans := parser.Parse(concEx)
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 

@@ -63,8 +63,13 @@ type FreqDistrib struct {
 	ConcSize   int64              `json:"concSize"`
 	CorpusSize int64              `json:"corpusSize"`
 	Freqs      []*FreqDistribItem `json:"freqs"`
-	ResultType ResultType         `json:"resultType"`
-	Error      string             `json:"error"`
+
+	// ExamplesQueryTpl provides a (CQL) query template
+	// for obtaining examples matching words from the `Freqs`
+	// atribute (one by one).
+	ExamplesQueryTpl string     `json:"examplesQueryTpl"`
+	ResultType       ResultType `json:"resultType"`
+	Error            string     `json:"error"`
 }
 
 func (res *FreqDistrib) Err() error {

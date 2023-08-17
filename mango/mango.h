@@ -26,6 +26,7 @@ typedef void* StructV;
 typedef void* ConcV;
 typedef void* MVector;
 typedef void* CollsV;
+typedef void* KWICRowsV;
 
 
 typedef long long int PosInt;
@@ -79,6 +80,12 @@ typedef struct CollsRetVal {
     const char * err;
 } CollsRetVal;
 
+typedef struct KWICRowsRetval {
+    KWICRowsV value;
+    PosInt size;
+    const char * err;
+} KWICRowsRetval;
+
 /**
  * Create a Manatee corpus instance
  */
@@ -111,6 +118,10 @@ PosInt int_vector_get_size(MVector v);
 FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
 
 FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcrit, PosInt flimit);
+
+KWICRowsRetval conc_examples(const char* corpusPath, const char*query, const char* attrs, PosInt limit);
+
+void conc_examples_free(KWICRowsV value, int numItems);
 
 CollsRetVal collocations(
     const char* corpusPath,
