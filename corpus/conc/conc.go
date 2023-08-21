@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package corpus
+package conc
 
 import (
 	"mquery/mango"
@@ -38,10 +38,6 @@ type Token struct {
 
 type ConcordanceLine struct {
 	Text []*Token `json:"text"`
-}
-
-type ConcExamples struct {
-	Lines []ConcordanceLine `json:"lines"`
 }
 
 type LineParser struct {
@@ -102,14 +98,12 @@ func (lp *LineParser) parseRawLine(line string) ConcordanceLine {
 	return ConcordanceLine{Text: tokens}
 }
 
-func (lp *LineParser) Parse(data mango.GoConcExamples) *ConcExamples {
+func (lp *LineParser) Parse(data mango.GoConcExamples) []ConcordanceLine {
 	pLines := make([]ConcordanceLine, len(data.Lines))
 	for i, line := range data.Lines {
 		pLines[i] = lp.parseRawLine(line)
 	}
-	return &ConcExamples{
-		Lines: pLines,
-	}
+	return pLines
 }
 
 func NewLineParser(attrs []string) *LineParser {

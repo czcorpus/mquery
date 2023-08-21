@@ -21,7 +21,6 @@ package query
 import (
 	"encoding/json"
 	"mquery/corpus"
-	"mquery/mango"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -304,10 +303,13 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 }
 
 func (a *Actions) ConcExample(ctx *gin.Context) {
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	q := ctx.Query("query")
 	attrs := []string{"word", "lemma", "p_lemma"}
-	concEx, err := mango.GetConcExamples(corpusPath, q, attrs, 10)
+	args, err := json.Marshal(rdb.ConcExampleArgs{
+		CorpusPath: a.conf.GetRegistryPath(ctx.Param("corpusId")),
+		Query:      ctx.Query("query"),
+		Attrs:      attrs,
+		MaxItems:   10,
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -316,9 +318,25 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 		)
 		return
 	}
-	parser := corpus.NewLineParser(attrs)
-	ans := parser.Parse(concEx)
-	uniresp.WriteJSONResponse(ctx.Writer, ans)
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "concExample",
+		Args: args,
+	})
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	rawResult := <-wait
+	result, err := rdb.DeserializeConcExampleResult(rawResult)
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		result,
+	)
+	uniresp.WriteJSONResponse(ctx.Writer, result)
 }
 
 func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter) *Actions {

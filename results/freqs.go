@@ -18,7 +18,10 @@
 
 package results
 
-import "errors"
+import (
+	"errors"
+	"mquery/corpus/conc"
+)
 
 const (
 	ResultTypeFx           = "Fx"
@@ -100,6 +103,26 @@ func (res *ConcSize) Err() error {
 }
 
 func (res *ConcSize) Type() ResultType {
+	return res.ResultType
+}
+
+// ----
+
+type ConcExample struct {
+	Lines      []conc.ConcordanceLine `json:"lines"`
+	ConcSize   int                    `json:"concSize"`
+	ResultType ResultType             `json:"resultType"`
+	Error      string                 `json:"error"`
+}
+
+func (res *ConcExample) Err() error {
+	if res.Error != "" {
+		return errors.New(res.Error)
+	}
+	return nil
+}
+
+func (res *ConcExample) Type() ResultType {
 	return res.ResultType
 }
 
