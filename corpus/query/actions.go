@@ -19,6 +19,7 @@
 package query
 
 import (
+	"encoding/json"
 	"mquery/corpus"
 	"mquery/mango"
 	"mquery/rdb"
@@ -70,9 +71,24 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		}
 	}
 
+	args, err := json.Marshal(rdb.FreqDistribArgs{
+		CorpusPath: ctx.Param("corpusId"),
+		Query:      q,
+		Crit:       "lemma/e 0~0>0",
+		Limit:      flimit,
+	})
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{ctx.Param("corpusId"), q, "lemma/e 0~0>0", flimit},
+		Args: args,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -115,9 +131,25 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		return
 	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	args, err := json.Marshal(rdb.CollocationsArgs{
+		CorpusPath: corpusPath,
+		Query:      q,
+		Attr:       "word",
+		CollFn:     collFn,
+		MinFreq:    20,
+		MaxItems:   20,
+	})
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "collocations",
-		Args: []any{corpusPath, q, "word", collFn, 20, 20},
+		Args: args,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -141,9 +173,18 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) (*results
 		q += " & pos=\"" + pos + "\""
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
+	args, err := json.Marshal(rdb.FreqDistribArgs{
+		CorpusPath: corpusPath,
+		Query:      "[" + q + "]",
+		Crit:       "lemma 0~0>0 pos 0~0>0",
+		Limit:      1,
+	})
+	if err != nil {
+		return nil, err
+	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{corpusPath, "[" + q + "]", "lemma 0~0>0 pos 0~0>0", 1},
+		Args: args,
 	})
 	if err != nil {
 		return nil, err
@@ -168,9 +209,18 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 		q += " & pos=\"" + pos + "\""
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
+	args, err := json.Marshal(rdb.FreqDistribArgs{
+		CorpusPath: corpusPath,
+		Query:      "[" + q + "]",
+		Crit:       "word/i 0~0>0",
+		Limit:      1,
+	})
+	if err != nil {
+		return nil, err
+	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: []any{corpusPath, "[" + q + "]", "word/i 0~0>0", 1},
+		Args: args,
 	})
 	if err != nil {
 		return nil, err

@@ -19,6 +19,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"mquery/mango"
@@ -81,19 +82,31 @@ func (w *Worker) tryNextQuery() error {
 
 	switch query.Func {
 	case "freqDistrib":
-		ans := w.freqDistrib(query)
+		var args rdb.FreqDistribArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.freqDistrib(args)
 		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
 	case "concSize":
-		ans := w.concSize(query)
+		var args rdb.ConcSizeArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.concSize(args)
 		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
 	case "collocations":
-		ans := w.collocations(query)
+		var args rdb.CollocationsArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.collocations(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
@@ -122,29 +135,9 @@ func (w *Worker) Listen() {
 	}
 }
 
-func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
+func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	var ans results.FreqDistrib
-	corpusPath, ok := q.Args[0].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for freqDistrib %v", q.Args[0])
-		return &ans
-	}
-	concQuery, ok := q.Args[1].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 1 (query) for freqDistrib %v", q.Args[1])
-		return &ans
-	}
-	fcrit, ok := q.Args[2].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 2 (fcrit) for freqDistrib %v", q.Args[2])
-		return &ans
-	}
-	flimit, ok := q.Args[3].(float64) // q.Args is []any, so json number interprets as float64
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 3 (flimit) for freqDistrib %v", q.Args[3])
-		return &ans
-	}
-	freqs, err := mango.CalcFreqDist(corpusPath, concQuery, fcrit, int(flimit))
+	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.Query, args.Crit, args.Limit)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
@@ -156,42 +149,10 @@ func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
 	return &ans
 }
 
-func (w *Worker) collocations(q rdb.Query) *results.Collocations {
+func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	var ans results.Collocations
-
-	corpusPath, ok := q.Args[0].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for collocations %v", q.Args[0])
-		return &ans
-	}
-	concQuery, ok := q.Args[1].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 1 (query) for collocations %v", q.Args[1])
-		return &ans
-	}
-	attrName, ok := q.Args[2].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 2 (attrName) for collocations %v", q.Args[2])
-		return &ans
-	}
-	funcName, ok := q.Args[3].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 3 (attrName) for collocations %v", q.Args[3])
-		return &ans
-	}
-	minFreq, ok := q.Args[4].(float64) // q.Args is []any, so json number interprets as float64
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 4 (minFreq) for collocations %v", q.Args[4])
-		return &ans
-	}
-	maxItems, ok := q.Args[5].(float64) // q.Args is []any, so json number interprets as float64
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 5 (maxItems) for collocations %v", q.Args[5])
-		return &ans
-	}
-
 	colls, err := mango.GetCollcations(
-		corpusPath, concQuery, attrName, byte(funcName[0]), int64(minFreq), int(maxItems))
+		args.CorpusPath, args.Query, args.Attr, byte(args.CollFn[0]), args.MinFreq, args.MaxItems)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
@@ -209,19 +170,9 @@ func (w *Worker) collocations(q rdb.Query) *results.Collocations {
 	return &ans
 }
 
-func (w *Worker) concSize(q rdb.Query) *results.ConcSize {
+func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
 	var ans results.ConcSize
-	corpusPath, ok := q.Args[0].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for concSize %v", q.Args[0])
-		return &ans
-	}
-	concQuery, ok := q.Args[1].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 1 (query) for concSize %v", q.Args[1])
-		return &ans
-	}
-	concSizeInfo, err := mango.GetConcSize(corpusPath, concQuery)
+	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.Query)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans

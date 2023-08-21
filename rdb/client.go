@@ -49,7 +49,28 @@ type Query struct {
 	ResultType results.ResultType `json:"resultType"`
 	Channel    string             `json:"channel"`
 	Func       string             `json:"func"`
-	Args       []any              `json:"args"`
+	Args       json.RawMessage    `json:"args"`
+}
+
+type FreqDistribArgs struct {
+	CorpusPath string `json:"corpusPath"`
+	Query      string `json:"query"`
+	Crit       string `json:"crit"`
+	Limit      int    `json:"limit"`
+}
+
+type CollocationsArgs struct {
+	CorpusPath string `json:"corpusPath"`
+	Query      string `json:"query"`
+	Attr       string `json:"attr"`
+	CollFn     string `json:"collFn"`
+	MinFreq    int64  `json:"minFreq"`
+	MaxItems   int    `json:"maxItems"`
+}
+
+type ConcSizeArgs struct {
+	CorpusPath string `json:"corpusPath"`
+	Query      string `json:"query"`
 }
 
 func (q Query) ToJSON() (string, error) {
