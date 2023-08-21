@@ -58,7 +58,12 @@ func (qe *QueryExecutor) FxQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFx,
 				Func:       "freqDistrib",
-				Args:       []any{corpusPath, gen.FxQuery(word), gen.FxCrit(), 1},
+				Args: rdb.FreqDistribArgs{
+					CorpusPath: corpusPath,
+					Query:      gen.FxQuery(word),
+					Crit:       gen.FxCrit(),
+					Limit:      1,
+				},
 			},
 		)
 		if err != nil {
@@ -114,7 +119,10 @@ func (qe *QueryExecutor) FyQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFy,
 				Func:       "concSize",
-				Args:       []any{corpusPath, gen.FyQuery(collCandidate)},
+				Args: rdb.ConcSizeArgs{
+					CorpusPath: corpusPath,
+					Query:      gen.FyQuery(collCandidate),
+				},
 			},
 		)
 		if err != nil {
@@ -163,7 +171,10 @@ func (qe *QueryExecutor) FxyQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFxy,
 				Func:       "concSize",
-				Args:       []any{corpusPath, gen.FxyQuery(word, collCandidate)},
+				Args: rdb.ConcSizeArgs{
+					CorpusPath: corpusPath,
+					Query:      gen.FxyQuery(word, collCandidate),
+				},
 			},
 		)
 		if err != nil {

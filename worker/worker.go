@@ -124,27 +124,13 @@ func (w *Worker) Listen() {
 
 func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
 	var ans results.FreqDistrib
-	corpusPath, ok := q.Args[0].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for freqDistrib %v", q.Args[0])
+	args, isValid := q.Args.(rdb.FreqDistribArgs)
+	if !isValid {
+		ans.Error = fmt.Sprintf("invalid arguments for freqDistrib: %v", q.Args)
 		return &ans
 	}
-	concQuery, ok := q.Args[1].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 1 (query) for freqDistrib %v", q.Args[1])
-		return &ans
-	}
-	fcrit, ok := q.Args[2].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 2 (fcrit) for freqDistrib %v", q.Args[2])
-		return &ans
-	}
-	flimit, ok := q.Args[3].(float64) // q.Args is []any, so json number interprets as float64
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 3 (flimit) for freqDistrib %v", q.Args[3])
-		return &ans
-	}
-	freqs, err := mango.CalcFreqDist(corpusPath, concQuery, fcrit, int(flimit))
+
+	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.Query, args.Crit, args.Limit)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
@@ -158,40 +144,14 @@ func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
 
 func (w *Worker) collocations(q rdb.Query) *results.Collocations {
 	var ans results.Collocations
-
-	corpusPath, ok := q.Args[0].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for collocations %v", q.Args[0])
-		return &ans
-	}
-	concQuery, ok := q.Args[1].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 1 (query) for collocations %v", q.Args[1])
-		return &ans
-	}
-	attrName, ok := q.Args[2].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 2 (attrName) for collocations %v", q.Args[2])
-		return &ans
-	}
-	funcName, ok := q.Args[3].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 3 (attrName) for collocations %v", q.Args[3])
-		return &ans
-	}
-	minFreq, ok := q.Args[4].(float64) // q.Args is []any, so json number interprets as float64
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 4 (minFreq) for collocations %v", q.Args[4])
-		return &ans
-	}
-	maxItems, ok := q.Args[5].(float64) // q.Args is []any, so json number interprets as float64
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 5 (maxItems) for collocations %v", q.Args[5])
+	args, isValid := q.Args.(rdb.CollocationsArgs)
+	if !isValid {
+		ans.Error = fmt.Sprintf("invalid arguments for collocations: %v", q.Args)
 		return &ans
 	}
 
 	colls, err := mango.GetCollcations(
-		corpusPath, concQuery, attrName, byte(funcName[0]), int64(minFreq), int(maxItems))
+		args.CorpusPath, args.Query, args.Attr, byte(args.CollFn[0]), args.MinFreq, args.MaxItems)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
@@ -211,17 +171,13 @@ func (w *Worker) collocations(q rdb.Query) *results.Collocations {
 
 func (w *Worker) concSize(q rdb.Query) *results.ConcSize {
 	var ans results.ConcSize
-	corpusPath, ok := q.Args[0].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 0 (corpus ID) for concSize %v", q.Args[0])
+	args, isValid := q.Args.(rdb.ConcSizeArgs)
+	if !isValid {
+		ans.Error = fmt.Sprintf("invalid arguments for concSize: %v", q.Args)
 		return &ans
 	}
-	concQuery, ok := q.Args[1].(string)
-	if !ok {
-		ans.Error = fmt.Sprintf("invalid argument 1 (query) for concSize %v", q.Args[1])
-		return &ans
-	}
-	concSizeInfo, err := mango.GetConcSize(corpusPath, concQuery)
+
+	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.Query)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
