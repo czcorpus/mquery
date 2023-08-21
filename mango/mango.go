@@ -1,3 +1,21 @@
+// Copyright 2019 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2019 Institute of the Czech National Corpus,
+//                Faculty of Arts, Charles University
+//   This file is part of MQUERY.
+//
+//  MQUERY is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  MQUERY is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
+
 package mango
 
 // #cgo LDFLAGS:  -lmanatee -L${SRCDIR} -Wl,-rpath='$ORIGIN'
@@ -12,15 +30,6 @@ import (
 	"unsafe"
 )
 
-// GoCorpus is a Go wrapper for Manatee Corpus instance
-type GoCorpus struct {
-	corp C.CorpusV
-}
-
-func (gc *GoCorpus) Close() {
-	C.close_corpus(gc.corp)
-}
-
 type GoVector struct {
 	v C.MVector
 }
@@ -31,20 +40,6 @@ type Freqs struct {
 	Norms      []int64
 	ConcSize   int64
 	CorpusSize int64
-}
-
-type GoConc struct {
-	conc     C.ConcV
-	corpSize int64
-	corpus   *GoCorpus
-}
-
-func (gc *GoConc) CorpSize() int64 {
-	return gc.corpSize
-}
-
-func (gc *GoConc) Corpus() *GoCorpus {
-	return gc.corpus
 }
 
 // ---
@@ -69,98 +64,6 @@ type GoColls struct {
 	Colls      []GoCollsItem
 	ConcSize   int64
 	CorpusSize int64
-}
-
-// OpenCorpus is a factory function creating
-// a Manatee corpus wrapper.
-func OpenCorpus(path string) (*GoCorpus, error) {
-	ret := &GoCorpus{}
-	var err error
-	ans := C.open_corpus(C.CString(path))
-
-	if ans.err != nil {
-		err = fmt.Errorf(C.GoString(ans.err))
-		defer C.free(unsafe.Pointer(ans.err))
-		return ret, err
-	}
-	ret.corp = ans.value
-	if ret.corp == nil {
-		return ret, fmt.Errorf("Corpus %s not found", path)
-	}
-	return ret, nil
-}
-
-// CloseCorpus closes all the resources accompanying
-// the corpus. The instance should become unusable.
-func CloseCorpus(corpus *GoCorpus) error {
-	C.close_corpus(corpus.corp)
-	return nil
-}
-
-// GetCorpusSize returns corpus size in tokens
-func GetCorpusSize(corpus *GoCorpus) (int64, error) {
-	ans := (C.get_corpus_size(corpus.corp))
-	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
-		defer C.free(unsafe.Pointer(ans.err))
-		return -1, err
-	}
-	return int64(ans.value), nil
-}
-
-// GetCorpusConf returns a corpus configuration item
-// stored in a corpus configuration file (aka "registry file")
-func GetCorpusConf(corpus *GoCorpus, prop string) (string, error) {
-	ans := (C.get_corpus_conf(corpus.corp, C.CString(prop)))
-	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
-		defer C.free(unsafe.Pointer(ans.err))
-		return "", err
-	}
-	return C.GoString(ans.value), nil
-}
-
-func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
-	var ret GoConc
-
-	ans := C.create_concordance(corpus.corp, C.CString(query))
-	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
-		defer C.free(unsafe.Pointer(ans.err))
-		return nil, err
-	}
-	ret.conc = ans.value
-
-	corpSize, err := GetCorpusSize(corpus)
-	if err != nil {
-		return nil, err
-	}
-	ret.corpSize = corpSize
-	ret.corpus = corpus
-	return &ret, nil
-}
-
-func CloseConcordance(conc *GoConc) {
-	C.close_concordance(conc.conc)
-}
-
-func CalcFreqDistFromConc(conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
-	var ret Freqs
-	ans := C.freq_dist_from_conc(conc.Corpus().corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
-	defer func() { // the 'new' was called before any possible error so we have to do this
-		C.delete_int_vector(ans.freqs)
-		C.delete_int_vector(ans.norms)
-		C.delete_str_vector(ans.words)
-	}()
-	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
-		defer C.free(unsafe.Pointer(ans.err))
-		return &ret, err
-	}
-	ret.Freqs = IntVectorToSlice(GoVector{ans.freqs})
-	ret.Norms = IntVectorToSlice(GoVector{ans.norms})
-	ret.Words = StrVectorToSlice(GoVector{ans.words})
-	return &ret, nil
 }
 
 func GetConcSize(corpusPath, query string) (GoConcSize, error) {
