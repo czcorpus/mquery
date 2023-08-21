@@ -81,28 +81,6 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
     }
 }
 
-
-ConcRetval create_concordance(CorpusV corpus, char* query) {
-    string q(query);
-    ConcRetval ans;
-    ans.err = nullptr;
-    ans.value = nullptr;
-    Corpus* corpusObj = (Corpus*)corpus;
-
-    try {
-        ans.value = new Concordance(
-            corpusObj, corpusObj->filter_query(eval_cqpquery(q.c_str(), (Corpus*)corpus)));
-        ((Concordance*)ans.value)->sync();
-    } catch (std::exception &e) {
-        ans.err = strdup(e.what());
-    }
-    return ans;
-}
-
-void close_concordance(ConcV conc) {
-    delete (Concordance *)conc;
-}
-
 ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
     string cPath(corpusPath);
     ConcSizeRetVal ans;
@@ -196,7 +174,15 @@ FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcr
     }
 }
 
-
+/**
+ * @brief Based on provided query, return at most `limit` sentences matching the query.
+ *
+ * @param corpusPath
+ * @param query
+ * @param attrs Positional attributes (comma-separated) to be attached to returned tokens
+ * @param limit
+ * @return KWICRowsRetval
+ */
 KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const char* attrs, PosInt limit) {
     string cPath(corpusPath);
     try {
@@ -260,6 +246,14 @@ KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const ch
     }
 }
 
+/**
+ * @brief This function frees all the allocated memory
+ * for a concordance example. It is intended to be called
+ * from Go.
+ *
+ * @param value
+ * @param numItems
+ */
 void conc_examples_free(KWICRowsV value, int numItems) {
     char** tValue = (char**)value;
     for (int i = 0; i < numItems; i++) {
