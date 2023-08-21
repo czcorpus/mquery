@@ -73,6 +73,13 @@ type ConcSizeArgs struct {
 	Query      string `json:"query"`
 }
 
+type ConcExampleArgs struct {
+	CorpusPath string   `json:"corpusPath"`
+	Query      string   `json:"query"`
+	Attrs      []string `json:"attrs"`
+	MaxItems   int      `json:"maxItems"`
+}
+
 func (q Query) ToJSON() (string, error) {
 	ans, err := json.Marshal(q)
 	if err != nil {

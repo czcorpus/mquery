@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"mquery/corpus/conc"
 	"mquery/mango"
 	"mquery/rdb"
 	"mquery/results"
@@ -97,6 +98,16 @@ func (w *Worker) tryNextQuery() error {
 			return err
 		}
 		ans := w.concSize(args)
+		ans.ResultType = query.ResultType
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "concExample":
+		var args rdb.ConcExampleArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.concExample(args)
 		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
@@ -179,6 +190,19 @@ func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
 	}
 	ans.ConcSize = concSizeInfo.Value
 	ans.CorpusSize = concSizeInfo.CorpusSize
+	return &ans
+}
+
+func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
+	var ans results.ConcExample
+	concEx, err := mango.GetConcExamples(args.CorpusPath, args.Query, args.Attrs, args.MaxItems)
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	parser := conc.NewLineParser(args.Attrs)
+	ans.Lines = parser.Parse(concEx)
+	ans.ConcSize = concEx.ConcSize
 	return &ans
 }
 
