@@ -70,9 +70,9 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			return
 		}
 	}
-
+	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	args, err := json.Marshal(rdb.FreqDistribArgs{
-		CorpusPath: ctx.Param("corpusId"),
+		CorpusPath: corpusPath,
 		Query:      q,
 		Crit:       "lemma/e 0~0>0",
 		Limit:      flimit,
