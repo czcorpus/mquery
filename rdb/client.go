@@ -49,7 +49,7 @@ type Query struct {
 	ResultType results.ResultType `json:"resultType"`
 	Channel    string             `json:"channel"`
 	Func       string             `json:"func"`
-	Args       any                `json:"args"`
+	Args       json.RawMessage    `json:"args"`
 }
 
 type FreqDistribArgs struct {

@@ -19,6 +19,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"mquery/mango"
@@ -81,19 +82,31 @@ func (w *Worker) tryNextQuery() error {
 
 	switch query.Func {
 	case "freqDistrib":
-		ans := w.freqDistrib(query)
+		var args rdb.FreqDistribArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.freqDistrib(args)
 		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
 	case "concSize":
-		ans := w.concSize(query)
+		var args rdb.ConcSizeArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.concSize(args)
 		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
 	case "collocations":
-		ans := w.collocations(query)
+		var args rdb.CollocationsArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.collocations(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
@@ -122,14 +135,8 @@ func (w *Worker) Listen() {
 	}
 }
 
-func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
+func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	var ans results.FreqDistrib
-	args, isValid := q.Args.(rdb.FreqDistribArgs)
-	if !isValid {
-		ans.Error = fmt.Sprintf("invalid arguments for freqDistrib: %v", q.Args)
-		return &ans
-	}
-
 	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.Query, args.Crit, args.Limit)
 	if err != nil {
 		ans.Error = err.Error()
@@ -142,14 +149,8 @@ func (w *Worker) freqDistrib(q rdb.Query) *results.FreqDistrib {
 	return &ans
 }
 
-func (w *Worker) collocations(q rdb.Query) *results.Collocations {
+func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	var ans results.Collocations
-	args, isValid := q.Args.(rdb.CollocationsArgs)
-	if !isValid {
-		ans.Error = fmt.Sprintf("invalid arguments for collocations: %v", q.Args)
-		return &ans
-	}
-
 	colls, err := mango.GetCollcations(
 		args.CorpusPath, args.Query, args.Attr, byte(args.CollFn[0]), args.MinFreq, args.MaxItems)
 	if err != nil {
@@ -169,14 +170,8 @@ func (w *Worker) collocations(q rdb.Query) *results.Collocations {
 	return &ans
 }
 
-func (w *Worker) concSize(q rdb.Query) *results.ConcSize {
+func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
 	var ans results.ConcSize
-	args, isValid := q.Args.(rdb.ConcSizeArgs)
-	if !isValid {
-		ans.Error = fmt.Sprintf("invalid arguments for concSize: %v", q.Args)
-		return &ans
-	}
-
 	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.Query)
 	if err != nil {
 		ans.Error = err.Error()

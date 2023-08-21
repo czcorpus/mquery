@@ -19,6 +19,7 @@
 package qgen
 
 import (
+	"encoding/json"
 	"mquery/corpus"
 	"mquery/db"
 	"mquery/rdb"
@@ -54,16 +55,23 @@ func (qe *QueryExecutor) FxQuery(
 		return ch, nil
 
 	} else {
+		args, err := json.Marshal(rdb.FreqDistribArgs{
+			CorpusPath: corpusPath,
+			Query:      gen.FxQuery(word),
+			Crit:       gen.FxCrit(),
+			Limit:      1,
+		})
+		if err != nil {
+			go func() {
+				close(ch)
+			}()
+			return ch, err
+		}
 		ch2, err := qe.radapter.PublishQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFx,
 				Func:       "freqDistrib",
-				Args: rdb.FreqDistribArgs{
-					CorpusPath: corpusPath,
-					Query:      gen.FxQuery(word),
-					Crit:       gen.FxCrit(),
-					Limit:      1,
-				},
+				Args:       args,
 			},
 		)
 		if err != nil {
@@ -115,14 +123,21 @@ func (qe *QueryExecutor) FyQuery(
 		return ch, nil
 
 	} else {
+		args, err := json.Marshal(rdb.ConcSizeArgs{
+			CorpusPath: corpusPath,
+			Query:      gen.FyQuery(collCandidate),
+		})
+		if err != nil {
+			go func() {
+				close(ch)
+			}()
+			return ch, err
+		}
 		ch2, err := qe.radapter.PublishQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFy,
 				Func:       "concSize",
-				Args: rdb.ConcSizeArgs{
-					CorpusPath: corpusPath,
-					Query:      gen.FyQuery(collCandidate),
-				},
+				Args:       args,
 			},
 		)
 		if err != nil {
@@ -167,14 +182,21 @@ func (qe *QueryExecutor) FxyQuery(
 		return ch, nil
 
 	} else {
+		args, err := json.Marshal(rdb.ConcSizeArgs{
+			CorpusPath: corpusPath,
+			Query:      gen.FxyQuery(word, collCandidate),
+		})
+		if err != nil {
+			go func() {
+				close(ch)
+			}()
+			return ch, err
+		}
 		ch2, err := qe.radapter.PublishQuery(
 			rdb.Query{
 				ResultType: results.ResultTypeFxy,
 				Func:       "concSize",
-				Args: rdb.ConcSizeArgs{
-					CorpusPath: corpusPath,
-					Query:      gen.FxyQuery(word, collCandidate),
-				},
+				Args:       args,
 			},
 		)
 		if err != nil {
