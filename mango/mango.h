@@ -97,10 +97,6 @@ CorpusSizeRetrval get_corpus_size(CorpusV corpus);
 
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 
-ConcRetval create_concordance(CorpusV corpus, char* query);
-
-void close_concordance(ConcV conc);
-
 ConcSizeRetVal concordance_size(const char* corpusPath, const char* query);
 
 void delete_str_vector(MVector v);
