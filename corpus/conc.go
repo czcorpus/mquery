@@ -64,7 +64,10 @@ func (lp *LineParser) normalizeTokens(tokens []string) []string {
 	ans := make([]string, 0, len(tokens))
 	var parTok strings.Builder
 	for _, tok := range tokens {
-		if tok[0] == '{' {
+		if tok == "" {
+			continue
+
+		} else if tok[0] == '{' {
 			if tok[len(tok)-1] != '}' {
 				parTok.WriteString(tok)
 
