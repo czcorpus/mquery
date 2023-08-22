@@ -121,8 +121,8 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	// with higher collocation value will
 	// promote higher
 	chunkSize := len(items)
-	if chunkSize > 20 {
-		chunkSize = 20
+	if chunkSize > conf.CollPreliminarySelSize {
+		chunkSize = conf.CollPreliminarySelSize
 	}
 	items = items[:chunkSize]
 
