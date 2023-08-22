@@ -95,18 +95,14 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
             corp, corp->filter_query(eval_cqpquery(query, corp)));
         conc->sync();
         ans.value = conc->size();
-        if (conc != nullptr) {
-            delete conc;
-            conc = nullptr;
-        }
-        if (corp != nullptr) {
-            delete corp;
-            corp = nullptr;
-        }
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
     }
+
+    delete conc;
+    delete corp;
+
     return ans;
 }
 
