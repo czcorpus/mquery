@@ -28,6 +28,8 @@ import (
 	"strings"
 	"unicode"
 	"unsafe"
+
+	"github.com/czcorpus/cnc-gokit/maths"
 )
 
 type GoVector struct {
@@ -54,14 +56,14 @@ type GoConcExamples struct {
 	ConcSize int
 }
 
-type GoCollsItem struct {
+type GoCollItem struct {
 	Word  string
-	Value float64
+	Score float64
 	Freq  int64
 }
 
 type GoColls struct {
-	Colls      []GoCollsItem
+	Colls      []*GoCollItem
 	ConcSize   int64
 	CorpusSize int64
 }
@@ -167,30 +169,24 @@ func GetCollcations(
 	minFreq int64,
 	maxItems int,
 ) (GoColls, error) {
-	colls := C.collocations(C.CString(corpusID), C.CString(query), C.CString(attrName), C.char(calcFn),
+	colls := C.collocations(
+		C.CString(corpusID), C.CString(query), C.CString(attrName), C.char(calcFn), C.char(calcFn),
 		C.longlong(minFreq), C.longlong(minFreq), -5, 5, C.int(maxItems))
 	if colls.err != nil {
 		err := fmt.Errorf(C.GoString(colls.err))
 		defer C.free(unsafe.Pointer(colls.err))
 		return GoColls{}, err
 	}
-	items := make([]GoCollsItem, 0, 50) // TODO capacity
-	for C.has_next_colloc(colls.value) == 1 {
-		ans := C.next_colloc_item(colls.value, C.char(calcFn))
-		if ans.err != nil {
-			err := fmt.Errorf(C.GoString(ans.err))
-			defer C.free(unsafe.Pointer(ans.err))
-			return GoColls{}, err
+	items := make([]*GoCollItem, colls.resultSize)
+	for i := 0; i < int(colls.resultSize); i++ {
+		tmp := C.get_coll_item(colls, C.int(i))
+		items[i] = &GoCollItem{
+			Word:  C.GoString(tmp.word),
+			Score: maths.RoundToN(float64(tmp.score), 4),
+			Freq:  int64(tmp.freq),
 		}
-		items = append(
-			items,
-			GoCollsItem{
-				Word:  C.GoString(ans.word),
-				Value: float64(ans.value),
-				Freq:  int64(ans.freq),
-			},
-		)
 	}
+	//C.coll_examples_free(colls.items, colls.numItems)
 	return GoColls{
 		Colls:      items,
 		ConcSize:   int64(colls.concSize),

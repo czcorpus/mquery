@@ -18,7 +18,10 @@
 
 package results
 
-import "errors"
+import (
+	"errors"
+	"mquery/mango"
+)
 
 const (
 	ResultTypeFx           = "Fx"
@@ -105,17 +108,11 @@ func (res *ConcSize) Type() ResultType {
 
 // ----
 
-type CollItem struct {
-	Word  string  `json:"word"`
-	Value float64 `json:"value"`
-	Freq  int64   `json:"freq"`
-}
-
 type Collocations struct {
-	ConcSize   int64      `json:"concSize"`
-	CorpusSize int64      `json:"corpusSize"`
-	Colls      []CollItem `json:"colls"`
-	Error      string     `json:"error"`
+	ConcSize   int64               `json:"concSize"`
+	CorpusSize int64               `json:"corpusSize"`
+	Colls      []*mango.GoCollItem `json:"colls"`
+	Error      string              `json:"error"`
 }
 
 func (res *Collocations) Err() error {

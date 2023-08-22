@@ -25,8 +25,8 @@ typedef void* CorpusV;
 typedef void* StructV;
 typedef void* ConcV;
 typedef void* MVector;
-typedef void* CollsV;
 typedef void* KWICRowsV;
+typedef void* CollsV;
 
 
 typedef long long int PosInt;
@@ -73,8 +73,16 @@ typedef struct FreqsRetval {
     const char * err;
 } FreqsRetval;
 
+
+typedef struct CollItem {
+    double score;
+    double freq;
+    char *word;
+} CollItem;
+
 typedef struct CollsRetVal {
-    CollsV value;
+    CollsV items;
+    PosInt resultSize;
     PosInt concSize;
     PosInt corpusSize;
     const char * err;
@@ -122,8 +130,9 @@ void conc_examples_free(KWICRowsV value, int numItems);
 CollsRetVal collocations(
     const char* corpusPath,
     const char* query,
-    const char * attr_name,
-    char sort_fun_code,
+    const char * attrName,
+    char collFn,
+    char sortFunCode,
     PosInt minfreq,
     PosInt minbgr,
     int fromw,
@@ -131,17 +140,16 @@ CollsRetVal collocations(
     int maxitems
 );
 
+CollItem get_coll_item(CollsRetVal data, int idx);
+
+void coll_examples_free(CollsV items, int numItems);
+
 typedef struct CollVal {
     const char* word;
     double value;
     PosInt freq;
     const char * err;
 } CollVal;
-
-
-CollVal next_colloc_item(CollsV colls, char collFn);
-
-int has_next_colloc(CollsV colls);
 
 
 #ifdef __cplusplus
