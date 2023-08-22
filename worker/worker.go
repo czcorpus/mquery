@@ -163,19 +163,13 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	var ans results.Collocations
 	colls, err := mango.GetCollcations(
-		args.CorpusPath, args.Query, args.Attr, byte(args.CollFn[0]), args.MinFreq, args.MaxItems)
+		args.CorpusPath, args.Query, args.Attr, byte(args.CollFn[0]),
+		args.MinFreq, args.MaxItems)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
 	}
-	ans.Colls = make([]results.CollItem, len(colls.Colls))
-	for i, v := range colls.Colls {
-		ans.Colls[i] = results.CollItem{
-			Word:  v.Word,
-			Value: v.Value,
-			Freq:  v.Freq,
-		}
-	}
+	ans.Colls = colls.Colls
 	ans.ConcSize = colls.ConcSize
 	ans.CorpusSize = colls.CorpusSize
 	return &ans

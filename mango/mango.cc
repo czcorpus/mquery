@@ -298,8 +298,9 @@ PosInt int_vector_get_size(MVector v) {
 CollsRetVal collocations(
     const char* corpusPath,
     const char* query,
-    const char * attr_name,
-    char sort_fun_code,
+    const char * attrName,
+    char collFn,
+    char sortFunCode,
     PosInt minfreq,
     PosInt minbgr,
     int fromw,
@@ -309,42 +310,50 @@ CollsRetVal collocations(
     CollsRetVal ans;
     ans.err = nullptr;
     string cPath(corpusPath);
+    Corpus* corp = nullptr;
+    Concordance* conc = nullptr;
+    CollocItems* collocs = nullptr;
+
     try {
-        Corpus* corp = new Corpus(cPath);
-        Concordance* conc = new Concordance(
+        corp = new Corpus(cPath);
+        conc = new Concordance(
             corp, corp->filter_query(eval_cqpquery(query, corp)));
         ans.corpusSize = corp->size();
         conc->sync();
         ans.concSize = conc->size();
-        ans.value = new CollocItems(conc, string(attr_name), sort_fun_code, minfreq, minbgr, fromw, tow, maxitems);
+        ans.resultSize = 0;
+        collocs = new CollocItems(conc, string(attrName), sortFunCode, minfreq, minbgr, fromw, tow, maxitems);
+        CollItem* items = (CollItem*) malloc(maxitems * sizeof(CollItem));
+        int i = 0;
+        while (collocs->eos() == false && i < maxitems) {
+            collocs->next();
+            CollItem item;
+            item.score = collocs->get_bgr(collFn);
+            item.freq = collocs->get_cnt();
+            item.word = strdup(collocs->get_item());
+            items[i] = item;
+            ans.resultSize++;
+            i++;
+        }
+        ans.items = items;
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
     }
+    delete collocs;
+    delete conc;
+    delete corp;
     return ans;
 }
 
 
-CollVal next_colloc_item(CollsV colls, char collFn) {
-    CollVal ans;
-    ans.err = nullptr;
-    CollocItems* collsObj = (CollocItems*)colls;
-    try {
-        string word = string(collsObj->get_item());
-        double value = collsObj->get_bgr(collFn);
-        ans.value = value;
-        ans.word = word.c_str();
-        ans.freq = collsObj->get_cnt();
-        collsObj->next();
-
-    } catch (std::exception &e) {
-        ans.err = strdup(e.what());
-    }
-    return ans;
+CollItem get_coll_item(CollsRetVal data, int idx) {
+    return ((CollItem*)data.items)[idx];
 }
 
-int has_next_colloc(CollsV colls) {
-    CollVal ans;
-    ans.err = nullptr;
-    CollocItems* collsObj = (CollocItems*)colls;
-    return collsObj->eos() == true ? 0 : 1;
+void coll_examples_free(CollsV items, int numItems) {
+    CollItem* tItems = (CollItem*)items;
+    for (int i = 0; i < numItems; i++) {
+        free(tItems[i].word);
+    }
+    free(tItems);
 }

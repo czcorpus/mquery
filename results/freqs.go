@@ -20,7 +20,11 @@ package results
 
 import (
 	"errors"
+<<<<<<< HEAD
 	"mquery/corpus/conc"
+=======
+	"mquery/mango"
+>>>>>>> 4744242 (Rewrite colloc calculations plus fix its memory management)
 )
 
 const (
@@ -108,37 +112,11 @@ func (res *ConcSize) Type() ResultType {
 
 // ----
 
-type ConcExample struct {
-	Lines      []conc.ConcordanceLine `json:"lines"`
-	ConcSize   int                    `json:"concSize"`
-	ResultType ResultType             `json:"resultType"`
-	Error      string                 `json:"error"`
-}
-
-func (res *ConcExample) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
-}
-
-func (res *ConcExample) Type() ResultType {
-	return res.ResultType
-}
-
-// ----
-
-type CollItem struct {
-	Word  string  `json:"word"`
-	Value float64 `json:"value"`
-	Freq  int64   `json:"freq"`
-}
-
 type Collocations struct {
-	ConcSize   int64      `json:"concSize"`
-	CorpusSize int64      `json:"corpusSize"`
-	Colls      []CollItem `json:"colls"`
-	Error      string     `json:"error"`
+	ConcSize   int64               `json:"concSize"`
+	CorpusSize int64               `json:"corpusSize"`
+	Colls      []*mango.GoCollItem `json:"colls"`
+	Error      string              `json:"error"`
 }
 
 func (res *Collocations) Err() error {
