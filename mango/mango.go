@@ -85,7 +85,7 @@ func GetConcExamples(corpusPath, query string, attrs []string, maxItems int) (Go
 	ans := C.conc_examples(
 		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")), C.longlong(maxItems))
 	var ret GoConcExamples
-	ret.Lines = make([]string, maxItems)
+	ret.Lines = make([]string, 0, maxItems)
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -96,7 +96,7 @@ func GetConcExamples(corpusPath, query string, attrs []string, maxItems int) (Go
 	}
 	tmp := (*[1000]*C.char)(unsafe.Pointer(ans.value))
 	for i := 0; i < int(ans.size); i++ {
-		ret.Lines[i] = C.GoString(tmp[i])
+		ret.Lines = append(ret.Lines, C.GoString(tmp[i]))
 	}
 	return ret, nil
 }

@@ -21,23 +21,35 @@ package conc
 import (
 	"mquery/mango"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	invalidParent = 1000000
 )
 
 var (
 	splitPatt = regexp.MustCompile(`\s+`)
 )
 
+type TokenSlice []*Token
+
 type Token struct {
 	Word   string            `json:"word"`
 	Strong bool              `json:"strong"`
+	Parent int               `json:"parent"`
 	Attrs  map[string]string `json:"attrs"`
 }
 
 type ConcordanceLine struct {
-	Text []*Token `json:"text"`
+	Text TokenSlice `json:"text"`
+}
+
+type ConcExamples struct {
+	Lines []ConcordanceLine `json:"lines"`
 }
 
 type LineParser struct {
@@ -47,11 +59,16 @@ type LineParser struct {
 func (lp *LineParser) parseTokenQuadruple(s []string) *Token {
 	mAttrs := make(map[string]string)
 	for i, attr := range strings.Split(s[2], "/")[1:] {
-		mAttrs[lp.attrs[i]] = attr
+		mAttrs[lp.attrs[i+1]] = attr
+	}
+	p, err := strconv.Atoi(mAttrs["parent"]) // TODO hardcoded `parent`
+	if err != nil {
+		p = invalidParent
 	}
 	return &Token{
 		Word:   s[0],
 		Strong: len(s[1]) > 2,
+		Parent: p,
 		Attrs:  mAttrs,
 	}
 }
@@ -83,6 +100,24 @@ func (lp *LineParser) normalizeTokens(tokens []string) []string {
 	return ans
 }
 
+func (lp *LineParser) enhanceEmphasis(tokens TokenSlice) {
+	for i, tok := range tokens {
+		parIdx := i + tok.Parent
+		if tok.Strong {
+			if parIdx >= 0 && parIdx < len(tokens) {
+				tokens[i+tok.Parent].Strong = true
+
+			} else {
+				log.Error().
+					Int("parIdx", parIdx).
+					Int("numTokens", len(tokens)).
+					Msg("invalid parent position")
+			}
+			break
+		}
+	}
+}
+
 func (lp *LineParser) parseRawLine(line string) ConcordanceLine {
 	items := lp.normalizeTokens(splitPatt.Split(line, -1))
 	if len(items)%4 != 0 {
@@ -91,10 +126,11 @@ func (lp *LineParser) parseRawLine(line string) ConcordanceLine {
 			Msg("unparseable Manatee KWIC line")
 		return ConcordanceLine{Text: []*Token{{Word: "---- ERROR (unparseable) ----"}}}
 	}
-	tokens := make([]*Token, 0, len(items)/4)
+	tokens := make(TokenSlice, 0, len(items)/4)
 	for i := 0; i < len(items); i += 4 {
 		tokens = append(tokens, lp.parseTokenQuadruple(items[i:i+4]))
 	}
+	lp.enhanceEmphasis(tokens)
 	return ConcordanceLine{Text: tokens}
 }
 
@@ -107,5 +143,7 @@ func (lp *LineParser) Parse(data mango.GoConcExamples) []ConcordanceLine {
 }
 
 func NewLineParser(attrs []string) *LineParser {
-	return &LineParser{attrs: attrs}
+	return &LineParser{
+		attrs: attrs,
+	}
 }

@@ -303,9 +303,10 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 }
 
 func (a *Actions) ConcExample(ctx *gin.Context) {
-	attrs := []string{"word", "lemma", "p_lemma"}
+	attrs := []string{"word", "lemma", "p_lemma", "parent"} // TODO configurable
 	args, err := json.Marshal(rdb.ConcExampleArgs{
 		CorpusPath: a.conf.GetRegistryPath(ctx.Param("corpusId")),
+		QueryLemma: ctx.Query("lemma"),
 		Query:      ctx.Query("query"),
 		Attrs:      attrs,
 		MaxItems:   10,
@@ -332,10 +333,6 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 	}
 	rawResult := <-wait
 	result, err := rdb.DeserializeConcExampleResult(rawResult)
-	uniresp.WriteJSONResponse(
-		ctx.Writer,
-		result,
-	)
 	uniresp.WriteJSONResponse(ctx.Writer, result)
 }
 
