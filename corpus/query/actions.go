@@ -166,7 +166,7 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	)
 }
 
-func (a *Actions) findLemmas(corpusID string, word string, pos string) (*results.WordFormsItem, error) {
+func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*results.LemmaItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
@@ -194,10 +194,14 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) (*results
 		return nil, err
 	}
 
-	ans := &results.WordFormsItem{
-		Lemma: "-- TODO ---", // TODO !!
-		POS:   pos,
-		Forms: make([]*results.FreqDistribItem, len(freqs.Freqs)),
+	ans := make([]*results.LemmaItem, len(freqs.Freqs))
+	for i, freq := range freqs.Freqs {
+		wordSplit := strings.Split(freq.Word, " ")
+		// this presumes only single word queries
+		ans[i] = &results.LemmaItem{
+			Lemma: wordSplit[0],
+			POS:   wordSplit[1],
+		}
 	}
 	return ans, nil
 }
@@ -274,11 +278,8 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			return
 		}
 
-		for _, lemmaPos := range lemmas.Forms {
-			lemmaPosSplit := strings.Split(lemmaPos.Word, " ")
-			pos := lemmaPosSplit[len(lemmaPosSplit)-1]
-			lemma := strings.Join(lemmaPosSplit[:len(lemmaPosSplit)-1], " ")
-			wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
+		for _, v := range lemmas {
+			wordForms, err := a.findWordForms(ctx.Param("corpusId"), v.Lemma, v.POS)
 			if err != nil {
 				uniresp.WriteJSONErrorResponse(
 					ctx.Writer,
