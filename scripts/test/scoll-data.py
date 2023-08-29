@@ -21,7 +21,13 @@ if __name__ == "__main__":
     with open(args.words_path) as f:
         words = f.readlines()
 
-    words_data = {}
+    if os.path.isfile(args.out_path):
+        with open(args.out_path) as f:
+            data = json.load(f)
+        data[str(k)] = {}
+    else:
+        data = {str(k): {}}
+
     for i, word in enumerate(words):
         print(f'{100*i/len(words)}%')
         word = ' '.join(word.split())  # remove new lines and whitespaces
@@ -29,16 +35,7 @@ if __name__ == "__main__":
         for req_type in results:
             with urllib.request.urlopen(f'{args.server_path}/scoll/{args.corpname}/{req_type}?w={word}') as response:
                 results[req_type] = json.loads(response.read())
-
-        if os.path.isfile(args.out_path):
-            with open(args.out_path) as f:
-                data = json.load(f)
-            if str(k) in data:
-                data[str(k)][word] = results
-            else:
-                data[str(k)] = {word: results}
-            with open(args.out_path, 'w') as f:
-                json.dump(data, f)
-        else:
-            with open(args.out_path, 'w') as f:
-                json.dump({k: {word: results}}, f)
+        data[str(k)][word] = results
+        with open(args.out_path, 'w') as f:
+            json.dump(data, f)
+    print('DONE')
