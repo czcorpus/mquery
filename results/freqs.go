@@ -42,6 +42,11 @@ func (rt ResultType) String() string {
 	return string(rt)
 }
 
+type LemmaItem struct {
+	Lemma string `json:"lemma"`
+	POS   string `json:"pos"`
+}
+
 type WordFormsItem struct {
 	Lemma string             `json:"lemma"`
 	POS   string             `json:"pos"`
