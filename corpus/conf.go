@@ -25,7 +25,8 @@ import (
 // CorporaSetup defines mquery application configuration related
 // to a corpus
 type CorporaSetup struct {
-	RegistryDir string `json:"registryDir"`
+	RegistryDir     string `json:"registryDir"`
+	SplitCorporaDir string `json:"splitCorporaDir"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {

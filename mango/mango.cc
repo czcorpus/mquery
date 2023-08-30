@@ -18,6 +18,7 @@
 
 
 #include "corp/corpus.hh"
+#include "corp/subcorp.hh"
 #include "concord/concord.hh"
 #include "concord/concstat.hh"
 #include "concord/concget.hh"
@@ -53,11 +54,14 @@ void close_corpus(CorpusV corpus) {
     delete (Corpus *)corpus;
 }
 
-CorpusSizeRetrval get_corpus_size(CorpusV corpus) {
+CorpusSizeRetrval get_corpus_size(const char* corpusPath) {
     CorpusSizeRetrval ans;
     ans.err = nullptr;
+    Corpus* corp = nullptr;
     try {
-        ans.value = ((Corpus*)corpus)->size();
+        Corpus* corp = new Corpus(corpusPath);
+        ans.value = corp->size();
+        delete corp;
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
@@ -130,27 +134,42 @@ FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt 
 }
 
 
-FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcrit, PosInt flimit) {
+FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* query, const char* fcrit, PosInt flimit) {
     string cPath(corpusPath);
     try {
         Corpus* corp = new Corpus(cPath);
-        Concordance* conc = new Concordance(
-            corp, corp->filter_query(eval_cqpquery(query, corp)));
-        conc->sync();
+        Concordance* conc = nullptr;
+        SubCorpus* subc = nullptr;
         auto xwords = new vector<string>;
         vector<string>& words = *xwords;
         auto xfreqs = new vector<PosInt>;
         vector<PosInt>& freqs = *xfreqs;
         auto xnorms = new vector<PosInt>;
         vector<PosInt>& norms = *xnorms;
+        PosInt srchSize;
+        PosInt corpSize;
 
-        corp->freq_dist(conc->RS(), fcrit, flimit, words, freqs, norms);
+        if (subcPath != "") {
+            subc = new SubCorpus(corp, subcPath);
+            conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
+            conc->sync();
+            subc->freq_dist(conc->RS(), fcrit, flimit, words, freqs, norms);
+            srchSize = conc->size();
+            corpSize = subc->search_size();
+
+        } else {
+            conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
+            conc->sync();
+            corp->freq_dist(conc->RS(), fcrit, flimit, words, freqs, norms);
+            srchSize = conc->size();
+            corpSize = corp->size();
+        }
         FreqsRetval ans {
             static_cast<void*>(xwords),
             static_cast<void*>(xfreqs),
             static_cast<void*>(xnorms),
-            conc->size(),
-            corp->size(),
+            srchSize,
+            corpSize,
             nullptr
         };
         delete conc;

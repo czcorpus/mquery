@@ -92,6 +92,33 @@ func (res *FreqDistrib) Type() ResultType {
 	return res.ResultType
 }
 
+func (res *FreqDistrib) FindItem(w string) *FreqDistribItem {
+	for _, v := range res.Freqs {
+		if v.Word == w {
+			return v
+		}
+	}
+	return nil
+}
+
+func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
+	res.ConcSize += other.ConcSize
+	res.CorpusSize += other.CorpusSize
+	res.ExamplesQueryTpl = "" // we cannot merge two CQL queries so we remove it
+	for _, v2 := range other.Freqs {
+		v1 := res.FindItem(v2.Word)
+		if v1 != nil {
+			v1.CollWeight = 0 // we cannot merge coll values
+			v1.Freq += v2.Freq
+			v1.Norm += v2.Norm
+			v1.IPM = float32(v1.Freq) / float32(res.CorpusSize) * 1e6
+
+		} else {
+			res.Freqs = append(res.Freqs, v2)
+		}
+	}
+}
+
 // ----
 
 type ConcSize struct {

@@ -54,6 +54,7 @@ type Query struct {
 
 type FreqDistribArgs struct {
 	CorpusPath string `json:"corpusPath"`
+	SubcPath   string `json:"subcPath"`
 	Query      string `json:"query"`
 	Crit       string `json:"crit"`
 	Limit      int    `json:"limit"`
