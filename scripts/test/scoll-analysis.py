@@ -21,20 +21,30 @@ if __name__ == "__main__":
     analysis = {}
     for k in ks[1:]:
         analysis[f'{prev_k}-{k}'] = {}
+        new_words_count = {}
 
         # count entry difference between k for each word and query type
         for word in words:
             for query in data[prev_k][word]:
                 prev_words = [v['word'] for v in data[prev_k][word][query]['freqs']]
                 new_words = [v['word'] for v in data[k][word][query]['freqs'] if v['word'] not in prev_words]
+                if query not in new_words_count:
+                    new_words_count[query] = [len(new_words)]
+                else:
+                    new_words_count[query].append(len(new_words))
+
                 if query in analysis[f'{prev_k}-{k}']:
                     analysis[f'{prev_k}-{k}'][query] += len(new_words)
                 else:
                     analysis[f'{prev_k}-{k}'][query] = len(new_words)
 
-        # average over all words
-        for query in analysis[f'{prev_k}-{k}']:
-            analysis[f'{prev_k}-{k}'][query] /= len(words)
+        for query, counts in new_words_count.items():
+            mean = sum(counts)/len(counts)
+            dispersion = sum((mean-count)*(mean-count) for count in counts)/len(counts)
+            analysis[f'{prev_k}-{k}'][query] = {
+                "mean": mean,
+                "dispersion": dispersion,
+            }
 
         prev_k = k
 
