@@ -19,8 +19,7 @@ import (
 
 	"mquery/cnf"
 	"mquery/corpus/query"
-	"mquery/corpus/sketch"
-	"mquery/corpus/sketch/qgen"
+	"mquery/corpus/scoll"
 	"mquery/db"
 	"mquery/general"
 	"mquery/rdb"
@@ -98,7 +97,7 @@ func runApiServer(
 		log.Fatal().Err(err).Msg("failed to initialize cache database")
 	}
 	backend := db.NewBackend(sqlDB)
-	scollQueryExecutor := qgen.NewQueryExecutor(backend, radapter)
+	scollQueryExecutor := scoll.NewQueryExecutor(backend, radapter)
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -122,7 +121,7 @@ func runApiServer(
 	engine.GET(
 		"/conc-examples/:corpusId", concActions.ConcExample)
 
-	sketchActions := sketch.NewActions(
+	sketchActions := scoll.NewActions(
 		conf.CorporaSetup,
 		conf.SketchSetup,
 		radapter,

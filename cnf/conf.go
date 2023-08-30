@@ -21,7 +21,7 @@ package cnf
 import (
 	"encoding/json"
 	"mquery/corpus"
-	"mquery/corpus/sketch/qgen"
+	"mquery/corpus/scoll"
 	"mquery/db"
 	"mquery/rdb"
 	"os"
@@ -46,7 +46,7 @@ type Conf struct {
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
 	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
 	CorporaSetup           *corpus.CorporaSetup `json:"corporaSetup"`
-	SketchSetup            *qgen.SketchSetup    `json:"sketchSetup"`
+	SketchSetup            *scoll.SketchSetup   `json:"sketchSetup"`
 	DB                     *db.Conf             `json:"db"`
 	Redis                  *rdb.Conf            `json:"redis"`
 	LogFile                string               `json:"logFile"`
