@@ -18,7 +18,34 @@
 
 package corpus
 
-import "mquery/rdb"
+import (
+	"fmt"
+	"mquery/rdb"
+	"os"
+	"path/filepath"
+)
+
+type SplitCorpus struct {
+	CorpusPath string
+	Subcorpora []string
+}
+
+func OpenSplitCorpus(subcBaseDir, corpPath string) (SplitCorpus, error) {
+	ans := SplitCorpus{
+		CorpusPath: corpPath,
+		Subcorpora: make([]string, 0, 30),
+	}
+	corpName := filepath.Base(corpPath)
+	p := filepath.Join(subcBaseDir, corpName)
+	files, err := os.ReadDir(p)
+	if err != nil {
+		return ans, fmt.Errorf("failed to open split corpus: %w", err)
+	}
+	for _, item := range files {
+		ans.Subcorpora = append(ans.Subcorpora, filepath.Join(p, item.Name()))
+	}
+	return ans, nil
+}
 
 type QueryHandler interface {
 	PublishQuery(query rdb.Query) (<-chan *rdb.WorkerResult, error)

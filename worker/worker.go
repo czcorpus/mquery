@@ -148,7 +148,7 @@ func (w *Worker) Listen() {
 
 func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	var ans results.FreqDistrib
-	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.Query, args.Crit, args.Limit)
+	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.SubcPath, args.Query, args.Crit, args.Limit)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans

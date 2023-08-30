@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
+	corpusEdit "mquery/corpus/edit"
 	"mquery/corpus/query"
 	"mquery/corpus/scoll"
 	"mquery/db"
@@ -107,10 +108,18 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
+	ceActions := corpusEdit.NewActions(conf.CorporaSetup)
+
+	engine.POST(
+		"/corpus/:corpusId/split", ceActions.SplitCorpus)
+
 	concActions := query.NewActions(conf.CorporaSetup, radapter)
 
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)
+
+	engine.GET(
+		"/freqs2/:corpusId", concActions.FreqDistribParallel)
 
 	engine.GET(
 		"/collocs/:corpusId", concActions.Collocations)
@@ -180,7 +189,7 @@ func main() {
 	}
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "MQUERY - Simple manatee querying\n\n")
+		fmt.Fprintf(os.Stderr, "MQUERY - A specialized corpus querying server\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] server [config.json]\n\t", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] worker [config.json]\n\t", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "%s [options] version\n", filepath.Base(os.Args[0]))

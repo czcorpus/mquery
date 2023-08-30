@@ -101,7 +101,7 @@ CorpusRetval open_corpus(const char* corpusPath);
 
 void close_corpus(CorpusV corpus);
 
-CorpusSizeRetrval get_corpus_size(CorpusV corpus);
+CorpusSizeRetrval get_corpus_size(const char* corpusPath);
 
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 
@@ -121,7 +121,7 @@ PosInt int_vector_get_size(MVector v);
 
 FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
 
-FreqsRetval freq_dist(const char* corpusPath, const char* query, const char* fcrit, PosInt flimit);
+FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* query, const char* fcrit, PosInt flimit);
 
 KWICRowsRetval conc_examples(const char* corpusPath, const char*query, const char* attrs, PosInt limit);
 

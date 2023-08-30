@@ -20,17 +20,14 @@ package query
 
 import (
 	"encoding/json"
-	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -52,73 +49,8 @@ type Actions struct {
 	radapter *rdb.Adapter
 }
 
-func (a *Actions) FreqDistrib(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
-	log.Debug().
-		Str("query", q).
-		Msg("processing Mango query")
-	flimit := 1
-	if ctx.Request.URL.Query().Has("flimit") {
-		var err error
-		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusUnprocessableEntity,
-			)
-			return
-		}
-	}
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	args, err := json.Marshal(rdb.FreqDistribArgs{
-		CorpusPath: corpusPath,
-		Query:      q,
-		Crit:       "lemma/e 0~0>0",
-		Limit:      flimit,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: args,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	rawResult := <-wait
-	result, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	uniresp.WriteJSONResponse(
-		ctx.Writer,
-		result,
-	)
-}
-
 func (a *Actions) Collocations(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
-	log.Debug().
-		Str("query", q).
-		Msg("processing Mango query")
 
 	collFnArg := ctx.Request.URL.Query().Get("fn")
 	collFn, ok := collFunc[collFnArg]
@@ -249,10 +181,6 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 	word := ctx.Request.URL.Query().Get("word")
 	pos := ctx.Request.URL.Query().Get("pos")
 	if lemma != "" {
-		log.Debug().
-			Str("lemma", lemma).
-			Str("pos", pos).
-			Msg("processing Mango query")
 		wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
@@ -265,12 +193,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 		ans = append(ans, wordForms)
 
 	} else if len(word) > 0 {
-		log.Debug().
-			Str("word", word).
-			Str("pos", pos).
-			Msg("processing Mango query")
 		lemmas, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
-		fmt.Println(">>>> lemmas: ", lemmas)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,

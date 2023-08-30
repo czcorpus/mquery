@@ -68,6 +68,16 @@ type GoColls struct {
 	CorpusSize int64
 }
 
+func GetCorpusSize(corpusPath string) (int64, error) {
+	ans := C.get_corpus_size(C.CString(corpusPath))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return 0, err
+	}
+	return int64(ans.value), nil
+}
+
 func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 	ans := C.concordance_size(C.CString(corpusPath), C.CString(query))
 	var ret GoConcSize
@@ -101,9 +111,9 @@ func GetConcExamples(corpusPath, query string, attrs []string, maxItems int) (Go
 	return ret, nil
 }
 
-func CalcFreqDist(corpusID, query, fcrit string, flimit int) (*Freqs, error) {
+func CalcFreqDist(corpusID, subcID, query, fcrit string, flimit int) (*Freqs, error) {
 	var ret Freqs
-	ans := C.freq_dist(C.CString(corpusID), C.CString(query), C.CString(fcrit), C.longlong(flimit))
+	ans := C.freq_dist(C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(fcrit), C.longlong(flimit))
 	defer func() { // the 'new' was called before any possible error so we have to do this
 		C.delete_int_vector(ans.freqs)
 		C.delete_int_vector(ans.norms)
