@@ -16,11 +16,10 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package sketch
+package scoll
 
 import (
 	"mquery/corpus"
-	"mquery/corpus/sketch/qgen"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -31,12 +30,12 @@ import (
 
 type Actions struct {
 	corpConf   *corpus.CorporaSetup
-	sketchConf *qgen.SketchSetup
+	sketchConf *SketchSetup
 	radapter   *rdb.Adapter
-	qExecutor  *qgen.QueryExecutor
+	qExecutor  *QueryExecutor
 }
 
-func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *qgen.CorpusSketchSetup {
+func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *CorpusSketchSetup {
 	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusID]
 	if !ok {
 		uniresp.WriteJSONErrorResponse(
@@ -74,7 +73,7 @@ func (a *Actions) handleResultOrWriteErr(
 }
 
 func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
-	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -88,7 +87,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := qgen.NewQueryGenerator(qgen.QueryNounsModifiedBy, sketchAttrs)
+	queryGen := NewQueryGenerator(QueryNounsModifiedBy, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
@@ -129,7 +128,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 }
 
 func (a *Actions) ModifiersOf(ctx *gin.Context) {
-	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -143,7 +142,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := qgen.NewQueryGenerator(qgen.QueryModifiersOf, sketchAttrs)
+	queryGen := NewQueryGenerator(QueryModifiersOf, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
@@ -182,7 +181,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 }
 
 func (a *Actions) VerbsSubject(ctx *gin.Context) {
-	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -196,7 +195,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := qgen.NewQueryGenerator(qgen.QueryVerbsSubject, sketchAttrs)
+	queryGen := NewQueryGenerator(QueryVerbsSubject, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
@@ -236,7 +235,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 }
 
 func (a *Actions) VerbsObject(ctx *gin.Context) {
-	w := qgen.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -250,7 +249,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := qgen.NewQueryGenerator(qgen.QueryVerbsObject, sketchAttrs)
+	queryGen := NewQueryGenerator(QueryVerbsObject, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
@@ -291,9 +290,9 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 
 func NewActions(
 	corpConf *corpus.CorporaSetup,
-	sketchConf *qgen.SketchSetup,
+	sketchConf *SketchSetup,
 	radapter *rdb.Adapter,
-	qExecutor *qgen.QueryExecutor,
+	qExecutor *QueryExecutor,
 ) *Actions {
 	ans := &Actions{
 		corpConf:   corpConf,

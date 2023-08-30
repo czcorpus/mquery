@@ -20,6 +20,7 @@ package query
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/results"
@@ -269,6 +270,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			Str("pos", pos).
 			Msg("processing Mango query")
 		lemmas, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
+		fmt.Println(">>>> lemmas: ", lemmas)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,

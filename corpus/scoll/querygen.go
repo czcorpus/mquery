@@ -16,9 +16,11 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package qgen
+package scoll
 
-import "mquery/rdb"
+import (
+	"mquery/rdb"
+)
 
 const (
 	QueryNounsModifiedBy QueryType = iota
