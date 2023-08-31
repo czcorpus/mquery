@@ -128,6 +128,7 @@ FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt 
         static_cast<void*>(xnorms),
         0, // TODO
         0, // TODO
+        0, // TODO
         nullptr
     };
     return ans;
