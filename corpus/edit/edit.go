@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 
 	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/czcorpus/cnc-gokit/maths"
 )
 
 const (
@@ -72,7 +73,8 @@ func splitCorpus(subcBaseDir, corpusPath string) (corpus.SplitCorpus, error) {
 
 	for i := 0; i < numChunks; i++ {
 		path := filepath.Join(subcBaseDir, cname, fmt.Sprintf("chunk_%02d.subc", i))
-		err := createSubcorpus(path, int64(i)*maxSplitChunkSize, int64(i+1)*maxSplitChunkSize)
+		limit := maths.Min(int64(i+1)*maxSplitChunkSize, size)
+		err := createSubcorpus(path, int64(i)*maxSplitChunkSize, limit)
 		if err != nil {
 			return ans, fmt.Errorf("failed to create split corpus: %w", err)
 		}
