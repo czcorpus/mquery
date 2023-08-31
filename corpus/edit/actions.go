@@ -43,7 +43,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionError("split corpus already exists"), http.StatusConflict)
 		return
 	}
-	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath)
+	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)

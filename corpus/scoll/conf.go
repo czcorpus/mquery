@@ -50,25 +50,26 @@ type SketchSetup struct {
 	NumParallelChunks int `json:"numParallelChunks"`
 }
 
-func (setup *SketchSetup) ApplyDefaults() {
+func (setup *SketchSetup) DefaultsAndValidate() error {
 	if setup.CollPreliminarySelSize == 0 {
 		log.Warn().
 			Int("value", DfltCollPreliminarySelSize).
-			Msg("collPreliminarySelSize not set, using default")
+			Msg("`sketchSetup.collPreliminarySelSize` not set, using default")
 		setup.CollPreliminarySelSize = DfltCollPreliminarySelSize
 	}
 	if setup.CollResultSize == 0 {
 		log.Warn().
 			Int("value", DfltCollResultSize).
-			Msg("collResultSize not set, using default")
+			Msg("`sketchSetup.collResultSize` not set, using default")
 		setup.CollResultSize = DfltCollResultSize
 	}
 	if setup.NumParallelChunks == 0 {
 		log.Warn().
 			Int("value", DfltNumParallelChunks).
-			Msg("numParallelChunks not set, using default")
+			Msg("`sketchSetup.numParallelChunks` not set, using default")
 		setup.NumParallelChunks = DfltNumParallelChunks
 	}
+	return nil
 }
 
 type CorpusSketchSetup struct {

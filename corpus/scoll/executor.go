@@ -59,7 +59,7 @@ func (qe *QueryExecutor) FxQuery(
 			CorpusPath: corpusPath,
 			Query:      gen.FxQuery(word),
 			Crit:       gen.FxCrit(),
-			Limit:      1,
+			FreqLimit:  1,
 		})
 		if err != nil {
 			go func() {

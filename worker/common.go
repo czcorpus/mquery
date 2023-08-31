@@ -24,7 +24,12 @@ import (
 	"sort"
 )
 
-func MergeFreqVectors(freqs *mango.Freqs, corpSize int64, maxItems int) []*results.FreqDistribItem {
+// CompileFreqResult merges three vectors holding words, freqs and norms
+// (as provided by Manatee), sorts the values and returns at most
+// maxItems.
+// Please note that the function sorts the frequency results in RAM so it
+// may be quite demanding based on corpus size and underlying concordance.
+func CompileFreqResult(freqs *mango.Freqs, corpSize int64, maxItems int) []*results.FreqDistribItem {
 	lenLimit := len(freqs.Freqs)
 	if maxItems < lenLimit {
 		lenLimit = maxItems

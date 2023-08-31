@@ -90,7 +90,7 @@ func LoadConfig(path string) *Conf {
 	return &conf
 }
 
-func ApplyDefaults(conf *Conf) {
+func DefaultsAndValidate(conf *Conf) {
 	if conf.ServerWriteTimeoutSecs == 0 {
 		conf.ServerWriteTimeoutSecs = dfltServerWriteTimeoutSecs
 		log.Warn().Msgf(
@@ -102,5 +102,10 @@ func ApplyDefaults(conf *Conf) {
 		conf.Language = dfltLanguage
 		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
 	}
-	conf.SketchSetup.ApplyDefaults()
+	if err := conf.SketchSetup.DefaultsAndValidate(); err != nil {
+		log.Fatal().Err(err).Msg("invalid configuration")
+	}
+	if err := conf.CorporaSetup.DefaultsAndValidate(); err != nil {
+		log.Fatal().Err(err).Msg("invalid configuration")
+	}
 }

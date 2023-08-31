@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	maxSplitChunkSize = 100000000
+	maxReasonableNumChunks = 200
 )
 
 func splitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
@@ -52,13 +52,17 @@ func splitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
 	return isDir && len(entries) > 0, nil
 }
 
-func splitCorpus(subcBaseDir, corpusPath string) (corpus.SplitCorpus, error) {
+func splitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (corpus.SplitCorpus, error) {
+
 	ans := corpus.SplitCorpus{CorpusPath: corpusPath}
 	size, err := mango.GetCorpusSize(corpusPath)
 	if err != nil {
 		return ans, fmt.Errorf("failed create split corpus: %w", err)
 	}
-	numChunks := int(math.Ceil(float64(size) / float64(maxSplitChunkSize)))
+	numChunks := int(math.Ceil(float64(size) / float64(chunkSize)))
+	if numChunks > maxReasonableNumChunks {
+		return ans, fmt.Errorf("failed create split corpus: too much chunks (%d vs. limit %d)", numChunks, maxReasonableNumChunks)
+	}
 	ans.Subcorpora = make([]string, numChunks)
 	ans.CorpusPath = corpusPath
 	cname := filepath.Base(corpusPath)
@@ -73,8 +77,8 @@ func splitCorpus(subcBaseDir, corpusPath string) (corpus.SplitCorpus, error) {
 
 	for i := 0; i < numChunks; i++ {
 		path := filepath.Join(subcBaseDir, cname, fmt.Sprintf("chunk_%02d.subc", i))
-		limit := maths.Min(int64(i+1)*maxSplitChunkSize, size)
-		err := createSubcorpus(path, int64(i)*maxSplitChunkSize, limit)
+		limit := maths.Min(int64(i+1)*chunkSize, size)
+		err := createSubcorpus(path, int64(i)*chunkSize, limit)
 		if err != nil {
 			return ans, fmt.Errorf("failed to create split corpus: %w", err)
 		}
