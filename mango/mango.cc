@@ -149,7 +149,7 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
         PosInt srchSize;
         PosInt corpSize;
 
-        if (subcPath != "") {
+        if (subcPath && *subcPath != '\0') {
             subc = new SubCorpus(corp, subcPath);
             conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
             conc->sync();
