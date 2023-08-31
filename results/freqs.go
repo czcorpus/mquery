@@ -110,7 +110,7 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 		if v1 != nil {
 			v1.CollWeight = 0 // we cannot merge coll values
 			v1.Freq += v2.Freq
-			v1.Norm += v2.Norm
+			v1.Norm = res.CorpusSize
 			v1.IPM = float32(v1.Freq) / float32(res.CorpusSize) * 1e6
 
 		} else {
