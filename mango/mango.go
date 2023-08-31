@@ -42,6 +42,7 @@ type Freqs struct {
 	Norms      []int64
 	ConcSize   int64
 	CorpusSize int64
+	SearchSize int64
 }
 
 // ---
@@ -129,6 +130,7 @@ func CalcFreqDist(corpusID, subcID, query, fcrit string, flimit int) (*Freqs, er
 	ret.Words = StrVectorToSlice(GoVector{ans.words})
 	ret.ConcSize = int64(ans.concSize)
 	ret.CorpusSize = int64(ans.corpusSize)
+	ret.SearchSize = int64(ans.searchSize)
 	return &ret, nil
 }
 
