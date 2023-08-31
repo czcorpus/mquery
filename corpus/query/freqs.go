@@ -24,6 +24,7 @@ import (
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -57,7 +58,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		CorpusPath: corpusPath,
 		Query:      q,
 		Crit:       "lemma/e 0~0>0",
-		Limit:      flimit,
+		FreqLimit:  flimit,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -99,6 +100,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
 	flimit := 1
+	maxItems := 0
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
@@ -123,6 +125,19 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		}
 	}
 
+	if ctx.Request.URL.Query().Has("maxItems") {
+		var err error
+		maxItems, err = strconv.Atoi(ctx.Request.URL.Query().Get("maxItems"))
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusUnprocessableEntity,
+			)
+			return
+		}
+	}
+
 	mergedFreqLock := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(len(sc.Subcorpora))
@@ -134,7 +149,8 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			SubcPath:   subc,
 			Query:      q,
 			Crit:       "lemma/e 0~0>0",
-			Limit:      flimit,
+			FreqLimit:  flimit,
+			MaxResults: maxItems,
 		})
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
@@ -169,5 +185,16 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		}
 	}
 	wg.Wait()
+	sort.SliceStable(
+		result.Freqs,
+		func(i, j int) bool {
+			return result.Freqs[i].Freq > result.Freqs[j].Freq
+		},
+	)
+	cut := maxItems
+	if maxItems == 0 {
+		cut = 100 // TODO !!! (configured on worker, cannot import here)
+	}
+	result.Freqs = result.Freqs[:cut]
 	uniresp.WriteJSONResponse(ctx.Writer, result)
 }

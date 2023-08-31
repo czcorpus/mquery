@@ -19,7 +19,14 @@
 package corpus
 
 import (
+	"errors"
 	"path/filepath"
+
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	DfltSplitChunkSize = 100000000
 )
 
 // CorporaSetup defines mquery application configuration related
@@ -27,8 +34,30 @@ import (
 type CorporaSetup struct {
 	RegistryDir     string `json:"registryDir"`
 	SplitCorporaDir string `json:"splitCorporaDir"`
+
+	// MultiprocChunkSize defines a subcorpus size for large
+	// corpora when processed in a parallel way.
+	// Please note that once created, the subcorpora will be
+	// applied in their original way until explicitly removed.
+	// I.e. the value only affects newly created splits.
+	MultiprocChunkSize int64 `json:"multiprocChunkSize"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
 	return filepath.Join(cs.RegistryDir, corpusID)
+}
+
+func (cs *CorporaSetup) DefaultsAndValidate() error {
+	if cs.RegistryDir == "" {
+		return errors.New("missing `corporaSetup.registryDir`")
+	}
+	if cs.SplitCorporaDir == "" {
+		return errors.New("missing `corporaSetup.splitCorporaDir`")
+	}
+	if cs.MultiprocChunkSize == 0 {
+		log.Warn().
+			Int("value", DfltSplitChunkSize).
+			Msg("`corporaSetup.multiprocChunkSize` not set, using default")
+	}
+	return nil
 }

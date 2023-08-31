@@ -109,7 +109,7 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*resul
 		CorpusPath: corpusPath,
 		Query:      "[" + q + "]",
 		Crit:       "lemma 0~0>0 pos 0~0>0",
-		Limit:      1,
+		FreqLimit:  1,
 	})
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 		CorpusPath: corpusPath,
 		Query:      "[" + q + "]",
 		Crit:       "word/i 0~0>0",
-		Limit:      1,
+		FreqLimit:  1,
 	})
 	if err != nil {
 		return nil, err

@@ -219,7 +219,7 @@ func main() {
 		logging.SetupLogging(conf.LogFile, conf.LogLevel)
 	}
 	log.Info().Msg("Starting MQUERY")
-	cnf.ApplyDefaults(conf)
+	cnf.DefaultsAndValidate(conf)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)

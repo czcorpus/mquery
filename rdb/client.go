@@ -57,7 +57,8 @@ type FreqDistribArgs struct {
 	SubcPath   string `json:"subcPath"`
 	Query      string `json:"query"`
 	Crit       string `json:"crit"`
-	Limit      int    `json:"limit"`
+	FreqLimit  int    `json:"freqLimit"`
+	MaxResults int    `json:"maxResults"`
 }
 
 type CollocationsArgs struct {

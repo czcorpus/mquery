@@ -148,12 +148,16 @@ func (w *Worker) Listen() {
 
 func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	var ans results.FreqDistrib
-	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.SubcPath, args.Query, args.Crit, args.Limit)
+	freqs, err := mango.CalcFreqDist(args.CorpusPath, args.SubcPath, args.Query, args.Crit, args.FreqLimit)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
 	}
-	mergedFreqs := MergeFreqVectors(freqs, freqs.SearchSize, MaxFreqResultItems)
+	maxResults := args.MaxResults
+	if maxResults == 0 {
+		maxResults = MaxFreqResultItems
+	}
+	mergedFreqs := CompileFreqResult(freqs, freqs.SearchSize, MaxFreqResultItems)
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize
