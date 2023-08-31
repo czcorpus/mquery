@@ -146,30 +146,34 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
         vector<PosInt>& freqs = *xfreqs;
         auto xnorms = new vector<PosInt>;
         vector<PosInt>& norms = *xnorms;
-        PosInt srchSize;
+        PosInt concSize;
         PosInt corpSize;
+        PosInt searchSize;
 
         if (subcPath && *subcPath != '\0') {
             subc = new SubCorpus(corp, subcPath);
             conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
             conc->sync();
             subc->freq_dist(conc->RS(), fcrit, flimit, words, freqs, norms);
-            srchSize = conc->size();
-            corpSize = subc->search_size();
+            concSize = conc->size();
+            corpSize = corp->size();
+            searchSize = subc->search_size();
 
         } else {
             conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
             conc->sync();
             corp->freq_dist(conc->RS(), fcrit, flimit, words, freqs, norms);
-            srchSize = conc->size();
+            concSize = conc->size();
             corpSize = corp->size();
+            searchSize = corp->size();
         }
         FreqsRetval ans {
             static_cast<void*>(xwords),
             static_cast<void*>(xfreqs),
             static_cast<void*>(xnorms),
-            srchSize,
+            concSize,
             corpSize,
+            searchSize,
             nullptr
         };
         delete conc;
@@ -181,6 +185,7 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
             nullptr,
             nullptr,
             nullptr,
+            0,
             0,
             0,
             strdup(e.what())

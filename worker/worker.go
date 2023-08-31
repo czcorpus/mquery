@@ -153,7 +153,7 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 		ans.Error = err.Error()
 		return &ans
 	}
-	mergedFreqs := MergeFreqVectors(freqs, freqs.CorpusSize, MaxFreqResultItems)
+	mergedFreqs := MergeFreqVectors(freqs, freqs.SearchSize, MaxFreqResultItems)
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize

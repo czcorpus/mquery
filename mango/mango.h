@@ -70,6 +70,7 @@ typedef struct FreqsRetval {
     MVector norms;
     PosInt concSize;
     PosInt corpusSize;
+    PosInt searchSize;
     const char * err;
 } FreqsRetval;
 

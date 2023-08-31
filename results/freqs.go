@@ -69,16 +69,29 @@ type SerializableResult interface {
 // ----
 
 type FreqDistrib struct {
-	ConcSize   int64              `json:"concSize"`
-	CorpusSize int64              `json:"corpusSize"`
-	Freqs      []*FreqDistribItem `json:"freqs"`
+
+	// ConcSize represents number of matching concordance rows
+	ConcSize int64 `json:"concSize"`
+
+	// CorpusSize is always equal to the whole corpus size
+	// (even if we work with a subcorpus)
+	CorpusSize int64 `json:"corpusSize"`
+
+	// SearchSize is either equal to `CorpusSize` (in case
+	// no subcorpus is involved) or equal to a respective
+	// subcorpus size
+	SearchSize int64 `json:"searchSize"`
+
+	Freqs []*FreqDistribItem `json:"freqs"`
 
 	// ExamplesQueryTpl provides a (CQL) query template
 	// for obtaining examples matching words from the `Freqs`
 	// atribute (one by one).
-	ExamplesQueryTpl string     `json:"examplesQueryTpl"`
-	ResultType       ResultType `json:"resultType"`
-	Error            string     `json:"error"`
+	ExamplesQueryTpl string `json:"examplesQueryTpl"`
+
+	ResultType ResultType `json:"resultType"`
+
+	Error string `json:"error"`
 }
 
 func (res *FreqDistrib) Err() error {
@@ -103,8 +116,8 @@ func (res *FreqDistrib) FindItem(w string) *FreqDistribItem {
 
 func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 	res.ConcSize += other.ConcSize
-	res.CorpusSize += other.CorpusSize
-	res.ExamplesQueryTpl = "" // we cannot merge two CQL queries so we remove it
+	res.CorpusSize = other.CorpusSize // always the same value but to resolve possible initial 0
+	res.ExamplesQueryTpl = ""         // we cannot merge two CQL queries so we remove it
 	for _, v2 := range other.Freqs {
 		v1 := res.FindItem(v2.Word)
 		if v1 != nil {
@@ -114,6 +127,7 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 			v1.IPM = float32(v1.Freq) / float32(res.CorpusSize) * 1e6
 
 		} else {
+			v2.Norm = res.CorpusSize
 			res.Freqs = append(res.Freqs, v2)
 		}
 	}
