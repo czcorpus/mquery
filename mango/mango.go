@@ -92,6 +92,17 @@ func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 	return ret, nil
 }
 
+func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
+	ans := C.compile_subc_freqs(C.CString(corpusPath), C.CString(subcPath), C.CString(attr))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return err
+	}
+
+	return nil
+}
+
 func GetConcExamples(corpusPath, query string, attrs []string, maxItems int) (GoConcExamples, error) {
 	ans := C.conc_examples(
 		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")), C.longlong(maxItems))
@@ -175,14 +186,14 @@ func IntVectorToSlice(vector GoVector) []int64 {
 // 'f': 'absolute freq.',
 // 'd': 'logDice'
 func GetCollcations(
-	corpusID, query string,
+	corpusID, subcID, query string,
 	attrName string,
 	calcFn byte,
 	minFreq int64,
 	maxItems int,
 ) (GoColls, error) {
 	colls := C.collocations(
-		C.CString(corpusID), C.CString(query), C.CString(attrName), C.char(calcFn), C.char(calcFn),
+		C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(attrName), C.char(calcFn), C.char(calcFn),
 		C.longlong(minFreq), C.longlong(minFreq), -5, 5, C.int(maxItems))
 	if colls.err != nil {
 		err := fmt.Errorf(C.GoString(colls.err))

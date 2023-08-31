@@ -125,6 +125,9 @@ func runApiServer(
 		"/collocs/:corpusId", concActions.Collocations)
 
 	engine.GET(
+		"/collocs2/:corpusId", concActions.CollocationsParallel)
+
+	engine.GET(
 		"/word-forms/:corpusId", concActions.WordForms)
 
 	engine.GET(

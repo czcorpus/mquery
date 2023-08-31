@@ -20,6 +20,7 @@ package edit
 
 import (
 	"mquery/corpus"
+	"mquery/mango"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -49,6 +50,12 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
 		return
 	}
+
+	for _, subc := range corp.Subcorpora {
+		mango.CompileSubcFreqs(corpPath, subc, "word") // TODO
+		mango.CompileSubcFreqs(corpPath, subc, "lemma")
+	}
+
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
 }
 
