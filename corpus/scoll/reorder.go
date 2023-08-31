@@ -166,7 +166,7 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	}
 
 	for i, item := range items {
-		item.CollWeight = float64(fxyValues[i]) / (float64(item.Freq) + float64(fyValues[i]))
+		item.CollWeight = 14 + math.Log2(2*float64(fxyValues[i])/(float64(item.Freq)+float64(fyValues[i])))
 	}
 
 	sort.SliceStable(
