@@ -19,7 +19,6 @@
 package query
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -31,16 +30,12 @@ const (
 	MinSampleSize = 20
 )
 
-var (
-	ErrTooSmallSample = errors.New("too small sample size for bootstrapping")
-)
-
 type CollEstim struct {
-	Word  string
-	Mean  float64
-	Left  float64
-	Right float64
-	Warn  bool
+	Word      string  `json:"word"`
+	Mean      float64 `json:"mean"`
+	Left      float64 `json:"leftCi"`
+	Right     float64 `json:"rightCi"`
+	NumChunks int     `json:"numChunks"`
 }
 
 type MultivalueColls struct {
@@ -86,36 +81,28 @@ func (mvc *MultivalueColls) bootstrapWord(w string, sampleLen int) (float64, err
 	if !ok {
 		return 0, fmt.Errorf("word not found: %s", w)
 	}
-	var err error
-	if len(items) < MinSampleSize {
-		err = ErrTooSmallSample
-	}
 	var mean float64
 	for i := 0; i < sampleLen; i++ {
 		xi := rand.Intn(len(items))
 		mean += items[xi].Score
 	}
-	return mean / float64(sampleLen), err
+	return mean / float64(sampleLen), nil
 }
 
 func (mvc *MultivalueColls) SortedByBootstrappedScore(sampleSize, numSamples int) ([]*CollEstim, error) {
 	ans := make([]*CollEstim, 0, len(mvc.Values))
-	for word, _ := range mvc.Values {
+	for word, items := range mvc.Values {
 		tmp := make([]float64, 0, sampleSize) // TODO parallelize
-		var tooFewSamples bool
 		for i := 0; i < numSamples; i++ {
 			mn, err := mvc.bootstrapWord(word, sampleSize)
-			if err == ErrTooSmallSample {
-				tooFewSamples = true
-
-			} else if err != nil {
+			if err != nil {
 				return []*CollEstim{}, err
 			}
 			tmp = append(tmp, mn)
 		}
 		estim := mvc.evaluateScores(tmp)
 		estim.Word = word
-		estim.Warn = tooFewSamples
+		estim.NumChunks = len(items)
 		ans = append(ans, &estim)
 	}
 
