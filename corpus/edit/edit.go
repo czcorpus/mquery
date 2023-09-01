@@ -26,6 +26,7 @@ import (
 	"mquery/mango"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/maths"
@@ -50,6 +51,18 @@ func SplitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
 		return false, fmt.Errorf("failed to determine split corpus existence: %w", err)
 	}
 	return isDir && len(entries) > 0, nil
+}
+
+func CollFreqDataExists(subcPath, attrName string) (bool, error) {
+	subcf := filepath.Base(subcPath)
+	rootDir := filepath.Dir(subcPath)
+	tmp := strings.TrimSuffix(subcf, filepath.Ext(subcf))
+	freqFilename := fmt.Sprintf("%s.%s.frq", tmp, attrName)
+	isFile, err := fs.IsFile(filepath.Join(rootDir, freqFilename))
+	if err != nil {
+		return false, err
+	}
+	return isFile, nil
 }
 
 func SplitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (corpus.SplitCorpus, error) {

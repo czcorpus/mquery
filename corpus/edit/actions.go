@@ -90,6 +90,57 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
 }
 
+func (a *Actions) CollFreqData(ctx *gin.Context) {
+	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	corp, err := SplitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
+		return
+	}
+	wg := sync.WaitGroup{}
+	for _, subc := range corp.Subcorpora {
+		for _, attr := range []string{"word", "lemma"} {
+			exists, err := CollFreqDataExists(subc, attr)
+			if err != nil {
+				// TODO
+				log.Error().Err(err).Msg("failed to determine freq file existence")
+
+			} else if !exists {
+				wg.Add(1)
+				args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
+					CorpusPath: corpPath,
+					SubcPath:   subc,
+					Attrs:      []string{attr},
+				})
+				if err != nil {
+					// TODO
+					log.Error().Err(err).Msg("failed to publish task")
+				}
+				wait, err := a.radapter.PublishQuery(rdb.Query{
+					Func: "calcCollFreqData",
+					Args: args,
+				})
+				go func() {
+					ans := <-wait
+					resp, err := rdb.DeserializeCollFreqDataResult(ans)
+					if err != nil {
+						// TODO
+						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
+					}
+					if resp.Err() != nil {
+						// TODO
+						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
+					}
+					wg.Done()
+				}()
+			}
+		}
+	}
+	wg.Wait()
+	uniresp.WriteJSONResponse(ctx.Writer, corp)
+}
+
 func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter) *Actions {
 	return &Actions{
 		conf:     conf,
