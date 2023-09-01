@@ -81,3 +81,12 @@ func DeserializeCollocationsResult(w *WorkerResult) (results.Collocations, error
 	}
 	return ans, nil
 }
+
+func DeserializeCollFreqDataResult(w *WorkerResult) (results.CollFreqData, error) {
+	var ans results.CollFreqData
+	err := json.Unmarshal(w.Value, &ans)
+	if err != nil {
+		return ans, fmt.Errorf("failed to deserialize CollFreqData: %w", err)
+	}
+	return ans, nil
+}
