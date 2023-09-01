@@ -84,6 +84,12 @@ type ConcExampleArgs struct {
 	MaxItems   int      `json:"maxItems"`
 }
 
+type CalcCollFreqDataArgs struct {
+	CorpusPath string   `json:"corpusPath"`
+	SubcPath   string   `json:"subcPath"`
+	Attrs      []string `json:"attrs"`
+}
+
 func (q Query) ToJSON() (string, error) {
 	ans, err := json.Marshal(q)
 	if err != nil {

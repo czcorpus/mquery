@@ -121,6 +121,16 @@ func (w *Worker) tryNextQuery() error {
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
+	case "calcCollFreqData":
+		var args rdb.CalcCollFreqDataArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.calcCollFreqData(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+
 	default:
 		ans := &results.ErrorResult{Error: fmt.Sprintf("unknonw query function: %s", query.Func)}
 		if err = w.publishResult(ans, query.Channel); err != nil {
@@ -177,6 +187,16 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	ans.ConcSize = colls.ConcSize
 	ans.CorpusSize = colls.CorpusSize
 	return &ans
+}
+
+func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) *results.CollFreqData {
+	for _, attr := range args.Attrs {
+		err := mango.CompileSubcFreqs(args.CorpusPath, args.SubcPath, attr)
+		if err != nil {
+			return &results.CollFreqData{Error: err.Error()}
+		}
+	}
+	return nil
 }
 
 func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {

@@ -35,7 +35,7 @@ const (
 	maxReasonableNumChunks = 200
 )
 
-func splitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
+func SplitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
 	cname := filepath.Base(corpusPath)
 	path := filepath.Join(subcBaseDir, cname)
 	isDir, err := fs.IsDir(path)
@@ -52,7 +52,7 @@ func splitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
 	return isDir && len(entries) > 0, nil
 }
 
-func splitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (corpus.SplitCorpus, error) {
+func SplitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (corpus.SplitCorpus, error) {
 
 	ans := corpus.SplitCorpus{CorpusPath: corpusPath}
 	size, err := mango.GetCorpusSize(corpusPath)

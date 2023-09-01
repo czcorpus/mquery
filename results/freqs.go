@@ -29,6 +29,7 @@ const (
 	ResultTypeFy           = "Fy"
 	ResultTypeFxy          = "Fxy"
 	ResultTypeCollocations = "Collocations"
+	ResultTypeCollFreqData = "collFreqData"
 	ResultTypeError        = "Error"
 )
 
@@ -171,6 +172,23 @@ func (res *Collocations) Err() error {
 
 func (res *Collocations) Type() ResultType {
 	return ResultTypeCollocations
+}
+
+// ----
+
+type CollFreqData struct {
+	Error string `json:"error"`
+}
+
+func (res *CollFreqData) Err() error {
+	if res.Error != "" {
+		return errors.New(res.Error)
+	}
+	return nil
+}
+
+func (res *CollFreqData) Type() ResultType {
+	return ResultTypeCollFreqData
 }
 
 // ----

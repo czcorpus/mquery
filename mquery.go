@@ -108,7 +108,7 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	ceActions := corpusEdit.NewActions(conf.CorporaSetup)
+	ceActions := corpusEdit.NewActions(conf.CorporaSetup, radapter)
 
 	engine.POST(
 		"/corpus/:corpusId/split", ceActions.SplitCorpus)
