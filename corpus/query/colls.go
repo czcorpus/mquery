@@ -21,39 +21,43 @@ package query
 import (
 	"encoding/json"
 	"mquery/corpus"
+	"mquery/mango"
 	"mquery/rdb"
-	"mquery/results"
 	"net/http"
-	"sort"
-	"strconv"
 	"sync"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
-func (a *Actions) FreqDistrib(ctx *gin.Context) {
+const (
+	CollDefaultAttr = "lemma"
+)
+
+func (a *Actions) Collocations(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
-	flimit := 1
-	if ctx.Request.URL.Query().Has("flimit") {
-		var err error
-		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusUnprocessableEntity,
-			)
-			return
-		}
+
+	collFnArg := ctx.Request.URL.Query().Get("fn")
+	collFn, ok := collFunc[collFnArg]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("unknown collocations function %s", collFnArg),
+			http.StatusUnprocessableEntity,
+		)
+		return
 	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	args, err := json.Marshal(rdb.FreqDistribArgs{
+
+	args, err := json.Marshal(rdb.CollocationsArgs{
 		CorpusPath: corpusPath,
 		Query:      q,
-		Crit:       "lemma/e 0~0>0",
-		FreqLimit:  flimit,
+		Attr:       CollDefaultAttr,
+		CollFn:     collFn,
+		MinFreq:    20,
+		MaxItems:   20,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -63,9 +67,8 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		)
 		return
 	}
-
 	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
+		Func: "collocations",
 		Args: args,
 	})
 	if err != nil {
@@ -77,26 +80,33 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-	result, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
+	result, err := rdb.DeserializeCollocationsResult(rawResult)
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
 	)
 }
 
-func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
+func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
-	flimit := 1
-	maxItems := 0
+
+	collFnArg := ctx.Request.URL.Query().Get("fn")
+	collFn, ok := collFunc[collFnArg]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("unknown collocations function %s", collFnArg),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+
+	bsamples, ok := unireq.GetURLIntArgOrFail(ctx, "bSamples", 500)
+	if !ok {
+		return
+	}
+
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -107,45 +117,20 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		return
 	}
 
-	if ctx.Request.URL.Query().Has("flimit") {
-		var err error
-		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusUnprocessableEntity,
-			)
-			return
-		}
-	}
-
-	if ctx.Request.URL.Query().Has("maxItems") {
-		var err error
-		maxItems, err = strconv.Atoi(ctx.Request.URL.Query().Get("maxItems"))
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusUnprocessableEntity,
-			)
-			return
-		}
-	}
-
 	mergedFreqLock := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(len(sc.Subcorpora))
-	result := new(results.FreqDistrib)
-	result.Freqs = make([]*results.FreqDistribItem, 0)
+	result := new(MultivalueColls)
+	result.Values = make(map[string][]*mango.GoCollItem)
 	for _, subc := range sc.Subcorpora {
-		args, err := json.Marshal(rdb.FreqDistribArgs{
+		args, err := json.Marshal(rdb.CollocationsArgs{
 			CorpusPath: corpusPath,
 			SubcPath:   subc,
 			Query:      q,
-			Crit:       "lemma/e 0~0>0",
-			FreqLimit:  flimit,
-			MaxResults: maxItems,
+			Attr:       CollDefaultAttr,
+			CollFn:     collFn,
+			MinFreq:    20,
+			MaxItems:   20,
 		})
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
@@ -157,9 +142,10 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		}
 
 		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "freqDistrib",
+			Func: "collocations",
 			Args: args,
 		})
+
 		if err != nil {
 			// TODO
 			log.Error().Err(err).Msg("failed to publish query")
@@ -167,29 +153,31 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		} else {
 			go func() {
 				tmp := <-wait
-				resultNext, err := rdb.DeserializeFreqDistribResult(tmp)
+				resultNext, err := rdb.DeserializeCollocationsResult(tmp)
 				if err != nil {
 					// TODO
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
 				mergedFreqLock.Lock()
-				result.MergeWith(&resultNext)
+				result.Add(resultNext.Colls)
 				mergedFreqLock.Unlock()
 				wg.Done()
 			}()
 		}
 	}
 	wg.Wait()
-	sort.SliceStable(
-		result.Freqs,
-		func(i, j int) bool {
-			return result.Freqs[i].Freq > result.Freqs[j].Freq
-		},
-	)
-	cut := maxItems
-	if maxItems == 0 {
-		cut = 100 // TODO !!! (configured on worker, cannot import here)
+	resp, err := result.SortedByBootstrappedScore(len(sc.Subcorpora), bsamples)
+	//resp := result.SortedByAvgScore()
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
 	}
-	result.Freqs = result.Freqs[:cut]
-	uniresp.WriteJSONResponse(ctx.Writer, result)
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		resp,
+	)
 }

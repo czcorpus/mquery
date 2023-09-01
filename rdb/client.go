@@ -63,6 +63,7 @@ type FreqDistribArgs struct {
 
 type CollocationsArgs struct {
 	CorpusPath string `json:"corpusPath"`
+	SubcPath   string `json:"subcPath"`
 	Query      string `json:"query"`
 	Attr       string `json:"attr"`
 	CollFn     string `json:"collFn"`

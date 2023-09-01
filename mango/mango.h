@@ -64,6 +64,10 @@ typedef struct ConcSizeRetVal {
     const char * err;
 } ConcSizeRetVal;
 
+typedef struct CompileFrqRetVal {
+    const char * err;
+} CompileFrqRetVal;
+
 typedef struct FreqsRetval {
     MVector words;
     MVector freqs;
@@ -108,6 +112,8 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 
 ConcSizeRetVal concordance_size(const char* corpusPath, const char* query);
 
+CompileFrqRetVal compile_subc_freqs(const char* corpusPath, const char* subcPath, const char* attr);
+
 void delete_str_vector(MVector v);
 
 void delete_int_vector(MVector v);
@@ -130,6 +136,7 @@ void conc_examples_free(KWICRowsV value, int numItems);
 
 CollsRetVal collocations(
     const char* corpusPath,
+    const char* subcPath,
     const char* query,
     const char * attrName,
     char collFn,

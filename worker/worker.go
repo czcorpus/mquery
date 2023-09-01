@@ -167,7 +167,7 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	var ans results.Collocations
 	colls, err := mango.GetCollcations(
-		args.CorpusPath, args.Query, args.Attr, byte(args.CollFn[0]),
+		args.CorpusPath, args.SubcPath, args.Query, args.Attr, byte(args.CollFn[0]),
 		args.MinFreq, args.MaxItems)
 	if err != nil {
 		ans.Error = err.Error()

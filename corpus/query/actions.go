@@ -49,56 +49,6 @@ type Actions struct {
 	radapter *rdb.Adapter
 }
 
-func (a *Actions) Collocations(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
-
-	collFnArg := ctx.Request.URL.Query().Get("fn")
-	collFn, ok := collFunc[collFnArg]
-	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("unknown collocations function %s", collFnArg),
-			http.StatusUnprocessableEntity,
-		)
-		return
-	}
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	args, err := json.Marshal(rdb.CollocationsArgs{
-		CorpusPath: corpusPath,
-		Query:      q,
-		Attr:       "word",
-		CollFn:     collFn,
-		MinFreq:    20,
-		MaxItems:   20,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "collocations",
-		Args: args,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	rawResult := <-wait
-	result, err := rdb.DeserializeCollocationsResult(rawResult)
-	uniresp.WriteJSONResponse(
-		ctx.Writer,
-		result,
-	)
-}
-
 func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*results.LemmaItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {

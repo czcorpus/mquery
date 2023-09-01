@@ -110,6 +110,29 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
     return ans;
 }
 
+CompileFrqRetVal compile_subc_freqs(const char* corpusPath, const char* subcPath, const char* attr) {
+    CompileFrqRetVal ans;
+    ans.err = nullptr;
+    string cPath(corpusPath);
+    Corpus* corp = nullptr;
+    SubCorpus* subc = nullptr;
+
+    try {
+        corp = new Corpus(cPath);
+        subc = new SubCorpus(corp, subcPath);
+        subc->compile_frq(attr);
+
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+
+    delete subc;
+    delete corp;
+
+    return ans;
+}
+
 FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
     Corpus* corpusObj = (Corpus*)corpus;
     Concordance* concObj = (Concordance *)conc;
@@ -178,6 +201,7 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
             nullptr
         };
         delete conc;
+        delete subc;
         delete corp;
         return ans;
 
@@ -318,6 +342,7 @@ PosInt int_vector_get_size(MVector v) {
 
 CollsRetVal collocations(
     const char* corpusPath,
+    const char* subcPath,
     const char* query,
     const char * attrName,
     char collFn,
@@ -334,11 +359,18 @@ CollsRetVal collocations(
     Corpus* corp = nullptr;
     Concordance* conc = nullptr;
     CollocItems* collocs = nullptr;
+    SubCorpus* subc = nullptr;
 
     try {
         corp = new Corpus(cPath);
-        conc = new Concordance(
-            corp, corp->filter_query(eval_cqpquery(query, corp)));
+
+        if (subcPath && *subcPath != '\0') {
+            subc = new SubCorpus(corp, subcPath);
+            conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
+
+        } else {
+            conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
+        }
         ans.corpusSize = corp->size();
         conc->sync();
         ans.concSize = conc->size();
@@ -347,7 +379,6 @@ CollsRetVal collocations(
         CollItem* items = (CollItem*) malloc(maxitems * sizeof(CollItem));
         int i = 0;
         while (collocs->eos() == false && i < maxitems) {
-            collocs->next();
             CollItem item;
             item.score = collocs->get_bgr(collFn);
             item.freq = collocs->get_cnt();
@@ -355,6 +386,7 @@ CollsRetVal collocations(
             items[i] = item;
             ans.resultSize++;
             i++;
+            collocs->next();
         }
         ans.items = items;
     } catch (std::exception &e) {
@@ -362,6 +394,7 @@ CollsRetVal collocations(
     }
     delete collocs;
     delete conc;
+    delete subc;
     delete corp;
     return ans;
 }
