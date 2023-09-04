@@ -19,11 +19,10 @@
 package query
 
 import (
-	"fmt"
-	"math"
-	"math/rand"
 	"mquery/mango"
 	"sort"
+
+	"github.com/czcorpus/cnc-gokit/maths"
 )
 
 const (
@@ -58,76 +57,19 @@ func (mvc *MultivalueColls) ForEach(fn func(word string, values []*mango.GoCollI
 	}
 }
 
-func (mvc *MultivalueColls) evaluateScores(scores []float64) CollEstim {
-	var mn float64
-	var stdev float64
-	for _, v := range scores {
-		mn += v
-	}
-	mn /= float64(len(scores))
-	for _, v := range scores {
-		stdev += (v - mn) * (v - mn)
-	}
-	stdev = math.Sqrt(stdev / float64(len(scores)))
-	return CollEstim{
-		Mean:  mn,
-		Left:  mn - 1.96*(stdev/math.Sqrt(float64(len(scores)))),
-		Right: mn + 1.96*(stdev/math.Sqrt(float64(len(scores)))),
-	}
-}
-
-func (mvc *MultivalueColls) bootstrapWord(w string, sampleLen int) (float64, error) {
-	items, ok := mvc.Values[w]
-	if !ok {
-		return 0, fmt.Errorf("word not found: %s", w)
-	}
-	var mean float64
-	for i := 0; i < sampleLen; i++ {
-		xi := rand.Intn(len(items))
-		mean += items[xi].Score
-	}
-	return mean / float64(sampleLen), nil
-}
-
-func (mvc *MultivalueColls) SortedByBootstrappedScore(sampleSize, numSamples int) ([]*CollEstim, error) {
-	ans := make([]*CollEstim, 0, len(mvc.Values))
-	for word, items := range mvc.Values {
-		tmp := make([]float64, 0, sampleSize) // TODO parallelize
-		for i := 0; i < numSamples; i++ {
-			mn, err := mvc.bootstrapWord(word, sampleSize)
-			if err != nil {
-				return []*CollEstim{}, err
-			}
-			tmp = append(tmp, mn)
-		}
-		estim := mvc.evaluateScores(tmp)
-		estim.Word = word
-		estim.NumChunks = len(items)
-		ans = append(ans, &estim)
-	}
-
-	sort.SliceStable(
-		ans,
-		func(i, j int) bool {
-			return ans[i].Mean > ans[j].Mean
-		},
-	)
-	return ans, nil
-}
-
 func (mvc *MultivalueColls) SortedByAvgScore() []*mango.GoCollItem {
 	ans := make([]*mango.GoCollItem, len(mvc.Values))
 	var i int
 	for _, vals := range mvc.Values {
-		var avg float64
-		for _, x := range vals {
-			avg += x.Score
+		var mn maths.OnlineMean
+		for _, v := range vals {
+			mn = mn.Add(v.Score)
 		}
-		avg /= float64(len(vals))
 		ans[i] = &mango.GoCollItem{
 			Word:  vals[0].Word,
 			Freq:  0, // TODO
-			Score: avg,
+			Score: mn.Mean(),
+			Stdev: mn.Stdev(),
 		}
 		i++
 	}
@@ -139,7 +81,3 @@ func (mvc *MultivalueColls) SortedByAvgScore() []*mango.GoCollItem {
 	)
 	return ans
 }
-
-// TODO bootstrap
-// 95%:
-// ci = mean +/- (1.96 * (stdev/ sqrt(n))), where n = num of bootstrap samples

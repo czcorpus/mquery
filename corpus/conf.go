@@ -41,6 +41,13 @@ type CorporaSetup struct {
 	// applied in their original way until explicitly removed.
 	// I.e. the value only affects newly created splits.
 	MultiprocChunkSize int64 `json:"multiprocChunkSize"`
+
+	// MultisampledCorporaDir serves for an experimental collocation
+	// calculation module where multiple calculations are performed
+	// on random samples (= subcorpora)
+	MultisampledCorporaDir string `json:"multisampledCorporaDir"`
+
+	MultisampledSubcSize int64 `json:"multisampledSubcSize"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {

@@ -60,6 +60,7 @@ type GoConcExamples struct {
 type GoCollItem struct {
 	Word  string
 	Score float64
+	Stdev float64
 	Freq  int64
 }
 

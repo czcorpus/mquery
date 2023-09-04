@@ -196,7 +196,7 @@ func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) *results.CollFr
 			return &results.CollFreqData{Error: err.Error()}
 		}
 	}
-	return nil
+	return &results.CollFreqData{}
 }
 
 func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
