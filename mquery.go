@@ -114,7 +114,10 @@ func runApiServer(
 		"/corpus/:corpusId/split", ceActions.SplitCorpus)
 
 	engine.POST(
-		"/corpus/:corpusId/collFreqData", ceActions.CollFreqData)
+		"/corpus/:corpusId/multisample", ceActions.MultiSample)
+
+	engine.POST(
+		"/corpus/:corpusId/collFreqData/:variant", ceActions.CollFreqData)
 
 	concActions := query.NewActions(conf.CorporaSetup, radapter)
 

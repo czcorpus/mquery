@@ -20,15 +20,29 @@ package edit
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"net/http"
 	"sync"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
+
+const (
+	DfltNumSamples                         = 30
+	SplitCorpus        corpusStructVariant = "split"
+	MultisampledCorpus corpusStructVariant = "multisampled"
+)
+
+type corpusStructVariant string
+
+type multiSubcCorpus interface {
+	GetSubcorpora() []string
+}
 
 type Actions struct {
 	conf     *corpus.CorporaSetup
@@ -49,7 +63,66 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 		return
 	}
 
-	corp, err := SplitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
+	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
+		return
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(corp.Subcorpora))
+	for _, subc := range corp.Subcorpora {
+		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
+			CorpusPath: corpPath,
+			SubcPath:   subc,
+			Attrs:      []string{"word", "lemma"},
+		})
+		if err != nil {
+			// TODO
+			log.Error().Err(err).Msg("failed to publish task")
+		}
+		wait, err := a.radapter.PublishQuery(rdb.Query{
+			Func: "calcCollFreqData",
+			Args: args,
+		})
+		go func() {
+			ans := <-wait
+			resp, err := rdb.DeserializeCollFreqDataResult(ans)
+			if err != nil {
+				// TODO
+				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
+			}
+			if resp.Err() != nil {
+				// TODO
+				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	uniresp.WriteJSONResponse(ctx.Writer, corp)
+}
+
+func (a *Actions) MultiSample(ctx *gin.Context) {
+	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	exists, err := MultisampleCorpusExists(a.conf.MultisampledCorporaDir, corpPath)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
+		return
+	}
+	if exists {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionError("multisampled corpus already exists"), http.StatusConflict)
+		return
+	}
+	numSamples, ok := unireq.GetURLIntArgOrFail(ctx, "numSamples", DfltNumSamples)
+	if !ok {
+		return
+	}
+	corp, err := MultisampleCorpus(
+		a.conf.MultisampledCorporaDir, corpPath, a.conf.MultisampledSubcSize, numSamples)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
@@ -92,14 +165,31 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 
 func (a *Actions) CollFreqData(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	corp, err := SplitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
+	variant := corpusStructVariant(ctx.Param("variant")) // TODO validate
+	var multicorp multiSubcCorpus
+	var err error
+	if variant == SplitCorpus {
+		multicorp, err = corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpPath)
+
+	} else if variant == MultisampledCorpus {
+		multicorp, err = corpus.OpenMultisampledCorpus(a.conf.MultisampledCorporaDir, corpPath)
+
+	} else {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("invalid corpus structure type specified: %s", variant),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	fmt.Println("multicorp: ", multicorp, ", err: ", err)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
 		return
 	}
 	wg := sync.WaitGroup{}
-	for _, subc := range corp.Subcorpora {
+	for _, subc := range multicorp.GetSubcorpora() {
 		for _, attr := range []string{"word", "lemma"} {
 			exists, err := CollFreqDataExists(subc, attr)
 			if err != nil {
@@ -138,7 +228,7 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 		}
 	}
 	wg.Wait()
-	uniresp.WriteJSONResponse(ctx.Writer, corp)
+	uniresp.WriteJSONResponse(ctx.Writer, multicorp)
 }
 
 func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter) *Actions {

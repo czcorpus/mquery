@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -102,12 +101,7 @@ func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 
-	bsamples, ok := unireq.GetURLIntArgOrFail(ctx, "bSamples", 500)
-	if !ok {
-		return
-	}
-
-	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
+	sc, err := corpus.OpenMultisampledCorpus(a.conf.MultisampledCorporaDir, corpusPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -166,16 +160,7 @@ func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 		}
 	}
 	wg.Wait()
-	resp, err := result.SortedByBootstrappedScore(len(sc.Subcorpora), bsamples)
-	//resp := result.SortedByAvgScore()
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
+	resp := result.SortedByAvgScore()
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		resp,
