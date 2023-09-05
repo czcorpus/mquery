@@ -55,6 +55,15 @@ func DeserializeFreqDistribResult(w *WorkerResult) (results.FreqDistrib, error) 
 	return ans, nil
 }
 
+func DeserializeTextTypesResult(w *WorkerResult) (results.FreqDistrib, error) {
+	var ans results.FreqDistrib
+	err := json.Unmarshal(w.Value, &ans)
+	if err != nil {
+		return ans, fmt.Errorf("failed to deserialize FreqDistrib: %w", err)
+	}
+	return ans, nil
+}
+
 func DeserializeConcSizeResult(w *WorkerResult) (results.ConcSize, error) {
 	var ans results.ConcSize
 	err := json.Unmarshal(w.Value, &ans)

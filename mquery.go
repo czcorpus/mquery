@@ -131,6 +131,12 @@ func runApiServer(
 		"/text-types-chunked/:corpusId", concActions.TextTypesChunked)
 
 	engine.GET(
+		"/text-types/:corpusId", concActions.TextTypes)
+
+	engine.GET(
+		"/text-types2/:corpusId", concActions.TextTypesParallel)
+
+	engine.GET(
 		"/collocs/:corpusId", concActions.Collocations)
 
 	engine.GET(
