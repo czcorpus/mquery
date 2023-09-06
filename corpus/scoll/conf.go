@@ -74,6 +74,10 @@ func (setup *SketchSetup) DefaultsAndValidate() error {
 
 type CorpusSketchSetup struct {
 
+	// ParentIdxAttr specifies a positional attribute providing
+	// information about relative position of a parent token.
+	ParentIdxAttr string `json:"parentIdxAttr"`
+
 	// LemmaAttr - an attribute specifying lemma
 	// (in intercorp_v13ud: `lemma`)
 	LemmaAttr string `json:"lemmaAttr"`
