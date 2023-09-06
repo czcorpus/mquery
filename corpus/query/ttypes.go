@@ -51,12 +51,19 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		}
 	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	args, err := json.Marshal(rdb.FreqDistribArgs{
+	freqArgs := rdb.FreqDistribArgs{
 		CorpusPath: corpusPath,
 		Query:      q,
 		Crit:       fmt.Sprintf("%s 0", attr),
 		FreqLimit:  flimit,
-	})
+	}
+
+	// TODO this probably needs some work
+	if ctx.Request.URL.Query().Has("subc") {
+		freqArgs.SubcPath = ctx.Request.URL.Query().Get("subc")
+	}
+
+	args, err := json.Marshal(freqArgs)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
