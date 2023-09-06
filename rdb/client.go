@@ -167,6 +167,15 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		return nil, err
 	}
 	sub := a.redis.Subscribe(a.ctx, query.Channel)
+	// We need this to make sure we are actually subscribed on Redis.
+	// (see https://pkg.go.dev/github.com/go-redis/redis#Client.Subscribe)
+	// Otherwise we can fall through the select+case below with closed
+	// channel and zero value.
+	_, err = sub.Receive(a.ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := a.redis.LPush(a.ctx, DefaultQueueKey, msg).Err(); err != nil {
 		return nil, err
 	}
@@ -174,6 +183,11 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 
 	// now we wait for response and send result via `ans`
 	go func() {
+		defer func() {
+			sub.Close()
+			close(ans)
+		}()
+
 		result := new(WorkerResult)
 		tmr := time.NewTimer(a.queryAnswerTimeout)
 
@@ -203,8 +217,6 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 			)
 		}
 
-		sub.Close()
-		close(ans)
 	}()
 	return ans, a.redis.Publish(a.ctx, a.channelQuery, MsgNewQuery).Err()
 }
