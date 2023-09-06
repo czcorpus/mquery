@@ -236,11 +236,16 @@ func main() {
 		}
 		log.Logger = log.Logger.With().Str("worker", workerID).Logger()
 
+	} else if action == "test" {
+		cnf.ValidateAndDefaults(conf)
+		log.Info().Msg("config OK")
+		return
+
 	} else {
 		logging.SetupLogging(conf.LogFile, conf.LogLevel)
 	}
 	log.Info().Msg("Starting MQUERY")
-	cnf.DefaultsAndValidate(conf)
+	cnf.ValidateAndDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
