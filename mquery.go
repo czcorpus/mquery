@@ -113,6 +113,9 @@ func runApiServer(
 	engine.POST(
 		"/corpus/:corpusId/split", ceActions.SplitCorpus)
 
+	engine.DELETE(
+		"/corpus/:corpusId/split", ceActions.DeleteSplit)
+
 	engine.POST(
 		"/corpus/:corpusId/multisample", ceActions.MultiSample)
 
