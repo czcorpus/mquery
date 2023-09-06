@@ -167,14 +167,6 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		return nil, err
 	}
 	sub := a.redis.Subscribe(a.ctx, query.Channel)
-	// We need this to make sure we are actually subscribed on Redis.
-	// (see https://pkg.go.dev/github.com/go-redis/redis#Client.Subscribe)
-	// Otherwise we can fall through the select+case below with closed
-	// channel and zero value.
-	_, err = sub.Receive(a.ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	if err := a.redis.LPush(a.ctx, DefaultQueueKey, msg).Err(); err != nil {
 		return nil, err
@@ -191,30 +183,36 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		result := new(WorkerResult)
 		tmr := time.NewTimer(a.queryAnswerTimeout)
 
-		select {
-		case item := <-sub.Channel():
-			cmd := a.redis.Get(a.ctx, item.Payload)
-			if cmd.Err() != nil {
+		for {
+			select {
+			case item, ok := <-sub.Channel():
+				log.Debug().
+					Str("channel", query.Channel).
+					Bool("closedChannel", !ok).
+					Msg("received result")
+				cmd := a.redis.Get(a.ctx, item.Payload)
+				if cmd.Err() != nil {
+					result.AttachValue(
+						&results.ErrorResult{
+							ResultType: query.ResultType,
+							Error:      cmd.Err().Error(),
+						},
+					)
+
+				} else {
+					err := json.Unmarshal([]byte(cmd.Val()), &result)
+					if err != nil {
+						result.AttachValue(&results.ErrorResult{Error: err.Error()})
+					}
+				}
+				ans <- result
+			case <-tmr.C:
 				result.AttachValue(
 					&results.ErrorResult{
-						ResultType: query.ResultType,
-						Error:      cmd.Err().Error(),
+						Error: fmt.Sprintf("worker result waiting timeout (%v)", DefaultQueryAnswerTimeout),
 					},
 				)
-
-			} else {
-				err := json.Unmarshal([]byte(cmd.Val()), &result)
-				if err != nil {
-					result.AttachValue(&results.ErrorResult{Error: err.Error()})
-				}
 			}
-			ans <- result
-		case <-tmr.C:
-			result.AttachValue(
-				&results.ErrorResult{
-					Error: fmt.Sprintf("worker result waiting timeout (%v)", DefaultQueryAnswerTimeout),
-				},
-			)
 		}
 
 	}()
