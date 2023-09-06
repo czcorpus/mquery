@@ -20,6 +20,7 @@ package edit
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"net/http"
@@ -38,6 +39,10 @@ const (
 )
 
 type corpusStructVariant string
+
+func (variant corpusStructVariant) Validate() bool {
+	return variant == SplitCorpus || variant == MultisampledCorpus
+}
 
 type multiSubcCorpus interface {
 	GetSubcorpora() []string
@@ -94,6 +99,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(corp.Subcorpora))
+	errs := make([]error, 0, len(corp.Subcorpora))
 	for _, subc := range corp.Subcorpora {
 		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
 			CorpusPath: corpPath,
@@ -101,28 +107,35 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 			Attrs:      []string{"word", "lemma"},
 		})
 		if err != nil {
-			// TODO
+			wg.Done()
 			log.Error().Err(err).Msg("failed to publish task")
+			errs = append(errs, err)
+			continue
 		}
 		wait, err := a.radapter.PublishQuery(rdb.Query{
 			Func: "calcCollFreqData",
 			Args: args,
 		})
 		go func() {
+			defer wg.Done()
 			ans := <-wait
 			resp, err := rdb.DeserializeCollFreqDataResult(ans)
 			if err != nil {
-				// TODO
+				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
 			if resp.Err() != nil {
-				// TODO
+				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()
+	if len(errs) > 0 {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
+		return
+	}
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
 }
 
@@ -153,6 +166,7 @@ func (a *Actions) MultiSample(ctx *gin.Context) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(corp.Subcorpora))
+	errs := make([]error, 0, len(corp.Subcorpora))
 	for _, subc := range corp.Subcorpora {
 		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
 			CorpusPath: corpPath,
@@ -160,34 +174,51 @@ func (a *Actions) MultiSample(ctx *gin.Context) {
 			Attrs:      []string{"word", "lemma"},
 		})
 		if err != nil {
-			// TODO
+			wg.Done()
 			log.Error().Err(err).Msg("failed to publish task")
+			errs = append(errs, err)
+			continue
 		}
 		wait, err := a.radapter.PublishQuery(rdb.Query{
 			Func: "calcCollFreqData",
 			Args: args,
 		})
 		go func() {
+			wg.Done()
 			ans := <-wait
 			resp, err := rdb.DeserializeCollFreqDataResult(ans)
 			if err != nil {
-				// TODO
+				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
 			if resp.Err() != nil {
-				// TODO
+				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()
+	if len(errs) > 0 {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
+		return
+	}
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
 }
 
 func (a *Actions) CollFreqData(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	variant := corpusStructVariant(ctx.Param("variant")) // TODO validate
+	variant := corpusStructVariant(ctx.Param("variant"))
+	if !variant.Validate() {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError(
+				fmt.Sprintf("invalid corpus composition variant: %s", variant),
+			),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	var multicorp multiSubcCorpus
 	var err error
 	if variant == SplitCorpus {
@@ -210,12 +241,14 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 		return
 	}
 	wg := sync.WaitGroup{}
+	errs := make([]error, 0, len(multicorp.GetSubcorpora()))
 	for _, subc := range multicorp.GetSubcorpora() {
 		for _, attr := range []string{"word", "lemma"} {
 			exists, err := CollFreqDataExists(subc, attr)
 			if err != nil {
-				// TODO
+				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to determine freq file existence")
+				continue
 
 			} else if !exists {
 				wg.Add(1)
@@ -225,30 +258,38 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 					Attrs:      []string{attr},
 				})
 				if err != nil {
-					// TODO
+					errs = append(errs, err)
 					log.Error().Err(err).Msg("failed to publish task")
+					wg.Done()
+					continue
 				}
 				wait, err := a.radapter.PublishQuery(rdb.Query{
 					Func: "calcCollFreqData",
 					Args: args,
 				})
 				go func() {
+					defer wg.Done()
 					ans := <-wait
 					resp, err := rdb.DeserializeCollFreqDataResult(ans)
 					if err != nil {
-						// TODO
+						errs = append(errs, err)
 						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
+
 					}
 					if resp.Err() != nil {
-						// TODO
+						errs = append(errs, err)
 						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 					}
-					wg.Done()
 				}()
 			}
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
+		return
+	}
 	uniresp.WriteJSONResponse(ctx.Writer, multicorp)
 }
 
