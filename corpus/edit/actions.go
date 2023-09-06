@@ -20,7 +20,6 @@ package edit
 
 import (
 	"encoding/json"
-	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"net/http"
@@ -47,6 +46,29 @@ type multiSubcCorpus interface {
 type Actions struct {
 	conf     *corpus.CorporaSetup
 	radapter *rdb.Adapter
+}
+
+func (a *Actions) DeleteSplit(ctx *gin.Context) {
+	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	exists, err := SplitCorpusExists(a.conf.SplitCorporaDir, corpPath)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
+		return
+	}
+	if !exists {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionError("split does not exist"), http.StatusNotFound)
+		return
+	}
+	err = DeleteSplit(a.conf.SplitCorporaDir, corpPath)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"ok": true})
+
 }
 
 func (a *Actions) SplitCorpus(ctx *gin.Context) {
@@ -182,7 +204,6 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 		)
 		return
 	}
-	fmt.Println("multicorp: ", multicorp, ", err: ", err)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)

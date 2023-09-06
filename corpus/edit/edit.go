@@ -54,6 +54,22 @@ func SplitCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
 	return isDir && len(entries) > 0, nil
 }
 
+func DeleteSplit(subcBaseDir, corpusPath string) error {
+	cname := filepath.Base(corpusPath)
+	path := filepath.Join(subcBaseDir, cname)
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return fmt.Errorf("failed to delete split corpus: %w", err)
+	}
+	for _, file := range files {
+		err := os.Remove(filepath.Join(path, file.Name()))
+		if err != nil {
+			return fmt.Errorf("failed to delete split corpus: %w", err)
+		}
+	}
+	return nil
+}
+
 func MultisampleCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
 	cname := filepath.Base(corpusPath)
 	path := filepath.Join(subcBaseDir, cname)
