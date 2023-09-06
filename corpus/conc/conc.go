@@ -53,7 +53,8 @@ type ConcExamples struct {
 }
 
 type LineParser struct {
-	attrs []string
+	attrs         []string
+	parentIdxAttr string
 }
 
 func (lp *LineParser) parseTokenQuadruple(s []string) *Token {
@@ -61,7 +62,7 @@ func (lp *LineParser) parseTokenQuadruple(s []string) *Token {
 	for i, attr := range strings.Split(s[2], "/")[1:] {
 		mAttrs[lp.attrs[i+1]] = attr
 	}
-	p, err := strconv.Atoi(mAttrs["parent"]) // TODO hardcoded `parent`
+	p, err := strconv.Atoi(mAttrs[lp.parentIdxAttr])
 	if err != nil {
 		p = invalidParent
 	}
@@ -142,8 +143,9 @@ func (lp *LineParser) Parse(data mango.GoConcExamples) []ConcordanceLine {
 	return pLines
 }
 
-func NewLineParser(attrs []string) *LineParser {
+func NewLineParser(attrs []string, parentIdxAttr string) *LineParser {
 	return &LineParser{
-		attrs: attrs,
+		attrs:         attrs,
+		parentIdxAttr: parentIdxAttr,
 	}
 }

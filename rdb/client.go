@@ -77,11 +77,12 @@ type ConcSizeArgs struct {
 }
 
 type ConcExampleArgs struct {
-	CorpusPath string   `json:"corpusPath"`
-	QueryLemma string   `json:"queryLemma"`
-	Query      string   `json:"query"`
-	Attrs      []string `json:"attrs"`
-	MaxItems   int      `json:"maxItems"`
+	CorpusPath    string   `json:"corpusPath"`
+	QueryLemma    string   `json:"queryLemma"`
+	Query         string   `json:"query"`
+	Attrs         []string `json:"attrs"`
+	ParentIdxAttr string   `json:"parentIdxAttr"`
+	MaxItems      int      `json:"maxItems"`
 }
 
 type CalcCollFreqDataArgs struct {
