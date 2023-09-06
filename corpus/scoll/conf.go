@@ -18,7 +18,11 @@
 
 package scoll
 
-import "github.com/rs/zerolog/log"
+import (
+	"fmt"
+
+	"github.com/rs/zerolog/log"
+)
 
 const (
 	DfltCollPreliminarySelSize = 20
@@ -50,24 +54,30 @@ type SketchSetup struct {
 	NumParallelChunks int `json:"numParallelChunks"`
 }
 
-func (setup *SketchSetup) DefaultsAndValidate() error {
+func (setup *SketchSetup) ValidateAndDefaults(confContext string) error {
 	if setup.CollPreliminarySelSize == 0 {
 		log.Warn().
 			Int("value", DfltCollPreliminarySelSize).
-			Msg("`sketchSetup.collPreliminarySelSize` not set, using default")
+			Msgf("`%s.collPreliminarySelSize` not set, using default", confContext)
 		setup.CollPreliminarySelSize = DfltCollPreliminarySelSize
 	}
 	if setup.CollResultSize == 0 {
 		log.Warn().
 			Int("value", DfltCollResultSize).
-			Msg("`sketchSetup.collResultSize` not set, using default")
+			Msgf("`%s.collResultSize` not set, using default", confContext)
 		setup.CollResultSize = DfltCollResultSize
 	}
 	if setup.NumParallelChunks == 0 {
 		log.Warn().
 			Int("value", DfltNumParallelChunks).
-			Msg("`sketchSetup.numParallelChunks` not set, using default")
+			Msgf("`%s.numParallelChunks` not set, using default", confContext)
 		setup.NumParallelChunks = DfltNumParallelChunks
+	}
+	for k, corpSetup := range setup.SketchAttrs {
+		err := corpSetup.ValidateAndDefaults(fmt.Sprintf("%s.sketchAttrs.%s", confContext, k))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -111,4 +121,41 @@ type CorpusSketchSetup struct {
 
 	// (in intercorp_v13ud: `obj|iobj`)
 	NounObjectValue string `json:"nounObjectValue"`
+}
+
+func (conf *CorpusSketchSetup) ValidateAndDefaults(confContext string) error {
+	if conf.ParentIdxAttr == "" {
+		return fmt.Errorf("missing `%s.parentIdxAttr`", confContext)
+	}
+	if conf.LemmaAttr == "" {
+		return fmt.Errorf("missing `%s.lemmaAttr`", confContext)
+	}
+	if conf.ParLemmaAttr == "" {
+		return fmt.Errorf("missing `%s.parLemmaAttr`", confContext)
+	}
+	if conf.PosAttr == "" {
+		return fmt.Errorf("missing `%s.posAttr`", confContext)
+	}
+	if conf.ParPosAttr == "" {
+		return fmt.Errorf("missing `%s.parPosAttr`", confContext)
+	}
+	if conf.FuncAttr == "" {
+		return fmt.Errorf("missing `%s.funcAttr`", confContext)
+	}
+	if conf.NounValue == "" {
+		return fmt.Errorf("missing `%s.nounPosValue`", confContext)
+	}
+	if conf.VerbValue == "" {
+		return fmt.Errorf("missing `%s.verbPosValue`", confContext)
+	}
+	if conf.NounModifiedValue == "" {
+		return fmt.Errorf("missing `%s.nounModifiedValue`", confContext)
+	}
+	if conf.NounSubjectValue == "" {
+		return fmt.Errorf("missing `%s.nounSubjectValue`", confContext)
+	}
+	if conf.NounObjectValue == "" {
+		return fmt.Errorf("missing `%s.nounObjectValue`", confContext)
+	}
+	return nil
 }

@@ -19,14 +19,16 @@
 package corpus
 
 import (
-	"errors"
+	"fmt"
 	"path/filepath"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	DfltSplitChunkSize = 100000000
+	DfltSplitChunkSize       = 100000000
+	DfltMultisampledSubcSize = 100000000
 )
 
 // CorporaSetup defines mquery application configuration related
@@ -54,17 +56,38 @@ func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
 	return filepath.Join(cs.RegistryDir, corpusID)
 }
 
-func (cs *CorporaSetup) DefaultsAndValidate() error {
+func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 	if cs.RegistryDir == "" {
-		return errors.New("missing `corporaSetup.registryDir`")
+		return fmt.Errorf("missing `%s.registryDir`", confContext)
+	}
+	isDir, err := fs.IsDir(cs.RegistryDir)
+	if err != nil {
+		return fmt.Errorf("failed to test `%s.registryDir`: %w", confContext, err)
+	}
+	if !isDir {
+		return fmt.Errorf("`%s.registryDir` is not a directory", confContext)
 	}
 	if cs.SplitCorporaDir == "" {
-		return errors.New("missing `corporaSetup.splitCorporaDir`")
+		return fmt.Errorf("missing `%s.splitCorporaDir`", confContext)
 	}
+	isDir, err = fs.IsDir(cs.SplitCorporaDir)
+	if err != nil {
+		return fmt.Errorf("failed to test `%s.splitCorporaDir`: %w", confContext, err)
+	}
+	if !isDir {
+		return fmt.Errorf("`%s.splitCorporaDir` is not a directory", confContext)
+	}
+
 	if cs.MultiprocChunkSize == 0 {
 		log.Warn().
 			Int("value", DfltSplitChunkSize).
-			Msg("`corporaSetup.multiprocChunkSize` not set, using default")
+			Msgf("`%s.multiprocChunkSize` not set, using default", confContext)
+	}
+
+	if cs.MultisampledSubcSize == 0 {
+		log.Warn().
+			Int("value", DfltMultisampledSubcSize).
+			Msgf("`%s.multisampledSubcSize` not set, using default", confContext)
 	}
 	return nil
 }
