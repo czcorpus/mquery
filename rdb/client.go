@@ -89,6 +89,12 @@ type CalcCollFreqDataArgs struct {
 	CorpusPath string   `json:"corpusPath"`
 	SubcPath   string   `json:"subcPath"`
 	Attrs      []string `json:"attrs"`
+
+	// Structs any structure involved in possible text type
+	// freq. distribution must be here so we can prepare
+	// intermediate data
+	Structs        []string `json:"structs"`
+	MktokencovPath string   `json:"mktokencovPath"`
 }
 
 func (q Query) ToJSON() (string, error) {

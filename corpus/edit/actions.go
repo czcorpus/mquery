@@ -90,6 +90,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 		return
 	}
 
+	// note: `splitCorpus` is very fast so there is no need to delegate it to a worker
 	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -102,9 +103,11 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	errs := make([]error, 0, len(corp.Subcorpora))
 	for _, subc := range corp.Subcorpora {
 		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
-			CorpusPath: corpPath,
-			SubcPath:   subc,
-			Attrs:      []string{"word", "lemma"},
+			CorpusPath:     corpPath,
+			SubcPath:       subc,
+			Attrs:          []string{"word", "lemma"}, // TODO this should not be hardcoded
+			Structs:        []string{"doc"},
+			MktokencovPath: a.conf.MktokencovPath,
 		})
 		if err != nil {
 			wg.Done()
@@ -169,9 +172,11 @@ func (a *Actions) MultiSample(ctx *gin.Context) {
 	errs := make([]error, 0, len(corp.Subcorpora))
 	for _, subc := range corp.Subcorpora {
 		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
-			CorpusPath: corpPath,
-			SubcPath:   subc,
-			Attrs:      []string{"word", "lemma"},
+			CorpusPath:     corpPath,
+			SubcPath:       subc,
+			Attrs:          []string{"word", "lemma"}, // TODO hardcoded stuff
+			Structs:        []string{"doc"},           // TODO hardcoded stuff
+			MktokencovPath: a.conf.MktokencovPath,
 		})
 		if err != nil {
 			wg.Done()
@@ -206,6 +211,8 @@ func (a *Actions) MultiSample(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
 }
 
+// CollFreqData
+// TODO add support for token coverage
 func (a *Actions) CollFreqData(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	variant := corpusStructVariant(ctx.Param("variant"))
@@ -253,9 +260,10 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 			} else if !exists {
 				wg.Add(1)
 				args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
-					CorpusPath: corpPath,
-					SubcPath:   subc,
-					Attrs:      []string{attr},
+					CorpusPath:     corpPath,
+					SubcPath:       subc,
+					Attrs:          []string{attr},
+					MktokencovPath: a.conf.MktokencovPath,
 				})
 				if err != nil {
 					errs = append(errs, err)

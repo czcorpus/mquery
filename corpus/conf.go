@@ -50,6 +50,8 @@ type CorporaSetup struct {
 	MultisampledCorporaDir string `json:"multisampledCorporaDir"`
 
 	MultisampledSubcSize int64 `json:"multisampledSubcSize"`
+
+	MktokencovPath string `json:"mktokencovPath"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
@@ -88,6 +90,14 @@ func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 		log.Warn().
 			Int("value", DfltMultisampledSubcSize).
 			Msgf("`%s.multisampledSubcSize` not set, using default", confContext)
+	}
+
+	isFile, err := fs.IsFile(cs.MktokencovPath)
+	if err != nil {
+		return fmt.Errorf("failed to test `%s.mktokencovPath` file %w", confContext, err)
+	}
+	if !isFile {
+		return fmt.Errorf("the `%s.mktokencovPath` does not point to a file", confContext)
 	}
 	return nil
 }
