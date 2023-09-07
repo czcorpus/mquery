@@ -131,7 +131,7 @@ func runApiServer(
 		"/freqs2/:corpusId", concActions.FreqDistribParallel)
 
 	engine.GET(
-		"/text-types-chunked/:corpusId", concActions.TextTypesChunked)
+		"/text-types-streamed/:corpusId", concActions.TextTypesStreamed)
 
 	engine.GET(
 		"/text-types/:corpusId", concActions.TextTypes)
