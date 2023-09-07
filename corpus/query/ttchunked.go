@@ -28,10 +28,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type StreamData struct {
+	Entries results.FreqDistrib `json:"entries"`
+	Count   int                 `json:"count"`
+	Total   int                 `json:"total"`
+}
+
 // mockFreqCalculation is a testing replacement for (not yet available)
 // chunked text types freq. calculation
-func mockFreqCalculation() chan results.FreqDistrib {
-	messageChannel := make(chan results.FreqDistrib, 10)
+func mockFreqCalculation() chan StreamData {
+	messageChannel := make(chan StreamData, 10)
 	go func() {
 		counter := 0
 		values := []string{
@@ -62,7 +68,7 @@ func mockFreqCalculation() chan results.FreqDistrib {
 			counter++
 			newFreq := randItem()
 			ans.MergeWith(newFreq)
-			messageChannel <- ans
+			messageChannel <- StreamData{ans, counter, 30}
 			time.Sleep(1 * time.Second)
 			if counter >= 30 {
 				close(messageChannel)
