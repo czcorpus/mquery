@@ -190,6 +190,6 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	if maxItems == 0 {
 		cut = 100 // TODO !!! (configured on worker, cannot import here)
 	}
-	result.Freqs = result.Freqs[:cut]
+	result.Freqs = result.Freqs.Cut(cut)
 	uniresp.WriteJSONResponse(ctx.Writer, result)
 }

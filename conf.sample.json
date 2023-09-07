@@ -7,11 +7,15 @@
     "serverWriteTimeoutSecs": 60,
     "corsAllowedOrigins": ["http://localhost:8081", "http://localhost:8082"],
     "corporaSetup": {
-        "registryDir": "/home/tomas/work/data/corpora/registry"
+        "registryDir": "/path/to/corpora/registry",
+        "splitCorporaDir": "/path/to/split/corpora/dir",
+        "multiprocChunkSize": 50000000,
+        "mktokencovPath": "/path/to/mktokencov/binary"
     },
     "sketchSetup": {
         "sketchAttrs": {
             "intercorp_v13ud_en": {
+                "parentIdxAttr": "parent",
                 "lemmaAttr": "lemma",
                 "parLemmaAttr": "p_lemma",
                 "posAttr": "upos",
@@ -22,18 +26,6 @@
                 "nounModifiedValue": "nmod",
                 "nounSubjectValue": "nsubj",
                 "nounObjectValue": "obj|iobj"
-            },
-            "syn2015": {
-                "lemmaAttr": "lemma",
-                "parLemmaAttr": "ep_lemma",
-                "posAttr": "pos",
-                "parPosAttr": "ep_pos",
-                "funcAttr": "afun",
-                "nounPosValue": "N",
-                "verbPosValue": "V",
-                "nounModifiedValue": "???",
-                "nounSubjectValue": "???",
-                "nounObjectValue": "???"
             }
         }
     },

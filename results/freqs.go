@@ -48,10 +48,13 @@ type LemmaItem struct {
 	POS   string `json:"pos"`
 }
 
-type WordFormsItem struct {
-	Lemma string             `json:"lemma"`
-	POS   string             `json:"pos"`
-	Forms []*FreqDistribItem `json:"forms"`
+type FreqDistribItemList []*FreqDistribItem
+
+func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
+	if len(flist) > maxItems {
+		return flist[:maxItems]
+	}
+	return flist
 }
 
 type FreqDistribItem struct {
@@ -60,6 +63,12 @@ type FreqDistribItem struct {
 	Norm       int64   `json:"norm"`
 	IPM        float32 `json:"ipm"`
 	CollWeight float64 `json:"collWeight"`
+}
+
+type WordFormsItem struct {
+	Lemma string              `json:"lemma"`
+	POS   string              `json:"pos"`
+	Forms FreqDistribItemList `json:"forms"`
 }
 
 type SerializableResult interface {
@@ -83,7 +92,7 @@ type FreqDistrib struct {
 	// subcorpus size
 	SearchSize int64 `json:"searchSize"`
 
-	Freqs []*FreqDistribItem `json:"freqs"`
+	Freqs FreqDistribItemList `json:"freqs"`
 
 	// ExamplesQueryTpl provides a (CQL) query template
 	// for obtaining examples matching words from the `Freqs`

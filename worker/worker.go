@@ -27,6 +27,7 @@ import (
 	"mquery/rdb"
 	"mquery/results"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -189,9 +190,20 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	return &ans
 }
 
+func (w *Worker) tokenCoverage(mktokencovPath, subcPath, corpusPath, structure string) error {
+	cmd := exec.Command(mktokencovPath, corpusPath, structure, "-s", subcPath)
+	return cmd.Run()
+}
+
 func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) *results.CollFreqData {
 	for _, attr := range args.Attrs {
 		err := mango.CompileSubcFreqs(args.CorpusPath, args.SubcPath, attr)
+		if err != nil {
+			return &results.CollFreqData{Error: err.Error()}
+		}
+	}
+	for _, strct := range args.Structs {
+		err := w.tokenCoverage(args.MktokencovPath, args.SubcPath, args.CorpusPath, strct)
 		if err != nil {
 			return &results.CollFreqData{Error: err.Error()}
 		}
