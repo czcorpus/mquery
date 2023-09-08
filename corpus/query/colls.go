@@ -20,6 +20,7 @@ package query
 
 import (
 	"encoding/json"
+	"math/rand"
 	"mquery/corpus"
 	"mquery/mango"
 	"mquery/rdb"
@@ -32,7 +33,8 @@ import (
 )
 
 const (
-	CollDefaultAttr = "lemma"
+	CollDefaultAttr       = "lemma"
+	defaultNumSubcSamples = 30
 )
 
 func (a *Actions) Collocations(ctx *gin.Context) {
@@ -113,17 +115,19 @@ func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 
 	mergedFreqLock := sync.Mutex{}
 	wg := sync.WaitGroup{}
-	wg.Add(len(sc.Subcorpora))
+	wg.Add(defaultNumSubcSamples)
 	result := new(MultivalueColls)
 	result.Values = make(map[string][]*mango.GoCollItem)
-	for _, subc := range sc.Subcorpora {
+
+	for i := 0; i < defaultNumSubcSamples; i++ {
+		subc := sc.Subcorpora[rand.Intn(len(sc.Subcorpora))]
 		args, err := json.Marshal(rdb.CollocationsArgs{
 			CorpusPath: corpusPath,
 			SubcPath:   subc,
 			Query:      q,
 			Attr:       CollDefaultAttr,
 			CollFn:     collFn,
-			MinFreq:    20,
+			MinFreq:    2,
 			MaxItems:   20,
 		})
 		if err != nil {
@@ -143,6 +147,7 @@ func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 		if err != nil {
 			// TODO
 			log.Error().Err(err).Msg("failed to publish query")
+			wg.Done()
 
 		} else {
 			go func() {

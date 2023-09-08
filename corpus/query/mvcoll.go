@@ -57,21 +57,37 @@ func (mvc *MultivalueColls) ForEach(fn func(word string, values []*mango.GoCollI
 	}
 }
 
+func (mvc *MultivalueColls) calcCI(value *mango.GoCollItem, numSamples int) {
+	lft, rgt, err := maths.TDistribConfInterval(
+		value.Score, value.Stdev, numSamples, maths.Significance_0_05)
+	if err == maths.ErrValueNotAvailable {
+		return
+
+	} else if err != nil {
+		panic(err.Error())
+	}
+	value.ScoreLCI = lft
+	value.ScoreRCI = rgt
+}
+
 func (mvc *MultivalueColls) SortedByAvgScore() []*mango.GoCollItem {
-	ans := make([]*mango.GoCollItem, len(mvc.Values))
-	var i int
+	ans := make([]*mango.GoCollItem, 0, len(mvc.Values))
 	for _, vals := range mvc.Values {
 		var mn maths.OnlineMean
 		for _, v := range vals {
 			mn = mn.Add(v.Score)
 		}
-		ans[i] = &mango.GoCollItem{
+		tmp := &mango.GoCollItem{
 			Word:  vals[0].Word,
 			Freq:  0, // TODO
 			Score: mn.Mean(),
 			Stdev: mn.Stdev(),
 		}
-		i++
+		mvc.calcCI(tmp, len(vals))
+		if tmp.ScoreLCI == 0 || tmp.ScoreRCI == 0 {
+			continue
+		}
+		ans = append(ans, tmp)
 	}
 	sort.SliceStable(
 		ans,
