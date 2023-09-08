@@ -35,9 +35,13 @@ import (
 
 type StreamData struct {
 	Entries results.FreqDistrib `json:"entries"`
-	Count   int                 `json:"count"`
-	Total   int                 `json:"total"`
-	Error   string              `json:"error"`
+
+	// ChunkNum identifies the chunk. Values starts with 1.
+	ChunkNum int `json:"chunkNum"`
+
+	Total int `json:"totalChunks"`
+
+	Error string `json:"error"`
 }
 
 // mockFreqCalculation is a testing replacement for
@@ -75,9 +79,9 @@ func mockFreqCalculation() chan StreamData {
 			newFreq := randItem()
 			ans.MergeWith(newFreq)
 			messageChannel <- StreamData{
-				Entries: ans,
-				Count:   counter,
-				Total:   30,
+				Entries:  ans,
+				ChunkNum: counter,
+				Total:    30,
 			}
 			time.Sleep(1 * time.Second)
 			if counter >= 30 {
@@ -119,9 +123,9 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 				})
 				if err != nil {
 					messageChannel <- StreamData{
-						Count: chunkIdx,
-						Total: len(sc.Subcorpora),
-						Error: err.Error(),
+						ChunkNum: chunkIdx + 1,
+						Total:    len(sc.Subcorpora),
+						Error:    err.Error(),
 					}
 					return
 				}
@@ -132,9 +136,9 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 				})
 				if err != nil {
 					messageChannel <- StreamData{
-						Count: chunkIdx,
-						Total: len(sc.Subcorpora),
-						Error: err.Error(),
+						ChunkNum: chunkIdx + 1,
+						Total:    len(sc.Subcorpora),
+						Error:    err.Error(),
 					}
 					return
 
@@ -143,9 +147,9 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 					resultNext, err := rdb.DeserializeTextTypesResult(tmp)
 					if err != nil {
 						messageChannel <- StreamData{
-							Count: chIdx,
-							Total: len(sc.Subcorpora),
-							Error: err.Error(),
+							ChunkNum: chIdx + 1,
+							Total:    len(sc.Subcorpora),
+							Error:    err.Error(),
 						}
 						return
 					}
@@ -153,10 +157,10 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 					result.MergeWith(&resultNext)
 					mergedFreqLock.Unlock()
 					messageChannel <- StreamData{
-						Entries: *result,
-						Count:   chIdx,
-						Total:   len(sc.Subcorpora),
-						Error:   resultNext.Error,
+						Entries:  *result,
+						ChunkNum: chIdx + 1,
+						Total:    len(sc.Subcorpora),
+						Error:    resultNext.Error,
 					}
 				}
 			}(chunkIdx)
