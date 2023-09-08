@@ -58,10 +58,12 @@ type GoConcExamples struct {
 }
 
 type GoCollItem struct {
-	Word  string
-	Score float64
-	Stdev float64
-	Freq  int64
+	Word     string
+	Score    float64
+	ScoreLCI float64
+	ScoreRCI float64
+	Stdev    float64
+	Freq     int64
 }
 
 type GoColls struct {
