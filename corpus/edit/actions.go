@@ -90,8 +90,13 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 		return
 	}
 
+	chunkSize, ok := unireq.GetURLIntArgOrFail(ctx, "chunkSize", int(a.conf.MultiprocChunkSize))
+	if !ok {
+		return
+	}
+
 	// note: `splitCorpus` is very fast so there is no need to delegate it to a worker
-	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath, a.conf.MultiprocChunkSize)
+	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath, int64(chunkSize))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
