@@ -113,11 +113,11 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 		wg.Add(len(sc.Subcorpora))
 
 		for chunkIdx, subc := range sc.Subcorpora {
-			go func(chIdx int) {
+			go func(chIdx int, subcx string) {
 				defer wg.Done()
 				args, err := json.Marshal(rdb.FreqDistribArgs{
 					CorpusPath: corpusPath,
-					SubcPath:   subc,
+					SubcPath:   subcx,
 					Query:      query,
 					Crit:       fmt.Sprintf("%s 0", attr),
 					FreqLimit:  flimit,
@@ -165,7 +165,7 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 						Error:    resultNext.Error,
 					}
 				}
-			}(chunkIdx)
+			}(chunkIdx, subc)
 		}
 		wg.Wait()
 		close(messageChannel)
