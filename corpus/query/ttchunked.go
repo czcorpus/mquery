@@ -26,10 +26,12 @@ import (
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -187,6 +189,11 @@ func (a *Actions) writeStreamingError(ctx *gin.Context, err error) {
 	ctx.String(http.StatusOK, string(messageJSON))
 }
 
+// TextTypesStreamed provides parallel calculation
+// of text types frequencies with an output based
+// on "server-sent events".
+// The endpoint allows either `attr` or `fcrit`
+// arguments in URL but in case of '
 func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
 	ctx.Writer.Header().Set("Cache-Control", "no-cache")
@@ -196,6 +203,35 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 
 	q := ctx.Request.URL.Query().Get("q")
 	attr := ctx.Request.URL.Query().Get("attr")
+	fcrit := ctx.Request.URL.Query().Get("fcrit")
+	if attr != "" && fcrit != "" {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("parameters `attr` and `fcrit` cannot be used at the same time"),
+			http.StatusBadRequest,
+		)
+		return
+	}
+	if fcrit != "" {
+		tmp := strings.Split(fcrit, " ")
+		if len(tmp) != 2 {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionError("invalid `fcrit` value"),
+				http.StatusUnprocessableEntity,
+			)
+			return
+		}
+		if tmp[1] != "0" {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionError("only kwic position is supported (`attr 0`)"),
+				http.StatusUnprocessableEntity,
+			)
+			return
+		}
+		attr = tmp[0]
+	}
 	flimit, ok := unireq.GetURLIntArgOrFail(ctx, "flimit", 1)
 	if !ok {
 		return
