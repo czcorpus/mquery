@@ -138,6 +138,7 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 
 		} else {
 			v2.Norm = res.CorpusSize
+			v2.IPM = float32(v2.Freq) / float32(res.CorpusSize) * 1e6
 			res.Freqs = append(res.Freqs, v2)
 		}
 	}
