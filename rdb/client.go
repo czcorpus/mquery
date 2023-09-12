@@ -216,11 +216,10 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 				tmr.Stop()
 				return
 			case <-tmr.C:
-				result.AttachValue(
-					&results.ErrorResult{
-						Error: fmt.Sprintf("worker result waiting timeout (%v)", DefaultQueryAnswerTimeout),
-					},
-				)
+				result.AttachValue(&results.ErrorResult{
+					Error: fmt.Sprintf("worker result timeouted (%v)", DefaultQueryAnswerTimeout),
+				})
+				ans <- result
 				return
 			}
 		}

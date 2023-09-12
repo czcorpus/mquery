@@ -132,7 +132,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
-			if resp.Err() != nil {
+			if err := resp.Err(); err != nil {
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
@@ -194,14 +194,14 @@ func (a *Actions) MultiSample(ctx *gin.Context) {
 			Args: args,
 		})
 		go func() {
-			wg.Done()
+			defer wg.Done()
 			ans := <-wait
 			resp, err := rdb.DeserializeCollFreqDataResult(ans)
 			if err != nil {
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
-			if resp.Err() != nil {
+			if err := resp.Err(); err != nil {
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
@@ -289,7 +289,7 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 
 					}
-					if resp.Err() != nil {
+					if err := resp.Err(); err != nil {
 						errs = append(errs, err)
 						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 					}
