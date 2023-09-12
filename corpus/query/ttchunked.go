@@ -186,7 +186,7 @@ func (a *Actions) writeStreamingError(ctx *gin.Context, err error) {
 	}
 	// We use status 200 here deliberately as we don't want to trigger
 	// the error handler.
-	ctx.String(http.StatusOK, string(messageJSON))
+	ctx.String(http.StatusOK, fmt.Sprintf("data: %s\n\n", messageJSON))
 }
 
 // TextTypesStreamed provides parallel calculation
