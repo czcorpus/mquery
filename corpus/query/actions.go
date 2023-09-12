@@ -76,6 +76,9 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*resul
 	if err != nil {
 		return nil, err
 	}
+	if err := freqs.Err(); err != nil {
+		return nil, err
+	}
 
 	ans := make([]*results.LemmaItem, len(freqs.Freqs))
 	for i, freq := range freqs.Freqs {
@@ -114,6 +117,9 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 	rawResult := <-wait
 	freqs, err := rdb.DeserializeFreqDistribResult(rawResult)
 	if err != nil {
+		return nil, err
+	}
+	if err := freqs.Err(); err != nil {
 		return nil, err
 	}
 
@@ -209,6 +215,22 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 	}
 	rawResult := <-wait
 	result, err := rdb.DeserializeConcExampleResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	if err := result.Err(); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(ctx.Writer, result)
 }
 

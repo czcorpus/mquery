@@ -156,6 +156,14 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 						}
 						return
 					}
+					if err := resultNext.Err(); err != nil {
+						messageChannel <- StreamData{
+							ChunkNum: chIdx + 1,
+							Total:    len(sc.Subcorpora),
+							Error:    err.Error(),
+						}
+						return
+					}
 					mergedFreqLock.Lock()
 					result.MergeWith(&resultNext)
 					mergedFreqLock.Unlock()
