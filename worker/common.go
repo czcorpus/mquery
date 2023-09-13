@@ -19,11 +19,13 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"mquery/mango"
 	"mquery/results"
 	"sort"
 	"strings"
+	"time"
 )
 
 // CompileFreqResult merges three vectors holding words, freqs and norms
@@ -69,4 +71,20 @@ func CompileFreqResult(
 func extractAttrFromTTCrit(crit string) string {
 	tmp := strings.Split(crit, " ")
 	return tmp[0]
+}
+
+type JobLog struct {
+	WorkerID string    `json:"workerId"`
+	Func     string    `json:"func"`
+	Begin    time.Time `json:"begin"`
+	End      time.Time `json:"end"`
+	Err      error     `json:"error"`
+}
+
+func (jl *JobLog) ToJSON() (string, error) {
+	ans, err := json.Marshal(jl)
+	if err != nil {
+		return "", err
+	}
+	return string(ans), nil
 }

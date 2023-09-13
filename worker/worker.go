@@ -40,10 +40,12 @@ const (
 )
 
 type Worker struct {
-	messages  <-chan *redis.Message
-	radapter  *rdb.Adapter
-	exitEvent chan os.Signal
-	ticker    time.Ticker
+	ID         string
+	messages   <-chan *redis.Message
+	radapter   *rdb.Adapter
+	exitEvent  chan os.Signal
+	ticker     time.Ticker
+	lastJobLog *JobLog
 }
 
 func (w *Worker) publishResult(res results.SerializableResult, channel string) error {
@@ -51,6 +53,8 @@ func (w *Worker) publishResult(res results.SerializableResult, channel string) e
 	if err != nil {
 		return err
 	}
+	w.lastJobLog.End = time.Now()
+	w.lastJobLog.Err = res.Err()
 	return w.radapter.PublishResult(channel, ans)
 }
 
@@ -80,6 +84,12 @@ func (w *Worker) tryNextQuery() error {
 			Any("args", query.Args).
 			Msg("worker found an inactive query")
 		return nil
+	}
+
+	w.lastJobLog = &JobLog{
+		WorkerID: w.ID,
+		Func:     query.Func,
+		Begin:    time.Now(),
 	}
 
 	switch query.Func {
@@ -246,8 +256,9 @@ func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
 	return &ans
 }
 
-func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal) *Worker {
+func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal, workerID string) *Worker {
 	return &Worker{
+		ID:        workerID,
 		radapter:  radapter,
 		messages:  messages,
 		exitEvent: exitEvent,
