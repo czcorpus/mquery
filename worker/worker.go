@@ -168,7 +168,17 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	if maxResults == 0 {
 		maxResults = MaxFreqResultItems
 	}
-	mergedFreqs := CompileFreqResult(freqs, freqs.SearchSize, MaxFreqResultItems)
+	var norms map[string]int64
+	if args.IsTextTypes {
+		attr := extractAttrFromTTCrit(args.Crit)
+		norms, err = mango.GetTextTypesNorms(args.CorpusPath, attr)
+
+		if err != nil {
+			ans.Error = err.Error()
+		}
+	}
+	mergedFreqs, err := CompileFreqResult(
+		freqs, freqs.SearchSize, MaxFreqResultItems, norms)
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize

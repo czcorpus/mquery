@@ -53,10 +53,11 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	freqArgs := rdb.FreqDistribArgs{
-		CorpusPath: corpusPath,
-		Query:      q,
-		Crit:       fmt.Sprintf("%s 0", attr),
-		FreqLimit:  flimit,
+		CorpusPath:  corpusPath,
+		Query:       q,
+		Crit:        fmt.Sprintf("%s 0", attr),
+		IsTextTypes: true,
+		FreqLimit:   flimit,
 	}
 
 	// TODO this probably needs some work
@@ -133,12 +134,13 @@ func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 	errs := make([]error, 0, len(sc.Subcorpora))
 	for _, subc := range sc.Subcorpora {
 		args, err := json.Marshal(rdb.FreqDistribArgs{
-			CorpusPath: corpusPath,
-			SubcPath:   subc,
-			Query:      q,
-			Crit:       fmt.Sprintf("%s 0", attr),
-			FreqLimit:  flimit,
-			MaxResults: maxItems,
+			CorpusPath:  corpusPath,
+			SubcPath:    subc,
+			Query:       q,
+			Crit:        fmt.Sprintf("%s 0", attr),
+			IsTextTypes: true,
+			FreqLimit:   flimit,
+			MaxResults:  maxItems,
 		})
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(

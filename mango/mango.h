@@ -27,6 +27,8 @@ typedef void* ConcV;
 typedef void* MVector;
 typedef void* KWICRowsV;
 typedef void* CollsV;
+typedef void* AttrValMap;
+typedef void* AttrValMapIterator;
 
 
 typedef long long int PosInt;
@@ -99,6 +101,12 @@ typedef struct KWICRowsRetval {
     const char * err;
 } KWICRowsRetval;
 
+
+typedef struct AttrValSizes {
+    const char * err;
+    AttrValMap sizes;
+} AttrValSizes;
+
 /**
  * Create a Manatee corpus instance
  */
@@ -158,6 +166,29 @@ typedef struct CollVal {
     PosInt freq;
     const char * err;
 } CollVal;
+
+
+AttrValSizes get_attr_values_sizes(
+    const char* corpus_path,
+    const char* struct_name,
+    const char* attr_name
+);
+
+
+void delete_attr_values_sizes(AttrValMap sizes);
+
+
+typedef struct AttrVal {
+    const char* value;
+    PosInt freq;
+} AttrVal;
+
+AttrValMapIterator get_attr_val_iterator(AttrValMap srcMap);
+
+void delete_attr_val_iterator(AttrValMapIterator itr);
+
+AttrVal get_next_attr_val_size(AttrValMap srcMap, AttrValMapIterator itr);
+
 
 
 #ifdef __cplusplus
