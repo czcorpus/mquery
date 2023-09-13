@@ -29,6 +29,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <map>
 
 using namespace std;
 
@@ -410,4 +411,84 @@ void coll_examples_free(CollsV items, int numItems) {
         free(tItems[i].word);
     }
     free(tItems);
+}
+
+
+AttrValSizes get_attr_values_sizes(
+    const char* corpus_path,
+    const char* struct_name,
+    const char* attr_name
+) {
+    AttrValSizes ans;
+    ans.err = nullptr;
+    ans.sizes = nullptr;
+    Corpus* corp = nullptr;
+    Structure* strct = nullptr;
+    PosAttr* attr = nullptr;
+
+    try {
+        corp = new Corpus(corpus_path);
+        strct = corp->get_struct(struct_name);
+        attr = strct->get_attr(attr_name);
+
+        map<PosInt, PosInt> normvals;
+        auto sizes = new map<string, PosInt>;
+
+        for (PosInt i = 0; i < strct->size(); i++) {
+            normvals[strct->rng->beg_at(i)] = strct->rng->end_at(i) - strct->rng->beg_at(i);
+        }
+
+        for (PosInt i = 0; i < attr->id_range(); i++) {
+            const char* value = attr->id2str(i);
+            PosInt valid = attr->str2id(value);
+            RangeStream* rng = corp->filter_query(strct->rng->part(attr->id2poss(valid)));
+            PosInt cnt = 0;
+            while (!rng->end()) {
+                cnt += normvals[rng->peek_beg()];
+                rng->next();
+            }
+            (*sizes)[value] = cnt;
+        }
+        ans.sizes = static_cast<void*>(sizes);
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    delete corp;
+
+    return ans;
+}
+
+
+void delete_attr_values_sizes(AttrValMap sizes) {
+    auto tSizes = (map<string, PosInt>*)sizes;
+    delete tSizes;
+}
+
+
+AttrValMapIterator get_attr_val_iterator(AttrValMap srcMap) {
+    map<string, PosInt>* sizes = (map<string, PosInt>*)srcMap;
+    auto* itr = new std::map<string, PosInt>::iterator(sizes->begin());
+    return static_cast<void*>(itr);
+}
+
+
+void delete_attr_val_iterator(AttrValMapIterator itr) {
+    auto tItr = (std::map<string, PosInt>::iterator*)itr;
+    delete tItr;
+}
+
+
+AttrVal get_next_attr_val_size(AttrValMap srcMap, AttrValMapIterator itr) {
+    map<string, PosInt>::iterator* tItr = (map<string, PosInt>::iterator*)itr;
+    map<string, PosInt>* srcMapObj = (map<string, PosInt>*)srcMap;
+    AttrVal ans;
+    ans.value = nullptr;
+    if (*tItr == srcMapObj->end()) {
+        return ans;
+    }
+    ans.freq = (*tItr)->second;
+    ans.value = (*tItr)->first.c_str();
+    ++(*tItr);
+    return ans;
 }

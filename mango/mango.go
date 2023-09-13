@@ -219,3 +219,31 @@ func GetCollcations(
 		CorpusSize: int64(colls.corpusSize),
 	}, nil
 }
+
+func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error) {
+	ans := make(map[string]int64)
+	attrSplit := strings.Split(attr, ".")
+	if len(attrSplit) != 2 {
+		panic("invalid attribute format (must be `struct.attr`)")
+	}
+	norms := C.get_attr_values_sizes(
+		C.CString(corpusPath), C.CString(attrSplit[0]), C.CString(attrSplit[1]))
+	if norms.err != nil {
+		err := fmt.Errorf(C.GoString(norms.err))
+		defer C.free(unsafe.Pointer(norms.err))
+		return ans, err
+	}
+	defer C.delete_attr_values_sizes(norms.sizes)
+
+	iter := C.get_attr_val_iterator(norms.sizes)
+	defer C.delete_attr_val_iterator(iter)
+	for {
+		val := C.get_next_attr_val_size(norms.sizes, iter)
+		if val.value == nil {
+			break
+		}
+		ans[C.GoString(val.value)] = int64(val.freq)
+	}
+
+	return ans, nil
+}

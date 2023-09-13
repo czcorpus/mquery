@@ -116,12 +116,13 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 			go func(chIdx int, subcx string) {
 				defer wg.Done()
 				args, err := json.Marshal(rdb.FreqDistribArgs{
-					CorpusPath: corpusPath,
-					SubcPath:   subcx,
-					Query:      query,
-					Crit:       fmt.Sprintf("%s 0", attr),
-					FreqLimit:  flimit,
-					MaxResults: maxItems,
+					CorpusPath:  corpusPath,
+					SubcPath:    subcx,
+					Query:       query,
+					Crit:        fmt.Sprintf("%s 0", attr),
+					IsTextTypes: true,
+					FreqLimit:   flimit,
+					MaxResults:  maxItems,
 				})
 				if err != nil {
 					messageChannel <- StreamData{

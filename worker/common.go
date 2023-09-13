@@ -19,9 +19,11 @@
 package worker
 
 import (
+	"fmt"
 	"mquery/mango"
 	"mquery/results"
 	"sort"
+	"strings"
 )
 
 // CompileFreqResult merges three vectors holding words, freqs and norms
@@ -29,15 +31,28 @@ import (
 // maxItems.
 // Please note that the function sorts the frequency results in RAM so it
 // may be quite demanding based on corpus size and underlying concordance.
-func CompileFreqResult(freqs *mango.Freqs, corpSize int64, maxItems int) []*results.FreqDistribItem {
+func CompileFreqResult(
+	freqs *mango.Freqs,
+	corpSize int64,
+	maxItems int,
+	norms map[string]int64,
+) ([]*results.FreqDistribItem, error) {
 	lenLimit := len(freqs.Freqs)
 	if maxItems < lenLimit {
 		lenLimit = maxItems
 	}
 	ans := make([]*results.FreqDistribItem, len(freqs.Freqs))
+	isTT := len(norms) > 0
 	for i, _ := range ans {
-		norm := freqs.Norms[i]
-		if norm == 0 {
+		var norm int64
+		if isTT {
+			var ok bool
+			norm, ok = norms[freqs.Words[i]]
+			if !ok {
+				return ans, fmt.Errorf("cannot find norm for `%s`", freqs.Words[i])
+			}
+
+		} else {
 			norm = corpSize
 		}
 		ans[i] = &results.FreqDistribItem{
@@ -48,5 +63,10 @@ func CompileFreqResult(freqs *mango.Freqs, corpSize int64, maxItems int) []*resu
 		}
 	}
 	sort.Slice(ans, func(i, j int) bool { return ans[i].Freq > ans[j].Freq })
-	return ans[:lenLimit]
+	return ans[:lenLimit], nil
+}
+
+func extractAttrFromTTCrit(crit string) string {
+	tmp := strings.Split(crit, " ")
+	return tmp[0]
 }

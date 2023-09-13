@@ -53,12 +53,13 @@ type Query struct {
 }
 
 type FreqDistribArgs struct {
-	CorpusPath string `json:"corpusPath"`
-	SubcPath   string `json:"subcPath"`
-	Query      string `json:"query"`
-	Crit       string `json:"crit"`
-	FreqLimit  int    `json:"freqLimit"`
-	MaxResults int    `json:"maxResults"`
+	CorpusPath  string `json:"corpusPath"`
+	SubcPath    string `json:"subcPath"`
+	Query       string `json:"query"`
+	Crit        string `json:"crit"`
+	IsTextTypes bool   `json:"isTextTypes"`
+	FreqLimit   int    `json:"freqLimit"`
+	MaxResults  int    `json:"maxResults"`
 }
 
 type CollocationsArgs struct {
