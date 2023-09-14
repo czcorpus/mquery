@@ -28,8 +28,8 @@ import (
 )
 
 type Actions struct {
-	workerPerformanceCacheDir string
-	radapter                  *rdb.Adapter
+	jobLogsDir string
+	radapter   *rdb.Adapter
 }
 
 func (a *Actions) GetPerformance(ctx *gin.Context) {
@@ -75,12 +75,12 @@ func (a *Actions) GetPerformance(ctx *gin.Context) {
 }
 
 func NewActions(
-	workerPerformanceCacheDir string,
+	jobLogsDir string,
 	radapter *rdb.Adapter,
 ) *Actions {
 	ans := &Actions{
-		workerPerformanceCacheDir: workerPerformanceCacheDir,
-		radapter:                  radapter,
+		jobLogsDir: jobLogsDir,
+		radapter:   radapter,
 	}
 	return ans
 }

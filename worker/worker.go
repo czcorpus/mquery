@@ -43,17 +43,17 @@ const (
 )
 
 type Worker struct {
-	ID                  string
-	messages            <-chan *redis.Message
-	radapter            *rdb.Adapter
-	exitEvent           chan os.Signal
-	ticker              time.Ticker
-	lastJobLog          *results.JobLog
-	performanceCacheDir string
+	ID         string
+	messages   <-chan *redis.Message
+	radapter   *rdb.Adapter
+	exitEvent  chan os.Signal
+	ticker     time.Ticker
+	lastJobLog *results.JobLog
+	jobLogsDir string
 }
 
 func (w *Worker) makePerformanceCachePath() string {
-	return path.Join(w.performanceCacheDir, w.ID+"-job-logs.jsonl")
+	return path.Join(w.jobLogsDir, w.ID+"-job-logs.jsonl")
 }
 
 func (w *Worker) logPerformance() error {
@@ -114,14 +114,14 @@ func (w *Worker) getAllPerformances(args rdb.WorkerPerformanceArgs) *results.Wor
 		}
 		toDate = &date
 	}
-	entries, err := os.ReadDir(w.performanceCacheDir)
+	entries, err := os.ReadDir(w.jobLogsDir)
 	if err != nil {
 		return &results.WorkerPerformance{Error: err.Error()}
 	}
 
 	ans := make([]results.JobLog, 0, 100)
 	for _, e := range entries {
-		ansPart, err := w.getPerformance(path.Join(w.performanceCacheDir, e.Name()), fromDate, toDate)
+		ansPart, err := w.getPerformance(path.Join(w.jobLogsDir, e.Name()), fromDate, toDate)
 		if err != nil {
 			return &results.WorkerPerformance{Error: err.Error()}
 		}
@@ -353,13 +353,13 @@ func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
 	return &ans
 }
 
-func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal, workerID string, workerPerformanceCacheDir string) *Worker {
+func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal, workerID string, jobLogsDir string) *Worker {
 	return &Worker{
-		ID:                  workerID,
-		radapter:            radapter,
-		messages:            messages,
-		exitEvent:           exitEvent,
-		ticker:              *time.NewTicker(DefaultTickerInterval),
-		performanceCacheDir: workerPerformanceCacheDir,
+		ID:         workerID,
+		radapter:   radapter,
+		messages:   messages,
+		exitEvent:  exitEvent,
+		ticker:     *time.NewTicker(DefaultTickerInterval),
+		jobLogsDir: jobLogsDir,
 	}
 }

@@ -40,20 +40,20 @@ const (
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress             string               `json:"listenAddress"`
-	ListenPort                int                  `json:"listenPort"`
-	ServerReadTimeoutSecs     int                  `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs    int                  `json:"serverWriteTimeoutSecs"`
-	CorsAllowedOrigins        []string             `json:"corsAllowedOrigins"`
-	CorporaSetup              *corpus.CorporaSetup `json:"corporaSetup"`
-	SketchSetup               *scoll.SketchSetup   `json:"sketchSetup"`
-	DB                        *db.Conf             `json:"db"`
-	Redis                     *rdb.Conf            `json:"redis"`
-	LogFile                   string               `json:"logFile"`
-	LogLevel                  logging.LogLevel     `json:"logLevel"`
-	Language                  string               `json:"language"`
-	WorkerPerformanceCacheDir string               `json:"workerPerformanceCacheDir"`
-	srcPath                   string
+	ListenAddress          string               `json:"listenAddress"`
+	ListenPort             int                  `json:"listenPort"`
+	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
+	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
+	CorporaSetup           *corpus.CorporaSetup `json:"corporaSetup"`
+	SketchSetup            *scoll.SketchSetup   `json:"sketchSetup"`
+	DB                     *db.Conf             `json:"db"`
+	Redis                  *rdb.Conf            `json:"redis"`
+	LogFile                string               `json:"logFile"`
+	LogLevel               logging.LogLevel     `json:"logLevel"`
+	Language               string               `json:"language"`
+	JobLogsDir             string               `json:"jobLogsDir"`
+	srcPath                string
 }
 
 func (conf *Conf) IsDebugMode() bool {
