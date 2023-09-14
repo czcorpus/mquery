@@ -21,6 +21,7 @@ package query
 import (
 	"encoding/json"
 	"mquery/corpus"
+	"mquery/corpus/scoll"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -46,6 +47,7 @@ var (
 
 type Actions struct {
 	conf     *corpus.CorporaSetup
+	sConf    scoll.SketchConfig
 	radapter *rdb.Adapter
 }
 
@@ -180,12 +182,14 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 
 func (a *Actions) ConcExample(ctx *gin.Context) {
 	attrs := []string{"word", "lemma", "p_lemma", "parent"} // TODO configurable
+	corpusName := ctx.Param("corpusId")
 	args, err := json.Marshal(rdb.ConcExampleArgs{
-		CorpusPath: a.conf.GetRegistryPath(ctx.Param("corpusId")),
-		QueryLemma: ctx.Query("lemma"),
-		Query:      ctx.Query("query"),
-		Attrs:      attrs,
-		MaxItems:   10,
+		CorpusPath:    a.conf.GetRegistryPath(corpusName),
+		QueryLemma:    ctx.Query("lemma"),
+		Query:         ctx.Query("query"),
+		Attrs:         attrs,
+		MaxItems:      10,
+		ParentIdxAttr: a.sConf[corpusName].ParentIdxAttr,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -212,9 +216,14 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, result)
 }
 
-func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter) *Actions {
+func NewActions(
+	conf *corpus.CorporaSetup,
+	sConf scoll.SketchConfig,
+	radapter *rdb.Adapter,
+) *Actions {
 	return &Actions{
 		conf:     conf,
+		sConf:    sConf,
 		radapter: radapter,
 	}
 }

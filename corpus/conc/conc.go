@@ -59,8 +59,9 @@ type LineParser struct {
 
 func (lp *LineParser) parseTokenQuadruple(s []string) *Token {
 	mAttrs := make(map[string]string)
-	for i, attr := range strings.Split(s[2], "/")[1:] {
-		mAttrs[lp.attrs[i+1]] = attr
+	rawAttrs := strings.Split(s[2], "/")[1:]
+	for i, attr := range lp.attrs[1:] {
+		mAttrs[attr] = rawAttrs[i]
 	}
 	p, err := strconv.Atoi(mAttrs[lp.parentIdxAttr])
 	if err != nil {
