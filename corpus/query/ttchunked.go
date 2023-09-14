@@ -113,6 +113,9 @@ func mockFreqCalculation() chan StreamData {
 // the provided year range (`fromYear` ... `toYear`) excluded. To leave a year
 // limit empty, use 0.
 func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int) chan StreamData {
+	if fromYear == 0 && toYear == 0 {
+		return inStream
+	}
 	ans := make(chan StreamData)
 	go func() {
 		for item := range inStream {
@@ -121,7 +124,6 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 				func(v *results.FreqDistribItem, i int) bool {
 					year, err := strconv.Atoi(v.Word)
 					if err != nil {
-						item.Error = err.Error()
 						return false
 					}
 					if toYear == 0 {
