@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sort"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -52,7 +53,7 @@ type Worker struct {
 }
 
 func (w *Worker) makePerformanceCachePath() string {
-	return path.Join(w.performanceCacheDir, "worker-"+w.ID+".jsonl")
+	return path.Join(w.performanceCacheDir, w.ID+"-job-logs.jsonl")
 }
 
 func (w *Worker) logPerformance() error {
@@ -73,7 +74,7 @@ func (w *Worker) logPerformance() error {
 	return nil
 }
 
-func (w *Worker) getPerformance(path string) ([]results.JobLog, error) {
+func (w *Worker) getPerformance(path string, fromDate, toDate *time.Time) ([]results.JobLog, error) {
 	ans := make([]results.JobLog, 0, 100)
 	file, err := os.Open(path)
 	if err != nil {
@@ -85,6 +86,9 @@ func (w *Worker) getPerformance(path string) ([]results.JobLog, error) {
 	for scanner.Scan() {
 		jobLog := results.JobLog{}
 		json.Unmarshal([]byte(scanner.Text()), &jobLog)
+		if (fromDate != nil && jobLog.Begin.Before(*fromDate)) || (toDate != nil && jobLog.Begin.After(*toDate)) {
+			continue
+		}
 		ans = append(ans, jobLog)
 	}
 
@@ -95,6 +99,21 @@ func (w *Worker) getPerformance(path string) ([]results.JobLog, error) {
 }
 
 func (w *Worker) getAllPerformances(args rdb.WorkerPerformanceArgs) *results.WorkerPerformance {
+	var fromDate, toDate *time.Time
+	if len(args.FromDate) > 0 {
+		date, err := time.Parse("2006-01-02", args.FromDate)
+		if err != nil {
+			return &results.WorkerPerformance{Error: err.Error()}
+		}
+		fromDate = &date
+	}
+	if len(args.ToDate) > 0 {
+		date, err := time.Parse("2006-01-02", args.ToDate)
+		if err != nil {
+			return &results.WorkerPerformance{Error: err.Error()}
+		}
+		toDate = &date
+	}
 	entries, err := os.ReadDir(w.performanceCacheDir)
 	if err != nil {
 		return &results.WorkerPerformance{Error: err.Error()}
@@ -102,12 +121,15 @@ func (w *Worker) getAllPerformances(args rdb.WorkerPerformanceArgs) *results.Wor
 
 	ans := make([]results.JobLog, 0, 100)
 	for _, e := range entries {
-		ansPart, err := w.getPerformance(path.Join(w.performanceCacheDir, e.Name()))
+		ansPart, err := w.getPerformance(path.Join(w.performanceCacheDir, e.Name()), fromDate, toDate)
 		if err != nil {
 			return &results.WorkerPerformance{Error: err.Error()}
 		}
 		ans = append(ans, ansPart...)
 	}
+	sort.Slice(ans, func(i int, j int) bool {
+		return ans[i].Begin.Before(ans[j].Begin)
+	})
 	return &results.WorkerPerformance{Jobs: ans}
 }
 

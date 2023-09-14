@@ -53,6 +53,8 @@ type Query struct {
 }
 
 type WorkerPerformanceArgs struct {
+	FromDate string `json:"fromDate"`
+	ToDate   string `json:"toDate"`
 }
 
 type FreqDistribArgs struct {

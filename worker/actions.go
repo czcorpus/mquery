@@ -33,7 +33,10 @@ type Actions struct {
 }
 
 func (a *Actions) GetPerformance(ctx *gin.Context) {
-	args, err := json.Marshal(rdb.WorkerPerformanceArgs{})
+	args, err := json.Marshal(rdb.WorkerPerformanceArgs{
+		FromDate: ctx.Query("fromDate"),
+		ToDate:   ctx.Query("toDate"),
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
