@@ -19,6 +19,7 @@
 package worker
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -46,7 +47,7 @@ type Worker struct {
 	radapter            *rdb.Adapter
 	exitEvent           chan os.Signal
 	ticker              time.Ticker
-	lastJobLog          *JobLog
+	lastJobLog          *results.JobLog
 	performanceCacheDir string
 }
 
@@ -70,6 +71,44 @@ func (w *Worker) logPerformance() error {
 		return err
 	}
 	return nil
+}
+
+func (w *Worker) getPerformance(path string) ([]results.JobLog, error) {
+	ans := make([]results.JobLog, 0, 100)
+	file, err := os.Open(path)
+	if err != nil {
+		return ans, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		jobLog := results.JobLog{}
+		json.Unmarshal([]byte(scanner.Text()), &jobLog)
+		ans = append(ans, jobLog)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return ans, err
+	}
+	return ans, nil
+}
+
+func (w *Worker) getAllPerformances(args rdb.WorkerPerformanceArgs) *results.WorkerPerformance {
+	entries, err := os.ReadDir(w.performanceCacheDir)
+	if err != nil {
+		return &results.WorkerPerformance{Error: err.Error()}
+	}
+
+	ans := make([]results.JobLog, 0, 100)
+	for _, e := range entries {
+		ansPart, err := w.getPerformance(path.Join(w.performanceCacheDir, e.Name()))
+		if err != nil {
+			return &results.WorkerPerformance{Error: err.Error()}
+		}
+		ans = append(ans, ansPart...)
+	}
+	return &results.WorkerPerformance{Jobs: ans}
 }
 
 func (w *Worker) publishResult(res results.SerializableResult, channel string) error {
@@ -113,7 +152,7 @@ func (w *Worker) tryNextQuery() error {
 		return nil
 	}
 
-	w.lastJobLog = &JobLog{
+	w.lastJobLog = &results.JobLog{
 		WorkerID: w.ID,
 		Func:     query.Func,
 		Begin:    time.Now(),
@@ -168,9 +207,18 @@ func (w *Worker) tryNextQuery() error {
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
+	case "workerPerformance":
+		var args rdb.WorkerPerformanceArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.getAllPerformances(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
 
 	default:
-		ans := &results.ErrorResult{Error: fmt.Sprintf("unknonw query function: %s", query.Func)}
+		ans := &results.ErrorResult{Error: fmt.Sprintf("unknown query function: %s", query.Func)}
 		if err = w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}

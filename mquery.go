@@ -176,6 +176,14 @@ func runApiServer(
 	engine.GET(
 		"/scoll/:corpusId/verbs-object", sketchActions.VerbsObject)
 
+	workerActions := worker.NewActions(
+		conf.WorkerPerformanceCacheDir,
+		radapter,
+	)
+
+	engine.GET(
+		"/performance", workerActions.GetPerformance)
+
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
 		Handler:      engine,

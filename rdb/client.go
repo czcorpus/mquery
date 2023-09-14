@@ -52,6 +52,9 @@ type Query struct {
 	Args       json.RawMessage    `json:"args"`
 }
 
+type WorkerPerformanceArgs struct {
+}
+
 type FreqDistribArgs struct {
 	CorpusPath  string `json:"corpusPath"`
 	SubcPath    string `json:"subcPath"`
