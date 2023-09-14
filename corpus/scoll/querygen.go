@@ -55,16 +55,16 @@ type QueryGenerator interface {
 	FxyQueryInsertSQL(word Word, collCandidate string, result *rdb.WorkerResult) (string, []any)
 }
 
-func NewQueryGenerator(qType QueryType, conf *CorpusSketchSetup) QueryGenerator {
+func NewQueryGenerator(corpus string, qType QueryType, conf *CorpusSketchSetup) QueryGenerator {
 	switch qType {
 	case QueryNounsModifiedBy:
-		return &NounsModifiedByQGen{conf}
+		return &NounsModifiedByQGen{CorpusName: corpus, SketchConf: conf}
 	case QueryModifiersOf:
-		return &ModifiersOfQGen{conf}
+		return &ModifiersOfQGen{CorpusName: corpus, SketchConf: conf}
 	case QueryVerbsSubject:
-		return &VerbSubjectQGen{conf}
+		return &VerbSubjectQGen{CorpusName: corpus, SketchConf: conf}
 	case QueryVerbsObject:
-		return &VerbObjectQGen{conf}
+		return &VerbObjectQGen{CorpusName: corpus, SketchConf: conf}
 	default:
 		panic("invalid query type for QGenFactory")
 	}
