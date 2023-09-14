@@ -82,6 +82,22 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	}
 	rawResult := <-wait
 	result, err := rdb.DeserializeCollocationsResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	if err := result.Err(); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
@@ -151,16 +167,20 @@ func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 
 		} else {
 			go func() {
+				defer wg.Done()
 				tmp := <-wait
 				resultNext, err := rdb.DeserializeCollocationsResult(tmp)
 				if err != nil {
 					// TODO
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
+				if err := resultNext.Err(); err != nil {
+					// TODO
+					log.Error().Err(err).Msg("failed to deserialize query")
+				}
 				mergedFreqLock.Lock()
 				result.Add(resultNext.Colls)
 				mergedFreqLock.Unlock()
-				wg.Done()
 			}()
 		}
 	}

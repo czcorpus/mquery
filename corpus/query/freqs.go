@@ -86,6 +86,14 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		)
 		return
 	}
+	if err := result.Err(); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
@@ -166,16 +174,20 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 
 		} else {
 			go func() {
+				defer wg.Done()
 				tmp := <-wait
 				resultNext, err := rdb.DeserializeFreqDistribResult(tmp)
 				if err != nil {
 					// TODO
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
+				if err := resultNext.Err(); err != nil {
+					// TODO
+					log.Error().Err(err).Msg("failed to deserialize query")
+				}
 				mergedFreqLock.Lock()
 				result.MergeWith(&resultNext)
 				mergedFreqLock.Unlock()
-				wg.Done()
 			}()
 		}
 	}

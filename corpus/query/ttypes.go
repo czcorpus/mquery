@@ -97,6 +97,14 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		)
 		return
 	}
+	if err := result.Err(); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
@@ -166,6 +174,10 @@ func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 				tmp := <-wait
 				resultNext, err := rdb.DeserializeTextTypesResult(tmp)
 				if err != nil {
+					errs = append(errs, err)
+					log.Error().Err(err).Msg("failed to deserialize query")
+				}
+				if err := result.Err(); err != nil {
 					errs = append(errs, err)
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
