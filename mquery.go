@@ -137,6 +137,9 @@ func runApiServer(
 		"/text-types-streamed/:corpusId", concActions.TextTypesStreamed)
 
 	engine.GET(
+		"/freqs-by-year-streamed/:corpusId", concActions.FreqsByYears)
+
+	engine.GET(
 		"/text-types/:corpusId", concActions.TextTypes)
 
 	engine.GET(
