@@ -122,7 +122,7 @@ func runApiServer(
 	engine.POST(
 		"/corpus/:corpusId/collFreqData/:variant", ceActions.CollFreqData)
 
-	concActions := query.NewActions(conf.CorporaSetup, radapter)
+	concActions := query.NewActions(conf.CorporaSetup, conf.SketchSetup.SketchAttrs, radapter)
 
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)
