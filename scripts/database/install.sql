@@ -1,3 +1,5 @@
+-- please note that the table name is "per corpus"
+-- and the name should follow the template: `[corpus_name]_scoll_query`
 CREATE TABLE scoll_query (
     id int auto_increment,
     lemma varchar(60),
@@ -10,6 +12,8 @@ CREATE TABLE scoll_query (
     PRIMARY KEY (id)
 );
 
+-- please note that the table name is "per corpus"
+-- and the name should follow the template: `[corpus_name]_scoll_fcrit`
 CREATE TABLE scoll_fcrit (
     id int auto_increment,
     scoll_query_id INT NOT NULL,
