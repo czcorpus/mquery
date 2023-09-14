@@ -26,10 +26,12 @@ import (
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -43,6 +45,18 @@ type StreamData struct {
 
 	Total int `json:"totalChunks"`
 
+	Error string `json:"error"`
+}
+
+type streamedFreqsBaseArgs struct {
+	Q        string
+	Attr     string
+	Fcrit    string
+	Flimit   int
+	MaxItems int
+}
+
+type streamingError struct {
 	Error string `json:"error"`
 }
 
@@ -93,6 +107,34 @@ func mockFreqCalculation() chan StreamData {
 		}
 	}()
 	return messageChannel
+}
+
+// filterByYearRange creates a new stream of `StreamData` with freqs not matching
+// the provided year range (`fromYear` ... `toYear`) excluded. To leave a year
+// limit empty, use 0.
+func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int) chan StreamData {
+	ans := make(chan StreamData)
+	go func() {
+		for item := range inStream {
+			item.Entries.Freqs = collections.SliceFilter(
+				item.Entries.Freqs,
+				func(v *results.FreqDistribItem, i int) bool {
+					year, err := strconv.Atoi(v.Word)
+					if err != nil {
+						item.Error = err.Error()
+						return false
+					}
+					if toYear == 0 {
+						return year >= fromYear
+					}
+					return year >= fromYear && year <= toYear
+				},
+			)
+			ans <- item
+		}
+		close(ans)
+	}()
+	return ans
 }
 
 func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int) (chan StreamData, error) {
@@ -175,10 +217,6 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 	return messageChannel, nil
 }
 
-type streamingError struct {
-	Error string `json:"error"`
-}
-
 func (a *Actions) writeStreamingError(ctx *gin.Context, err error) {
 	messageJSON, err2 := json.Marshal(streamingError{err.Error()})
 	if err2 != nil {
@@ -190,38 +228,39 @@ func (a *Actions) writeStreamingError(ctx *gin.Context, err error) {
 	ctx.String(http.StatusOK, fmt.Sprintf("data: %s\n\n", messageJSON))
 }
 
-// TextTypesStreamed provides parallel calculation
-// of text types frequencies with an output based
-// on "server-sent events".
-// The endpoint allows either `attr` or `fcrit`
-// arguments in URL but in case of '
-func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
+// ttStreamedBase performs common actions for both
+// general streamed text types and "by year" freqs (which is
+// in fact also based on text types)
+// In case of an error, the function writes proper error response
+// and returns false so the caller knows it should not continue
+// with execution of its additional actions.
+func (a *Actions) ttStreamedBase(ctx *gin.Context) (streamedFreqsBaseArgs, bool) {
 	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
 	ctx.Writer.Header().Set("Cache-Control", "no-cache")
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 
-	defer ctx.Writer.Flush()
+	var args streamedFreqsBaseArgs
 
-	q := ctx.Request.URL.Query().Get("q")
-	attr := ctx.Request.URL.Query().Get("attr")
-	fcrit := ctx.Request.URL.Query().Get("fcrit")
-	if attr != "" && fcrit != "" {
+	args.Q = ctx.Request.URL.Query().Get("q")
+	args.Attr = ctx.Request.URL.Query().Get("attr")
+	args.Fcrit = ctx.Request.URL.Query().Get("fcrit")
+	if args.Attr != "" && args.Fcrit != "" {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionError("parameters `attr` and `fcrit` cannot be used at the same time"),
 			http.StatusBadRequest,
 		)
-		return
+		return args, false
 	}
-	if fcrit != "" {
-		tmp := strings.Split(fcrit, " ")
+	if args.Fcrit != "" {
+		tmp := strings.Split(args.Fcrit, " ")
 		if len(tmp) != 2 {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,
 				uniresp.NewActionError("invalid `fcrit` value"),
 				http.StatusUnprocessableEntity,
 			)
-			return
+			return args, false
 		}
 		if tmp[1] != "0" {
 			uniresp.WriteJSONErrorResponse(
@@ -229,24 +268,77 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 				uniresp.NewActionError("only kwic position is supported (`attr 0`)"),
 				http.StatusUnprocessableEntity,
 			)
-			return
+			return args, false
 		}
-		attr = tmp[0]
+		args.Attr = tmp[0]
 	}
-	flimit, ok := unireq.GetURLIntArgOrFail(ctx, "flimit", 1)
+	var ok bool
+	args.Flimit, ok = unireq.GetURLIntArgOrFail(ctx, "flimit", 1)
 	if !ok {
-		return
+		return args, false
 	}
-	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", 0)
+	args.MaxItems, ok = unireq.GetURLIntArgOrFail(ctx, "maxItems", 0)
+	if !ok {
+		return args, false
+	}
+	return args, true
+}
+
+// TextTypesStreamed provides parallel calculation
+// of text types frequencies with an output based
+// on "server-sent events".
+// The endpoint allows either `attr` or `fcrit`
+// arguments in URL but in case of '
+func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
+	defer ctx.Writer.Flush()
+
+	args, ok := a.ttStreamedBase(ctx)
 	if !ok {
 		return
 	}
 
-	calc, err := a.streamCalc(q, attr, ctx.Param("corpusId"), flimit, maxItems)
+	calc, err := a.streamCalc(args.Q, args.Attr, ctx.Param("corpusId"), args.Flimit, args.MaxItems)
 	if err != nil {
 		a.writeStreamingError(ctx, err)
 		return
 	}
+	for message := range calc {
+		messageJSON, err := json.Marshal(message)
+		if err == nil {
+			ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
+
+		} else {
+			a.writeStreamingError(ctx, err)
+			return
+		}
+		ctx.Writer.Flush()
+	}
+}
+
+func (a *Actions) FreqsByYears(ctx *gin.Context) {
+	defer ctx.Writer.Flush()
+
+	args, ok := a.ttStreamedBase(ctx)
+	if !ok {
+		return
+	}
+
+	fromYear, ok := unireq.GetURLIntArgOrFail(ctx, "fromYear", 0)
+	if !ok {
+		return
+	}
+	toYear, ok := unireq.GetURLIntArgOrFail(ctx, "toYear", 0)
+	if !ok {
+		return
+	}
+
+	calc, err := a.streamCalc(args.Q, args.Attr, ctx.Param("corpusId"), args.Flimit, args.MaxItems)
+	if err != nil {
+		a.writeStreamingError(ctx, err)
+		return
+	}
+	calc = a.filterByYearRange(calc, fromYear, toYear)
+
 	for message := range calc {
 		messageJSON, err := json.Marshal(message)
 		if err == nil {
