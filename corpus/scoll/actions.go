@@ -38,8 +38,8 @@ type Actions struct {
 func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *CorpusSketchSetup {
 	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusID]
 	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
+		uniresp.RespondWithErrorJSON(
+			ctx,
 			uniresp.NewActionError("Missing sketch conf for requested corpus"),
 			http.StatusInternalServerError,
 		)
@@ -54,17 +54,17 @@ func (a *Actions) handleResultOrWriteErr(
 	deserializeErr error,
 ) bool {
 	if deserializeErr != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(deserializeErr),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			deserializeErr,
 			http.StatusInternalServerError,
 		)
 		return true
 	}
 	if res.Err() != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(res.Err()),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			res.Err(),
 			http.StatusInternalServerError,
 		)
 		return true
@@ -75,8 +75,8 @@ func (a *Actions) handleResultOrWriteErr(
 func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
+		uniresp.RespondWithErrorJSON(
+			ctx,
 			uniresp.NewActionError("invalid word value"),
 			http.StatusUnprocessableEntity,
 		)
@@ -87,13 +87,13 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryNounsModifiedBy, sketchAttrs)
+	queryGen := NewQueryGenerator(corpusID, QueryNounsModifiedBy, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -111,9 +111,9 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	)
 	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -130,8 +130,8 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
+		uniresp.RespondWithErrorJSON(
+			ctx,
 			uniresp.NewActionError("invalid word value"),
 			http.StatusUnprocessableEntity,
 		)
@@ -142,13 +142,13 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryModifiersOf, sketchAttrs)
+	queryGen := NewQueryGenerator(corpusID, QueryModifiersOf, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -165,9 +165,9 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	)
 	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -183,8 +183,8 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
+		uniresp.RespondWithErrorJSON(
+			ctx,
 			uniresp.NewActionError("invalid word value"),
 			http.StatusUnprocessableEntity,
 		)
@@ -195,13 +195,13 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryVerbsSubject, sketchAttrs)
+	queryGen := NewQueryGenerator(corpusID, QueryVerbsSubject, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -219,9 +219,9 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	)
 	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -237,8 +237,8 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 func (a *Actions) VerbsObject(ctx *gin.Context) {
 	w := Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
 	if !w.IsValid() {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
+		uniresp.RespondWithErrorJSON(
+			ctx,
 			uniresp.NewActionError("invalid word value"),
 			http.StatusUnprocessableEntity,
 		)
@@ -249,13 +249,13 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	if sketchAttrs == nil {
 		return
 	}
-	queryGen := NewQueryGenerator(QueryVerbsObject, sketchAttrs)
+	queryGen := NewQueryGenerator(corpusID, QueryVerbsObject, sketchAttrs)
 	corpusPath := a.corpConf.GetRegistryPath(corpusID)
 	wait, err := a.qExecutor.FxQuery(queryGen, corpusPath, w)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
@@ -273,9 +273,9 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	)
 	ans, err := rc.SortByLogDiceColl(w, result.Freqs, a.sketchConf)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
 			http.StatusInternalServerError,
 		)
 		return
