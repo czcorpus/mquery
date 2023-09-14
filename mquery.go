@@ -202,9 +202,9 @@ func runApiServer(
 	}
 }
 
-func runWorker(radapter *rdb.Adapter, exitEvent chan os.Signal, workerID string) {
+func runWorker(radapter *rdb.Adapter, exitEvent chan os.Signal, workerID string, workerPerformanceCacheDir string) {
 	ch := radapter.Subscribe()
-	w := worker.NewWorker(radapter, ch, exitEvent, workerID)
+	w := worker.NewWorker(radapter, ch, exitEvent, workerID, workerPerformanceCacheDir)
 	w.Listen()
 }
 
@@ -283,7 +283,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runWorker(radapter, exitEvent, workerID)
+		runWorker(radapter, exitEvent, workerID, conf.WorkerPerformanceCacheDir)
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
 	}

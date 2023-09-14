@@ -28,6 +28,7 @@ import (
 	"mquery/results"
 	"os"
 	"os/exec"
+	"path"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -40,12 +41,35 @@ const (
 )
 
 type Worker struct {
-	ID         string
-	messages   <-chan *redis.Message
-	radapter   *rdb.Adapter
-	exitEvent  chan os.Signal
-	ticker     time.Ticker
-	lastJobLog *JobLog
+	ID                  string
+	messages            <-chan *redis.Message
+	radapter            *rdb.Adapter
+	exitEvent           chan os.Signal
+	ticker              time.Ticker
+	lastJobLog          *JobLog
+	performanceCacheDir string
+}
+
+func (w *Worker) makePerformanceCachePath() string {
+	return path.Join(w.performanceCacheDir, "worker-"+w.ID+".jsonl")
+}
+
+func (w *Worker) logPerformance() error {
+	f, err := os.OpenFile(w.makePerformanceCachePath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	log, err := w.lastJobLog.ToJSON()
+	if err != nil {
+		return err
+	}
+	if _, err = f.WriteString(log + "\n"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (w *Worker) publishResult(res results.SerializableResult, channel string) error {
@@ -55,6 +79,9 @@ func (w *Worker) publishResult(res results.SerializableResult, channel string) e
 	}
 	w.lastJobLog.End = time.Now()
 	w.lastJobLog.Err = res.Err()
+	if err := w.logPerformance(); err != nil {
+		log.Error().Err(err).Msg("Failed to save worker performance")
+	}
 	return w.radapter.PublishResult(channel, ans)
 }
 
@@ -256,12 +283,13 @@ func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
 	return &ans
 }
 
-func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal, workerID string) *Worker {
+func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal, workerID string, workerPerformanceCacheDir string) *Worker {
 	return &Worker{
-		ID:        workerID,
-		radapter:  radapter,
-		messages:  messages,
-		exitEvent: exitEvent,
-		ticker:    *time.NewTicker(DefaultTickerInterval),
+		ID:                  workerID,
+		radapter:            radapter,
+		messages:            messages,
+		exitEvent:           exitEvent,
+		ticker:              *time.NewTicker(DefaultTickerInterval),
+		performanceCacheDir: workerPerformanceCacheDir,
 	}
 }
