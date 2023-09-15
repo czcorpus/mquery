@@ -118,11 +118,24 @@ func (w *WorkerJobLogger) writeTimelineItem() error {
 	return nil
 }
 
+func (w *WorkerJobLogger) cleanupTimeline() error {
+	now := time.Now().In(w.location)
+	from := now.Add(-time.Hour * 24 * 14)
+	_, err := w.db.Exec("DELETE FROM mquery_load_timeline WHERE dt <= ?", from)
+	return err
+}
+
 func (w *WorkerJobLogger) GoRunTimelineWriter() {
 	go func() {
 		ticker := time.NewTicker(60 * time.Second)
 		for range ticker.C {
 			w.writeTimelineItem()
+		}
+	}()
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		for range ticker.C {
+			w.cleanupTimeline()
 		}
 	}()
 }
