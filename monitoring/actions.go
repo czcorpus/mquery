@@ -40,7 +40,26 @@ func (a *Actions) WorkersLoad(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
 		return
 	}
-	load, err := a.logger.TotalLoad(&fromDT, &now)
+	load, err := a.logger.WorkersLoad(fromDT, now)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+		return
+	}
+	for k, v := range load {
+		load[k] = v * 100
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, load)
+}
+
+func (a *Actions) WorkersLoadTotal(ctx *gin.Context) {
+	now := time.Now().In(a.location)
+	dur, err := datetime.ParseDuration(ctx.Request.URL.Query().Get("ago"))
+	fromDT := now.Add(-dur)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+		return
+	}
+	load, err := a.logger.TotalLoad(fromDT, now)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
 		return
