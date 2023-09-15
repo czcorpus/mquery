@@ -46,15 +46,6 @@ func CreateWorkerResult(value results.SerializableResult) (*WorkerResult, error)
 	return &WorkerResult{Value: rawValue, ResultType: value.Type()}, nil
 }
 
-func DeserializeWorkerPerformanceResult(w *WorkerResult) (results.WorkerPerformance, error) {
-	var ans results.WorkerPerformance
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize WorkerPerformance: %w", err)
-	}
-	return ans, nil
-}
-
 func DeserializeFreqDistribResult(w *WorkerResult) (results.FreqDistrib, error) {
 	var ans results.FreqDistrib
 	err := json.Unmarshal(w.Value, &ans)

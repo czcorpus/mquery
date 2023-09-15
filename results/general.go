@@ -45,8 +45,8 @@ func (jl *JobLog) ToJSON() (string, error) {
 }
 
 type WorkerPerformance struct {
-	Jobs  []JobLog `json:"jobs"`
-	Error string   `json:"error"`
+	Jobs  []*JobLog `json:"jobs"`
+	Error string    `json:"error"`
 }
 
 func (res *WorkerPerformance) Err() error {

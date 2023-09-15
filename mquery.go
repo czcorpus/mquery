@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"mquery/corpus/scoll"
 	"mquery/db"
 	"mquery/general"
+	"mquery/monitoring"
 	"mquery/rdb"
 	"mquery/worker"
 )
@@ -88,15 +90,12 @@ func runApiServer(
 	syscallChan chan os.Signal,
 	exitEvent chan os.Signal,
 	radapter *rdb.Adapter,
+	sqlDB *sql.DB,
 ) {
 	if !conf.LogLevel.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	sqlDB, err := db.Open(conf.DB)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize cache database")
-	}
 	backend := db.NewBackend(sqlDB)
 	scollQueryExecutor := scoll.NewQueryExecutor(backend, radapter)
 
@@ -176,13 +175,11 @@ func runApiServer(
 	engine.GET(
 		"/scoll/:corpusId/verbs-object", sketchActions.VerbsObject)
 
-	workerActions := worker.NewActions(
-		conf.JobLogsDir,
-		radapter,
-	)
+	logger := monitoring.NewWorkerJobLogger(sqlDB)
+	monitoringActions := monitoring.NewActions(logger, conf.TimezoneLocation())
 
 	engine.GET(
-		"/performance", workerActions.GetPerformance)
+		"/monitoring/workers-load", monitoringActions.WorkersLoad)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
@@ -210,10 +207,19 @@ func runApiServer(
 	}
 }
 
-func runWorker(radapter *rdb.Adapter, exitEvent chan os.Signal, workerID string, jobLogsDir string) {
+func runWorker(workerID string, radapter *rdb.Adapter, sqlDB *sql.DB, exitEvent chan os.Signal) {
 	ch := radapter.Subscribe()
-	w := worker.NewWorker(radapter, ch, exitEvent, workerID, jobLogsDir)
+	logger := monitoring.NewWorkerJobLogger(sqlDB)
+	w := worker.NewWorker(workerID, radapter, ch, exitEvent, logger)
 	w.Listen()
+}
+
+func getWorkerID() (workerID string) {
+	workerID = getEnv("WORKER_ID")
+	if workerID == "" {
+		workerID = "0"
+	}
+	return
 }
 
 func main() {
@@ -244,11 +250,7 @@ func main() {
 			wPath = filepath.Join(filepath.Dir(conf.LogFile), "worker.log")
 		}
 		logging.SetupLogging(wPath, conf.LogLevel)
-		workerID := getEnv("WORKER_ID")
-		if action == "worker" && workerID == "" {
-			workerID = "0"
-		}
-		log.Logger = log.Logger.With().Str("worker", workerID).Logger()
+		log.Logger = log.Logger.With().Str("worker", getWorkerID()).Logger()
 
 	} else if action == "test" {
 		cnf.ValidateAndDefaults(conf)
@@ -274,6 +276,10 @@ func main() {
 	}()
 
 	radapter := rdb.NewAdapter(conf.Redis)
+	sqlDB, err := db.Open(conf.DB)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize cache database")
+	}
 
 	switch action {
 	case "server":
@@ -281,17 +287,13 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runApiServer(conf, syscallChan, exitEvent, radapter)
+		runApiServer(conf, syscallChan, exitEvent, radapter, sqlDB)
 	case "worker":
-		workerID := getEnv("WORKER_ID")
-		if workerID == "" {
-			workerID = "0"
-		}
 		err := radapter.TestConnection(20 * time.Second)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runWorker(radapter, exitEvent, workerID, conf.JobLogsDir)
+		runWorker(getWorkerID(), radapter, sqlDB, exitEvent)
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
