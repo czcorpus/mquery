@@ -26,6 +26,7 @@ import (
 	"mquery/rdb"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
@@ -36,6 +37,7 @@ const (
 	dfltLanguage               = "en"
 	dfltMaxNumConcurrentJobs   = 4
 	dfltVertMaxNumErrors       = 100
+	dfltTimeZone               = "Europe/Prague"
 )
 
 // Conf is a global configuration of the app
@@ -52,11 +54,21 @@ type Conf struct {
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
 	Language               string               `json:"language"`
-	srcPath                string
+	TimeZone               string               `json:"timeZone"`
+
+	srcPath string
 }
 
 func (conf *Conf) IsDebugMode() bool {
 	return conf.LogLevel == "debug"
+}
+
+func (conf *Conf) TimezoneLocation() *time.Location {
+	// we can ignore the error here as we always call c.Validate()
+	// first (which also tries to load the location and report possible
+	// error)
+	loc, _ := time.LoadLocation(conf.TimeZone)
+	return loc
 }
 
 // GetSourcePath returns an absolute path of a file
@@ -107,5 +119,13 @@ func ValidateAndDefaults(conf *Conf) {
 	}
 	if err := conf.CorporaSetup.ValidateAndDefaults("corporaSetup"); err != nil {
 		log.Fatal().Err(err).Msg("invalid configuration")
+	}
+	if conf.TimeZone == "" {
+		log.Warn().
+			Str("timeZone", dfltTimeZone).
+			Msg("time zone not specified, using default")
+	}
+	if _, err := time.LoadLocation(conf.TimeZone); err != nil {
+		log.Fatal().Err(err).Msg("invalid time zone")
 	}
 }

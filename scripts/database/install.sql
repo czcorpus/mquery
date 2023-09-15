@@ -23,3 +23,13 @@ CREATE TABLE scoll_fcrit (
     PRIMARY KEY (id),
     FOREIGN KEY (scoll_query_id) REFERENCES scoll_query(id)
 );
+
+CREATE TABLE mquery_load_log (
+    id int auto_increment NOT NULL,
+    worker_id varchar(8) NOT NULL,
+    start_dt datetime NOT NULL,
+    end_dt datetime NOT NULL,
+    func varchar(60) NOT NULL,
+    err text,
+    PRIMARY KEY (id)
+)
