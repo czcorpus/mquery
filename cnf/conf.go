@@ -52,6 +52,7 @@ type Conf struct {
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
 	Language               string               `json:"language"`
+	JobLogsDir             string               `json:"jobLogsDir"`
 	srcPath                string
 }
 

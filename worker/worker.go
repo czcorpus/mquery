@@ -19,6 +19,7 @@
 package worker
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -28,6 +29,8 @@ import (
 	"mquery/results"
 	"os"
 	"os/exec"
+	"path"
+	"sort"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -40,16 +43,105 @@ const (
 )
 
 type Worker struct {
-	messages  <-chan *redis.Message
-	radapter  *rdb.Adapter
-	exitEvent chan os.Signal
-	ticker    time.Ticker
+	ID         string
+	messages   <-chan *redis.Message
+	radapter   *rdb.Adapter
+	exitEvent  chan os.Signal
+	ticker     time.Ticker
+	lastJobLog *results.JobLog
+	jobLogsDir string
+}
+
+func (w *Worker) makePerformanceCachePath() string {
+	return path.Join(w.jobLogsDir, w.ID+"-job-logs.jsonl")
+}
+
+func (w *Worker) logPerformance() error {
+	f, err := os.OpenFile(w.makePerformanceCachePath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	log, err := w.lastJobLog.ToJSON()
+	if err != nil {
+		return err
+	}
+	if _, err = f.WriteString(log + "\n"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w *Worker) getPerformance(path string, fromDate, toDate *time.Time) ([]results.JobLog, error) {
+	ans := make([]results.JobLog, 0, 100)
+	file, err := os.Open(path)
+	if err != nil {
+		return ans, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		jobLog := results.JobLog{}
+		json.Unmarshal([]byte(scanner.Text()), &jobLog)
+		if (fromDate != nil && jobLog.Begin.Before(*fromDate)) || (toDate != nil && jobLog.Begin.After(*toDate)) {
+			continue
+		}
+		ans = append(ans, jobLog)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return ans, err
+	}
+	return ans, nil
+}
+
+func (w *Worker) getAllPerformances(args rdb.WorkerPerformanceArgs) *results.WorkerPerformance {
+	var fromDate, toDate *time.Time
+	if len(args.FromDate) > 0 {
+		date, err := time.Parse("2006-01-02", args.FromDate)
+		if err != nil {
+			return &results.WorkerPerformance{Error: err.Error()}
+		}
+		fromDate = &date
+	}
+	if len(args.ToDate) > 0 {
+		date, err := time.Parse("2006-01-02", args.ToDate)
+		if err != nil {
+			return &results.WorkerPerformance{Error: err.Error()}
+		}
+		toDate = &date
+	}
+	entries, err := os.ReadDir(w.jobLogsDir)
+	if err != nil {
+		return &results.WorkerPerformance{Error: err.Error()}
+	}
+
+	ans := make([]results.JobLog, 0, 100)
+	for _, e := range entries {
+		ansPart, err := w.getPerformance(path.Join(w.jobLogsDir, e.Name()), fromDate, toDate)
+		if err != nil {
+			return &results.WorkerPerformance{Error: err.Error()}
+		}
+		ans = append(ans, ansPart...)
+	}
+	sort.Slice(ans, func(i int, j int) bool {
+		return ans[i].Begin.Before(ans[j].Begin)
+	})
+	return &results.WorkerPerformance{Jobs: ans}
 }
 
 func (w *Worker) publishResult(res results.SerializableResult, channel string) error {
 	ans, err := rdb.CreateWorkerResult(res)
 	if err != nil {
 		return err
+	}
+	w.lastJobLog.End = time.Now()
+	w.lastJobLog.Err = res.Err()
+	if err := w.logPerformance(); err != nil {
+		log.Error().Err(err).Msg("Failed to save worker performance")
 	}
 	return w.radapter.PublishResult(channel, ans)
 }
@@ -80,6 +172,12 @@ func (w *Worker) tryNextQuery() error {
 			Any("args", query.Args).
 			Msg("worker found an inactive query")
 		return nil
+	}
+
+	w.lastJobLog = &results.JobLog{
+		WorkerID: w.ID,
+		Func:     query.Func,
+		Begin:    time.Now(),
 	}
 
 	switch query.Func {
@@ -131,9 +229,18 @@ func (w *Worker) tryNextQuery() error {
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
+	case "workerPerformance":
+		var args rdb.WorkerPerformanceArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.getAllPerformances(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
 
 	default:
-		ans := &results.ErrorResult{Error: fmt.Sprintf("unknonw query function: %s", query.Func)}
+		ans := &results.ErrorResult{Error: fmt.Sprintf("unknown query function: %s", query.Func)}
 		if err = w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
@@ -246,11 +353,13 @@ func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
 	return &ans
 }
 
-func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal) *Worker {
+func NewWorker(radapter *rdb.Adapter, messages <-chan *redis.Message, exitEvent chan os.Signal, workerID string, jobLogsDir string) *Worker {
 	return &Worker{
-		radapter:  radapter,
-		messages:  messages,
-		exitEvent: exitEvent,
-		ticker:    *time.NewTicker(DefaultTickerInterval),
+		ID:         workerID,
+		radapter:   radapter,
+		messages:   messages,
+		exitEvent:  exitEvent,
+		ticker:     *time.NewTicker(DefaultTickerInterval),
+		jobLogsDir: jobLogsDir,
 	}
 }
