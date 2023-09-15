@@ -20,7 +20,6 @@ package results
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 )
 
@@ -42,20 +41,4 @@ func (jl *JobLog) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(ans), nil
-}
-
-type WorkerPerformance struct {
-	Jobs  []*JobLog `json:"jobs"`
-	Error string    `json:"error"`
-}
-
-func (res *WorkerPerformance) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
-}
-
-func (res *WorkerPerformance) Type() ResultType {
-	return ResultWorkerPerformance
 }

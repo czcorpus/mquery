@@ -21,7 +21,6 @@ package monitoring
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"mquery/results"
 	"time"
@@ -29,8 +28,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type WorkersLoad map[string]float64
+
 type WorkerJobLogger struct {
-	db *sql.DB
+	db       *sql.DB
+	location *time.Location
 }
 
 func (w *WorkerJobLogger) Log(rec results.JobLog) {
@@ -50,41 +52,32 @@ func (w *WorkerJobLogger) Log(rec results.JobLog) {
 	}()
 }
 
-func (w *WorkerJobLogger) loadFromDb(fromDT, toDT *time.Time, workerID string) ([]*results.JobLog, error) {
-	query := "SELECT worker_id, start_dt, end_dt, func, err " +
+func (w *WorkerJobLogger) WorkersLoad(fromDT, toDT time.Time) (WorkersLoad, error) {
+	query := "SELECT " +
+		"SUM(" +
+		"TIMESTAMPDIFF(SECOND, start_dt, end_dt) + " +
+		"(EXTRACT(MICROSECOND FROM end_dt) - EXTRACT(MICROSECOND FROM start_dt)) / 1000000 " +
+		") AS total_seconds, worker_id " +
 		"FROM mquery_load_log " +
-		"WHERE start_dt >= ? AND end_dt < ?"
+		"WHERE start_dt >= ? AND end_dt < ? " +
+		"GROUP BY worker_id "
 	args := []any{fromDT, toDT}
-	if workerID != "" {
-		query += " AND worker_id = ?"
-		args = append(args, workerID)
-	}
+	ans := make(map[string]float64)
 	rows, err := w.db.Query(query, args...)
 	if err != nil {
-		return []*results.JobLog{}, err
+		return ans, fmt.Errorf("failed to get total load: %w", err)
 	}
-	ans := make([]*results.JobLog, 0, 500)
+
 	for rows.Next() {
-		item := &results.JobLog{}
-		optErr := sql.NullString{}
-		err := rows.Scan(
-			&item.WorkerID,
-			&item.Begin,
-			&item.End,
-			&item.Func,
-			&optErr,
-		)
-		if err != nil {
-			return []*results.JobLog{}, err
-		}
-		if optErr.Valid {
-			item.Err = errors.New(optErr.String)
-		}
+		var load float64
+		var workerID string
+		rows.Scan(&load, &workerID)
+		ans[fmt.Sprintf("worker_%s", workerID)] = load / toDT.Sub(fromDT).Seconds()
 	}
 	return ans, nil
 }
 
-func (w *WorkerJobLogger) TotalLoad(fromDT, toDT *time.Time) (float64, error) {
+func (w *WorkerJobLogger) TotalLoad(fromDT, toDT time.Time) (float64, error) {
 	query := "SELECT AVG(t.total_seconds) FROM ( " +
 		"SELECT " +
 		"SUM(" +
@@ -102,11 +95,41 @@ func (w *WorkerJobLogger) TotalLoad(fromDT, toDT *time.Time) (float64, error) {
 	}
 	var ans float64
 	row.Scan(&ans) // note: err already tested by row.Err() above
-	return ans / toDT.Sub(*fromDT).Seconds(), nil
+	return ans / toDT.Sub(fromDT).Seconds(), nil
 }
 
-func NewWorkerJobLogger(db *sql.DB) *WorkerJobLogger {
+func (w *WorkerJobLogger) writeTimelineItem() error {
+	now := time.Now().In(w.location)
+	from := now.Add(-time.Second * 60)
+	workerLoads, err := w.WorkersLoad(from, now)
+	if err != nil {
+		return err
+	}
+	for workerID, wload := range workerLoads {
+		_, err := w.db.Exec(
+			"INSERT INTO mquery_load_timeline (dt, wload, worker_id) "+
+				"VALUES (?, ?, ?)",
+			now, wload, workerID,
+		)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to insert mquery load timeline item")
+		}
+	}
+	return nil
+}
+
+func (w *WorkerJobLogger) GoRunTimelineWriter() {
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		for range ticker.C {
+			w.writeTimelineItem()
+		}
+	}()
+}
+
+func NewWorkerJobLogger(db *sql.DB, location *time.Location) *WorkerJobLogger {
 	return &WorkerJobLogger{
-		db: db,
+		db:       db,
+		location: location,
 	}
 }

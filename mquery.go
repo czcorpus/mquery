@@ -175,7 +175,8 @@ func runApiServer(
 	engine.GET(
 		"/scoll/:corpusId/verbs-object", sketchActions.VerbsObject)
 
-	logger := monitoring.NewWorkerJobLogger(sqlDB)
+	logger := monitoring.NewWorkerJobLogger(sqlDB, conf.TimezoneLocation())
+	logger.GoRunTimelineWriter()
 	monitoringActions := monitoring.NewActions(logger, conf.TimezoneLocation())
 
 	engine.GET(
@@ -207,9 +208,9 @@ func runApiServer(
 	}
 }
 
-func runWorker(workerID string, radapter *rdb.Adapter, sqlDB *sql.DB, exitEvent chan os.Signal) {
+func runWorker(conf *cnf.Conf, workerID string, radapter *rdb.Adapter, sqlDB *sql.DB, exitEvent chan os.Signal) {
 	ch := radapter.Subscribe()
-	logger := monitoring.NewWorkerJobLogger(sqlDB)
+	logger := monitoring.NewWorkerJobLogger(sqlDB, conf.TimezoneLocation())
 	w := worker.NewWorker(workerID, radapter, ch, exitEvent, logger)
 	w.Listen()
 }
@@ -293,7 +294,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runWorker(getWorkerID(), radapter, sqlDB, exitEvent)
+		runWorker(conf, getWorkerID(), radapter, sqlDB, exitEvent)
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
 	}

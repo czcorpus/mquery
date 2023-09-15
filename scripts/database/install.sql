@@ -32,4 +32,12 @@ CREATE TABLE mquery_load_log (
     func varchar(60) NOT NULL,
     err text,
     PRIMARY KEY (id)
-)
+);
+
+
+CREATE TABLE mquery_load_timeline (
+    dt datetime NOT NULL,
+    wload float NOT NULL,
+    worker_id varchar(60) NOT NULL,
+    PRIMARY KEY (worker_id, dt)
+);
