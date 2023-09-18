@@ -24,6 +24,17 @@ CREATE TABLE scoll_fcrit (
     FOREIGN KEY (scoll_query_id) REFERENCES scoll_query(id)
 );
 
+CREATE TABLE fcolls (
+    id int auto_increment,
+    lemma varchar(100),
+    upos varchar(8),
+    p_lemma varchar(100),
+    p_upos varchar(8),
+    deprel varchar(20),
+    freq int,
+    PRIMARY KEY (id)
+);
+
 CREATE TABLE mquery_load_log (
     id int auto_increment NOT NULL,
     worker_id varchar(8) NOT NULL,
