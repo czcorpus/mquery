@@ -77,7 +77,7 @@ func (vp *VertProcessor) ProcToken(token *vertigo.Token, line int, err error) er
 	if err != nil {
 		return err
 	}
-	if len(token.Attrs) < 11 {
+	if len(token.Attrs) < 12 {
 		log.Error().Msgf("Too few token columns on line %d", line)
 		return nil
 	}
