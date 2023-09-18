@@ -35,7 +35,7 @@ type Actions struct {
 	qExecutor  *QueryExecutor
 }
 
-func (a *Actions) initSkechAttrsOrWriteErr(ctx *gin.Context, corpusID string) *CorpusSketchSetup {
+func (a *Actions) initScollAttrsOrWriteErr(ctx *gin.Context, corpusID string) *CorpusSketchSetup {
 	sketchAttrs, ok := a.sketchConf.SketchAttrs[corpusID]
 	if !ok {
 		uniresp.RespondWithErrorJSON(
@@ -83,7 +83,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
 		return
 	}
@@ -138,7 +138,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
 		return
 	}
@@ -191,7 +191,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
 		return
 	}
@@ -245,7 +245,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	sketchAttrs := a.initSkechAttrsOrWriteErr(ctx, corpusID)
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
 	if sketchAttrs == nil {
 		return
 	}
