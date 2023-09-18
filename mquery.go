@@ -176,6 +176,11 @@ func runApiServer(
 	engine.GET(
 		"/scoll/:corpusId/verbs-object", sketchActions.VerbsObject)
 
+	fcollActions := fcoll.NewActions(conf.CorporaSetup, conf.SketchSetup, sqlDB)
+
+	engine.GET(
+		"/fcoll/:corpusId/noun-modified-by", fcollActions.NounsModifiedBy)
+
 	logger := monitoring.NewWorkerJobLogger(sqlDB, conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
 	monitoringActions := monitoring.NewActions(logger, conf.TimezoneLocation())

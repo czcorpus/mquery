@@ -112,7 +112,7 @@ func insertColl(db *sql.DB, item *CTItem) error {
 	return nil
 }
 
-func runForDeprel(corpname, vertPath string, deprels []string, db *sql.DB) error {
+func runForDeprel(corpusID, vertPath string, deprels []string, db *sql.DB) error {
 	pc := &vertigo.ParserConf{
 		InputFilePath:         vertPath,
 		Encoding:              "utf-8",
@@ -135,7 +135,7 @@ func runForDeprel(corpname, vertPath string, deprels []string, db *sql.DB) error
 		return err
 	}
 
-	_, err = db.Exec(fmt.Sprintf("DELETE FROM %s_fcolls", corpname))
+	_, err = db.Exec(fmt.Sprintf("DELETE FROM %s_fcolls", corpusID))
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func runForDeprel(corpname, vertPath string, deprels []string, db *sql.DB) error
 	mkStmt := func() string {
 		return fmt.Sprintf(
 			"INSERT INTO %s_fcolls (lemma, upos, p_lemma, p_upos, deprel, freq) "+
-				"VALUES %s", corpname, strings.Join(valueStrings, ", "))
+				"VALUES %s", corpusID, strings.Join(valueStrings, ", "))
 	}
 
 	log.Info().Msg("writing data into database")
@@ -182,9 +182,9 @@ func runForDeprel(corpname, vertPath string, deprels []string, db *sql.DB) error
 	return err
 }
 
-func Run(corpname, vertPath string, conf *scoll.CorpusSketchSetup, db *sql.DB) error {
+func Run(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *sql.DB) error {
 	return runForDeprel(
-		corpname,
+		corpusID,
 		vertPath,
 		[]string{
 			conf.NounModifiedValue,
