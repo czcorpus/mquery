@@ -23,6 +23,7 @@ import (
 	"mquery/corpus/query"
 	"mquery/corpus/scoll"
 	"mquery/db"
+	"mquery/fcoll"
 	"mquery/general"
 	"mquery/monitoring"
 	"mquery/rdb"
@@ -295,6 +296,16 @@ func main() {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
 		runWorker(conf, getWorkerID(), radapter, sqlDB, exitEvent)
+	case "precalc":
+		scollConf, ok := conf.SketchSetup.SketchAttrs[flag.Arg(2)]
+		if !ok {
+			log.Fatal().Str("corpus", flag.Arg(2)).Msg("corpus not configured")
+			return
+		}
+		err := fcoll.Run(flag.Arg(2), flag.Arg(3), scollConf, sqlDB)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to process")
+		}
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
 	}

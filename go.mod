@@ -9,6 +9,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rs/zerolog v1.29.1
+	github.com/tomachalek/vertigo/v5 v5.1.0
 )
 
 require (
