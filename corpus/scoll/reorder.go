@@ -62,7 +62,12 @@ func (rc *ReorderCalculator) calcFy(
 					wg <- err
 					return
 				}
-				idx := slices.IndexFunc(items, func(item *results.FreqDistribItem) bool { return item.Word == ans.ID })
+				idx := slices.IndexFunc(
+					items,
+					func(item *results.FreqDistribItem) bool {
+						return item.Word == ans.ID
+					},
+				)
 				fyValues[idx] = result.ConcSize
 				log.Debug().
 					Int("query", idx).
