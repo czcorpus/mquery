@@ -110,8 +110,6 @@ func (qe *QueryExecutor) FyQuery(
 	sql, args := gen.FyQuerySelectSQL(collCandidates)
 	qResults, err := qe.backend.SelectAll(sql, args)
 	ch := make(chan *rdb.WorkerResult)
-	doneCandidates := make([]string, 0, 100)
-
 	if err != nil {
 		go func() {
 			close(ch)
@@ -119,11 +117,13 @@ func (qe *QueryExecutor) FyQuery(
 		return ch, err
 	}
 
-	if qResults != nil {
-		for _, ans := range qResults {
-			ch <- ans
-			doneCandidates = append(doneCandidates, ans.ID)
-		}
+	if qResults == nil {
+		qResults = []*rdb.WorkerResult{}
+	}
+	doneCandidates := make([]string, 0, 100)
+
+	for _, ans := range qResults {
+		doneCandidates = append(doneCandidates, ans.ID)
 	}
 
 	wg := sync.WaitGroup{}
@@ -172,6 +172,9 @@ func (qe *QueryExecutor) FyQuery(
 
 	go func(wg *sync.WaitGroup) {
 		wg.Wait()
+		for _, qr := range qResults {
+			ch <- qr
+		}
 		close(ch)
 	}(&wg)
 
