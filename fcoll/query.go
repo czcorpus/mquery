@@ -112,7 +112,6 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
 	rows, err := cdb.db.Query(sql, whereArgs...)
-
 	if err != nil {
 		return []*Candidate{}, err
 	}
