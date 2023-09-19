@@ -135,7 +135,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 
-	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod", 1)
+	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod", 2) // TODO minfreq configurable
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return

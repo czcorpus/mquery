@@ -73,7 +73,7 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 	whereSQL := make([]string, 0, 4)
 	whereSQL = append(whereSQL, "deprel = ?", "p_lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, deprel, pLemma, candidatesFreqLimit)
+	whereArgs = append(whereArgs, deprel, pLemma, minFreq)
 	if pUpos != "" {
 		whereSQL = append(whereSQL, "p_upos = ?")
 		whereArgs = append(whereArgs, pUpos)
@@ -93,6 +93,7 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 		if err != nil {
 			return ans, err
 		}
+		ans = append(ans, item)
 	}
 	return ans, nil
 }
@@ -111,6 +112,7 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
 	rows, err := cdb.db.Query(sql, whereArgs...)
+
 	if err != nil {
 		return []*Candidate{}, err
 	}
