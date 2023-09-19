@@ -24,6 +24,10 @@ import (
 	"strings"
 )
 
+const (
+	candidatesFreqLimit = 10
+)
+
 type Candidate struct {
 	Lemma string
 	Upos  string
@@ -67,9 +71,9 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 
 func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
-	whereSQL = append(whereSQL, "p_lemma = ?")
+	whereSQL = append(whereSQL, "deprel = ?", "p_lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, pLemma)
+	whereArgs = append(whereArgs, deprel, pLemma, candidatesFreqLimit)
 	if pUpos != "" {
 		whereSQL = append(whereSQL, "p_upos = ?")
 		whereArgs = append(whereArgs, pUpos)
@@ -95,9 +99,9 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string) ([]*Ca
 
 func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
-	whereSQL = append(whereSQL, "lemma = ?")
+	whereSQL = append(whereSQL, "deprel = ?", "lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, lemma)
+	whereArgs = append(whereArgs, deprel, lemma, candidatesFreqLimit)
 	if upos != "" {
 		whereSQL = append(whereSQL, "upos = ?")
 		whereArgs = append(whereArgs, upos)
