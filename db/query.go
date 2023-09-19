@@ -58,6 +58,33 @@ func (b *Backend) Select(query string, args []any) (*rdb.WorkerResult, error) {
 	return ans, nil
 }
 
+func (b *Backend) SelectAll(query string, args []any) ([]*rdb.WorkerResult, error) {
+	if query == "" {
+		return nil, nil
+	}
+	rows, err := b.db.Query(query, args...)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to SELECT: %w", err)
+	}
+	defer rows.Close()
+
+	results := make([]*rdb.WorkerResult, 0, 100)
+	for rows.Next() {
+		ans := new(rdb.WorkerResult)
+		err := rows.Scan(&ans.ID, &ans.Value, &ans.ResultType)
+		if err == sql.ErrNoRows {
+			return nil, nil
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to SELECT: %w", err)
+		}
+		results = append(results, ans)
+	}
+
+	return results, nil
+}
+
 func NewBackend(db *sql.DB) *Backend {
 	return &Backend{
 		db: db,

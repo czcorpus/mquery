@@ -26,7 +26,10 @@ import (
 	"sort"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/exp/slices"
 )
+
+const WORD_BUFFER_SIZE = 100
 
 type ReorderCalculator struct {
 	corpConf   *corpus.CorporaSetup
@@ -43,24 +46,32 @@ func (rc *ReorderCalculator) calcFy(
 	fromIdx,
 	toIdx int,
 ) {
+	wordBuffer := make([]string, 0, WORD_BUFFER_SIZE)
 	for i := fromIdx; i < toIdx; i++ {
-		item := items[i]
-		wait, err := rc.executor.FyQuery(rc.qGen, rc.corpusPath, item.Word)
-		if err != nil {
-			wg <- err
-			return
+		wordBuffer = append(wordBuffer, items[i].Word)
+		if len(wordBuffer) == WORD_BUFFER_SIZE || i == toIdx-1 {
+			wait, err := rc.executor.FyQuery(rc.qGen, rc.corpusPath, wordBuffer)
+			if err != nil {
+				wg <- err
+				return
+			}
+
+			for ans := range wait {
+				result, err := rdb.DeserializeConcSizeResult(ans)
+				if err != nil {
+					wg <- err
+					return
+				}
+				idx := slices.IndexFunc(items, func(item *results.FreqDistribItem) bool { return item.Word == ans.ID })
+				fyValues[idx] = result.ConcSize
+				log.Debug().
+					Int("query", idx).
+					Int64("concSize", result.ConcSize).
+					Msg("finished conc size query")
+			}
+
+			wordBuffer = wordBuffer[:0]
 		}
-		ans := <-wait
-		result, err := rdb.DeserializeConcSizeResult(ans)
-		if err != nil {
-			wg <- err
-			return
-		}
-		fyValues[i] = result.ConcSize
-		log.Debug().
-			Int("query", i).
-			Int64("concSize", result.ConcSize).
-			Msg("finished conc size query")
 	}
 	wg <- nil
 }
@@ -135,7 +146,7 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	wg := make(chan error)
 	defer close(wg)
 
-	runFx := func(from, to int) {
+	runFy := func(from, to int) {
 		rc.calcFy(items, wg, fyValues, from, to)
 	}
 	runFxy := func(from, to int) {
@@ -153,7 +164,7 @@ func (rc *ReorderCalculator) SortByLogDiceColl(
 	var numRoutines int
 	for i := 0; i < chunkSize; i += procChunkSize {
 		to := min(i+procChunkSize, chunkSize)
-		go runFx(i, to)
+		go runFy(i, to)
 		go runFxy(i, to)
 		numRoutines += 2
 	}

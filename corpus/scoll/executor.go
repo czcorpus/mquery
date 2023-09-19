@@ -24,8 +24,10 @@ import (
 	"mquery/db"
 	"mquery/rdb"
 	"mquery/results"
+	"sync"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/exp/slices"
 )
 
 type QueryExecutor struct {
@@ -103,11 +105,12 @@ func (qe *QueryExecutor) FxQuery(
 }
 
 func (qe *QueryExecutor) FyQuery(
-	gen QueryGenerator, corpusPath string, collCandidate string,
+	gen QueryGenerator, corpusPath string, collCandidates []string,
 ) (<-chan *rdb.WorkerResult, error) {
-	sql, args := gen.FyQuerySelectSQL(collCandidate)
-	ans, err := qe.backend.Select(sql, args)
+	sql, args := gen.FyQuerySelectSQL(collCandidates)
+	qResults, err := qe.backend.SelectAll(sql, args)
 	ch := make(chan *rdb.WorkerResult)
+	doneCandidates := make([]string, 0, 100)
 
 	if err != nil {
 		go func() {
@@ -115,50 +118,64 @@ func (qe *QueryExecutor) FyQuery(
 		}()
 		return ch, err
 	}
-	if ans != nil {
-		go func() {
-			ch <- ans
-			close(ch)
-		}()
-		return ch, nil
 
-	} else {
-		args, err := json.Marshal(rdb.ConcSizeArgs{
-			CorpusPath: corpusPath,
-			Query:      gen.FyQuery(collCandidate),
-		})
-		if err != nil {
-			go func() {
-				close(ch)
-			}()
-			return ch, err
+	if qResults != nil {
+		for _, ans := range qResults {
+			ch <- ans
+			doneCandidates = append(doneCandidates, ans.ID)
 		}
-		ch2, err := qe.radapter.PublishQuery(
-			rdb.Query{
-				ResultType: results.ResultTypeFy,
-				Func:       "concSize",
-				Args:       args,
-			},
-		)
-		if err != nil {
-			go func() {
-				close(ch)
-			}()
-			return ch, err
-		}
-		go func() {
-			res := <-ch2
-			ch <- res
-			close(ch)
-			// now let's store data to db
-			query, args := gen.FyQueryInsertSQL(collCandidate, res)
-			_, err := qe.backend.Insert(query, args)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to insert cache data for FyQuery")
-			}
-		}()
-		return ch, nil
 	}
+
+	wg := sync.WaitGroup{}
+	if len(doneCandidates) != len(collCandidates) {
+		for _, v := range collCandidates {
+			if slices.Index(doneCandidates, v) == -1 {
+				args, err := json.Marshal(rdb.ConcSizeArgs{
+					CorpusPath: corpusPath,
+					Query:      gen.FyQuery(v),
+				})
+				if err != nil {
+					go func() {
+						close(ch)
+					}()
+					return ch, err
+				}
+				ch2, err := qe.radapter.PublishQuery(
+					rdb.Query{
+						ResultType: results.ResultTypeFy,
+						Func:       "concSize",
+						Args:       args,
+					},
+				)
+				if err != nil {
+					go func() {
+						close(ch)
+					}()
+					return ch, err
+				}
+				wg.Add(1)
+				go func(wg *sync.WaitGroup) {
+					res := <-ch2
+					res.ID = v
+					ch <- res
+					wg.Done()
+					// now let's store data to db
+					query, args := gen.FyQueryInsertSQL(v, res)
+					_, err := qe.backend.Insert(query, args)
+					if err != nil {
+						log.Error().Err(err).Msg("failed to insert cache data for FyQuery")
+					}
+				}(&wg)
+			}
+		}
+	}
+
+	go func(wg *sync.WaitGroup) {
+		wg.Wait()
+		close(ch)
+	}(&wg)
+
+	return ch, nil
 }
 
 func (qe *QueryExecutor) FxyQuery(
