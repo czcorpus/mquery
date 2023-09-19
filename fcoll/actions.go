@@ -98,10 +98,18 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 			return result[j].CollWeight < result[i].CollWeight
 		},
 	)
-
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
+		return
+	}
+	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryNounsModifiedBy, sketchAttrs)
+	resp := results.FreqDistrib{
+		Freqs:            result,
+		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		resp,
 	)
 }
 
@@ -121,6 +129,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	cdb := NewCollDatabase(a.db, corpusID)
 
 	fx, err := cdb.GetFreq("", "NOUN", w.V, w.PoS, "nmod")
+
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
@@ -153,10 +162,18 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 			return result[j].CollWeight < result[i].CollWeight
 		},
 	)
-
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
+		return
+	}
+	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryModifiersOf, sketchAttrs)
+	resp := results.FreqDistrib{
+		Freqs:            result,
+		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		resp,
 	)
 }
 
@@ -207,10 +224,18 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 			return result[j].CollWeight < result[i].CollWeight
 		},
 	)
-
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
+		return
+	}
+	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryVerbsSubject, sketchAttrs)
+	resp := results.FreqDistrib{
+		Freqs:            result,
+		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		resp,
 	)
 }
 
@@ -261,10 +286,18 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 			return result[j].CollWeight < result[i].CollWeight
 		},
 	)
-
+	sketchAttrs := a.initScollAttrsOrWriteErr(ctx, corpusID)
+	if sketchAttrs == nil {
+		return
+	}
+	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryVerbsObject, sketchAttrs)
+	resp := results.FreqDistrib{
+		Freqs:            result,
+		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
+	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		resp,
 	)
 }
 
