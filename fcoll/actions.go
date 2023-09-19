@@ -20,7 +20,6 @@ package fcoll
 
 import (
 	"database/sql"
-	"fmt"
 	"math"
 	"mquery/corpus"
 	"mquery/corpus/scoll"
@@ -91,7 +90,6 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 			Freq:       fxy,
 			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
 		}
-		fmt.Println("CAND: ", *item)
 		result[i] = item
 	}
 	sort.SliceStable(
