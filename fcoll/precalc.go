@@ -81,13 +81,16 @@ func (vp *VertProcessor) ProcToken(token *vertigo.Token, line int, err error) er
 		log.Error().Msgf("Too few token columns on line %d", line)
 		return nil
 	}
-	deprel := token.Attrs[vp.conf.FuncAttr.VerticalCol-1] // -1 because `word` in Vertigo is separated
+	// below, we index always [k-1] because `word` in Vertigo is separated
+	deprelTmp := token.Attrs[vp.conf.FuncAttr.VerticalCol-1]
 	lemma := token.Attrs[vp.conf.LemmaAttr.VerticalCol-1]
 	upos := token.Attrs[vp.conf.PosAttr.VerticalCol-1]
 	pUpos := token.Attrs[vp.conf.ParPosAttr.VerticalCol-1]
 	pLemma := token.Attrs[vp.conf.ParLemmaAttr.VerticalCol-1]
-	if collections.SliceContains(vp.DeprelTypes, deprel) {
-		vp.Table.Add(lemma, upos, pLemma, pUpos, deprel, 1)
+	for _, deprel := range expandDeprelMultivalue(deprelTmp) {
+		if collections.SliceContains(vp.DeprelTypes, deprel) {
+			vp.Table.Add(lemma, upos, pLemma, pUpos, deprel, 1)
+		}
 	}
 	//useFirstNonWordPosAttr(tokenAttrs[0])
 
@@ -112,6 +115,31 @@ func insertColl(db *sql.DB, item *CTItem) error {
 	return nil
 }
 
+func expandDeprelMultivalue(value string) []string {
+	ans := make([]string, 0, 2)
+	tmp := strings.Split(value, "|")
+	if len(tmp) > 2 {
+		log.Warn().
+			Str("expression", value).
+			Msg("deprel expression not fully supported")
+	}
+	for _, t := range tmp {
+		ans = append(ans, t)
+	}
+	// this along with individual items does not cover whole
+	// expression but it should be ok
+	ans = append(ans, value)
+	return ans
+}
+
+func expandDeprelMultivalues(values []string) []string {
+	ans := make([]string, 0, len(values)+2)
+	for _, v := range values {
+		ans = append(ans, expandDeprelMultivalue(v)...)
+	}
+	return ans
+}
+
 func runForDeprel(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *sql.DB) error {
 	pc := &vertigo.ParserConf{
 		InputFilePath:         vertPath,
@@ -120,11 +148,13 @@ func runForDeprel(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *
 	}
 	table := make(CounterTable)
 	proc := &VertProcessor{
-		DeprelTypes: []string{
-			conf.NounModifiedValue,
-			conf.NounSubjectValue,
-			conf.NounObjectValue,
-		},
+		DeprelTypes: expandDeprelMultivalues(
+			[]string{
+				conf.NounModifiedValue,
+				conf.NounSubjectValue,
+				conf.NounObjectValue,
+			},
+		),
 		conf:  conf,
 		Table: table,
 	}
