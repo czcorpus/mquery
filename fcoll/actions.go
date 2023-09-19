@@ -71,7 +71,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		return
 	}
 
-	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "nmod")
+	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "nmod", candidatesFreqLimit)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
@@ -135,7 +135,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 
-	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod")
+	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod", 1)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
@@ -197,7 +197,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 
-	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "nsubj")
+	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "nsubj", candidatesFreqLimit)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
@@ -259,7 +259,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		return
 	}
 
-	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "obj|iobj")
+	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "obj|iobj", candidatesFreqLimit)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return

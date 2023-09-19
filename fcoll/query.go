@@ -69,7 +69,7 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 	return ans, nil
 }
 
-func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string) ([]*Candidate, error) {
+func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFreq int) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
 	whereSQL = append(whereSQL, "deprel = ?", "p_lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
@@ -97,11 +97,11 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string) ([]*Ca
 	return ans, nil
 }
 
-func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string) ([]*Candidate, error) {
+func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq int) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
 	whereSQL = append(whereSQL, "deprel = ?", "lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, deprel, lemma, candidatesFreqLimit)
+	whereArgs = append(whereArgs, deprel, lemma, minFreq)
 	if upos != "" {
 		whereSQL = append(whereSQL, "upos = ?")
 		whereArgs = append(whereArgs, upos)
