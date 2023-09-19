@@ -74,8 +74,8 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string) ([]*Ca
 		whereSQL = append(whereSQL, "p_upos = ?")
 		whereArgs = append(whereArgs, pUpos)
 	}
-	sql := fmt.Sprint(
-		"SELECT lemma, upos, freq FROM %s_fcolls WHERE %s",
+	sql := fmt.Sprintf(
+		"SELECT lemma, upos, freq FROM %s_fcolls WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
 	rows, err := cdb.db.Query(sql, whereArgs...)
