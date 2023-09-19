@@ -27,10 +27,10 @@ CREATE TABLE scoll_fcrit (
 CREATE TABLE fcolls (
     id int auto_increment,
     lemma varchar(100),
-    upos varchar(8),
+    upos varchar(40),
     p_lemma varchar(100),
-    p_upos varchar(8),
-    deprel varchar(20),
+    p_upos varchar(40),
+    deprel varchar(40),
     freq int,
     PRIMARY KEY (id)
 );
