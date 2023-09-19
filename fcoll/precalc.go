@@ -81,13 +81,11 @@ func (vp *VertProcessor) ProcToken(token *vertigo.Token, line int, err error) er
 		log.Error().Msgf("Too few token columns on line %d", line)
 		return nil
 	}
-	fmt.Println("vp.conf.FuncAttr: ", vp.conf)
 	deprel := token.Attrs[vp.conf.FuncAttr.VerticalCol-1] // -1 because `word` in Vertigo is separated
 	lemma := token.Attrs[vp.conf.LemmaAttr.VerticalCol-1]
 	upos := token.Attrs[vp.conf.PosAttr.VerticalCol-1]
 	pUpos := token.Attrs[vp.conf.ParPosAttr.VerticalCol-1]
 	pLemma := token.Attrs[vp.conf.ParLemmaAttr.VerticalCol-1]
-	fmt.Println("deprel: ", deprel, ", lemma: ", lemma, ", upos: ", upos, ", pUpos: ", pUpos, ", pLemma: ", pLemma)
 	if collections.SliceContains(vp.DeprelTypes, deprel) {
 		vp.Table.Add(lemma, upos, pLemma, pUpos, deprel, 1)
 	}
@@ -135,7 +133,7 @@ func runForDeprel(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *
 		return err
 	}
 
-	fmt.Println("table size: ", len(table))
+	log.Info().Int("size", len(table)).Msg("collocation table done")
 
 	tx, err := db.Begin()
 	if err != nil {
