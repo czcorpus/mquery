@@ -105,6 +105,169 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	)
 }
 
+func (a *Actions) ModifiersOf(ctx *gin.Context) {
+	w := scoll.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	corpusID := ctx.Param("corpusId")
+
+	// [p_lemma="team" & deprel="nmod" & upos="NOUN"]
+	cdb := NewCollDatabase(a.db, corpusID)
+
+	fx, err := cdb.GetFreq("", "NOUN", w.V, w.PoS, "nmod")
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod")
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	result := make(results.FreqDistribItemList, len(candidates))
+	for i, cand := range candidates {
+		fxy := cand.Freq
+		fy, err := cdb.GetFreq(cand.Lemma, cand.Upos, "", "", "nmod")
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		item := &results.FreqDistribItem{
+			Word:       cand.Lemma,
+			Freq:       fxy,
+			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+		}
+		result[i] = item
+	}
+	sort.SliceStable(
+		result,
+		func(i, j int) bool {
+			return result[j].CollWeight < result[i].CollWeight
+		},
+	)
+
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		result,
+	)
+}
+
+func (a *Actions) VerbsSubject(ctx *gin.Context) {
+	w := scoll.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	corpusID := ctx.Param("corpusId")
+	// [lemma="team" & deprel="nsubj" & p_upos="VERB"]
+	cdb := NewCollDatabase(a.db, corpusID)
+
+	fx, err := cdb.GetFreq(w.V, w.PoS, "", "VERB", "nsubj")
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "nsubj")
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	result := make(results.FreqDistribItemList, len(candidates))
+	for i, cand := range candidates {
+		fxy := cand.Freq
+		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nsubj")
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		item := &results.FreqDistribItem{
+			Word:       cand.Lemma,
+			Freq:       fxy,
+			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+		}
+		result[i] = item
+	}
+	sort.SliceStable(
+		result,
+		func(i, j int) bool {
+			return result[j].CollWeight < result[i].CollWeight
+		},
+	)
+
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		result,
+	)
+}
+
+func (a *Actions) VerbsObject(ctx *gin.Context) {
+	w := scoll.Word{V: ctx.Request.URL.Query().Get("w"), PoS: ctx.Request.URL.Query().Get("pos")}
+	if !w.IsValid() {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			uniresp.NewActionError("invalid word value"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	corpusID := ctx.Param("corpusId")
+	// [lemma="team" & deprel="obj|iobj" & p_upos="VERB"]
+	cdb := NewCollDatabase(a.db, corpusID)
+
+	fx, err := cdb.GetFreq(w.V, w.PoS, "", "VERB", "obj|iobj")
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	candidates, err := cdb.GetParentCandidates(w.V, w.PoS, "obj|iobj")
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	result := make(results.FreqDistribItemList, len(candidates))
+	for i, cand := range candidates {
+		fxy := cand.Freq
+		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nsobj|iobjubj")
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		item := &results.FreqDistribItem{
+			Word:       cand.Lemma,
+			Freq:       fxy,
+			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+		}
+		result[i] = item
+	}
+	sort.SliceStable(
+		result,
+		func(i, j int) bool {
+			return result[j].CollWeight < result[i].CollWeight
+		},
+	)
+
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		result,
+	)
+}
+
 func NewActions(
 	corpConf *corpus.CorporaSetup,
 	sketchConf *scoll.SketchSetup,

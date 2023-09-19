@@ -181,6 +181,15 @@ func runApiServer(
 	engine.GET(
 		"/fcoll/:corpusId/noun-modified-by", fcollActions.NounsModifiedBy)
 
+	engine.GET(
+		"/fcoll/:corpusId/modifiers-of", fcollActions.ModifiersOf)
+
+	engine.GET(
+		"/fcoll/:corpusId/verbs-subject", fcollActions.VerbsSubject)
+
+	engine.GET(
+		"/fcoll/:corpusId/verbs-object", fcollActions.VerbsObject)
+
 	logger := monitoring.NewWorkerJobLogger(sqlDB, conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
 	monitoringActions := monitoring.NewActions(logger, conf.TimezoneLocation())
