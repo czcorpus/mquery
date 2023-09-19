@@ -195,7 +195,7 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 		Query:         ctx.Query("query"),
 		Attrs:         attrs,
 		MaxItems:      10,
-		ParentIdxAttr: a.sConf[corpusName].ParentIdxAttr,
+		ParentIdxAttr: a.sConf[corpusName].ParentIdxAttr.Name,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(

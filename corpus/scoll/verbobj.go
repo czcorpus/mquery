@@ -34,17 +34,17 @@ func (gen *VerbObjectQGen) FxQuery(word Word) string {
 	if word.PoS == "" {
 		return fmt.Sprintf(
 			"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-			gen.SketchConf.LemmaAttr, word.V,
-			gen.SketchConf.FuncAttr, gen.SketchConf.NounObjectValue,
-			gen.SketchConf.ParPosAttr, gen.SketchConf.VerbValue,
+			gen.SketchConf.LemmaAttr.Name, word.V,
+			gen.SketchConf.FuncAttr.Name, gen.SketchConf.NounObjectValue,
+			gen.SketchConf.ParPosAttr.Name, gen.SketchConf.VerbValue,
 		)
 	}
 	return fmt.Sprintf(
 		"[%s=\"%s\" & %s=\"%s\" & %s=\"%s\" & %s=\"%s\"]",
-		gen.SketchConf.LemmaAttr, word.V,
-		gen.SketchConf.PosAttr, word.PoS,
-		gen.SketchConf.FuncAttr, gen.SketchConf.NounObjectValue,
-		gen.SketchConf.ParPosAttr, gen.SketchConf.VerbValue,
+		gen.SketchConf.LemmaAttr.Name, word.V,
+		gen.SketchConf.PosAttr.Name, word.PoS,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.NounObjectValue,
+		gen.SketchConf.ParPosAttr.Name, gen.SketchConf.VerbValue,
 	)
 
 }
@@ -54,27 +54,27 @@ func (gen *VerbObjectQGen) FxQuerySelectSQL(word Word) (sql string, args []any) 
 		sql = fmt.Sprintf("SELECT f.result, f.result_type FROM %s_scoll_query AS q "+
 			"JOIN %s_scoll_fcrit AS f ON q.id = f.scoll_query_id "+
 			"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s IS NULL AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-			gen.CorpusName, gen.CorpusName,
-			gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr)
+			gen.CorpusName, gen.CorpusName, gen.SketchConf.LemmaAttr.Name, gen.SketchConf.PosAttr.Name,
+			gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name)
 		args = []any{
 			word.V,
 			gen.SketchConf.NounObjectValue,
 			gen.SketchConf.VerbValue,
-			gen.SketchConf.ParLemmaAttr,
+			gen.SketchConf.ParLemmaAttr.Name,
 		}
 		return
 	}
 	sql = fmt.Sprintf("SELECT f.result, f.result_type FROM %s_scoll_query AS q "+
 		"JOIN %s_scoll_fcrit AS f ON q.id = f.scoll_query_id "+
 		"WHERE q.result_type = 'Fx' AND q.%s = ? AND q.%s = ? AND q.%s = ? AND q.%s = ? AND f.attr = ?",
-		gen.CorpusName, gen.CorpusName,
-		gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr)
+		gen.CorpusName, gen.CorpusName, gen.SketchConf.LemmaAttr.Name, gen.SketchConf.PosAttr.Name,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name)
 	args = []any{
 		word.V,
 		word.PoS,
 		gen.SketchConf.NounObjectValue,
 		gen.SketchConf.VerbValue,
-		gen.SketchConf.ParLemmaAttr,
+		gen.SketchConf.ParLemmaAttr.Name,
 	}
 	return
 }
@@ -85,8 +85,8 @@ func (gen *VerbObjectQGen) FxQueryInsertSQL(word Word, result *rdb.WorkerResult)
 	}
 	sql = fmt.Sprintf(
 		"INSERT INTO %s_scoll_query (%s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?)",
-		gen.CorpusName,
-		gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr,
+		gen.CorpusName, gen.SketchConf.LemmaAttr.Name, gen.SketchConf.PosAttr.Name,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name,
 	)
 	var val string
 	var rType results.ResultType
@@ -111,7 +111,7 @@ func (gen *VerbObjectQGen) FxQueryInsertSQL(word Word, result *rdb.WorkerResult)
 }
 
 func (gen *VerbObjectQGen) FxCrit() string {
-	return fmt.Sprintf("%s/i 0~0>0", gen.SketchConf.ParLemmaAttr)
+	return fmt.Sprintf("%s/i 0~0>0", gen.SketchConf.ParLemmaAttr.Name)
 }
 
 func (gen *VerbObjectQGen) FxCritInsertSQL(query_id int64, result *rdb.WorkerResult) (sql string, args []any) {
@@ -122,7 +122,7 @@ func (gen *VerbObjectQGen) FxCritInsertSQL(query_id int64, result *rdb.WorkerRes
 	args = append(
 		args,
 		query_id,
-		gen.SketchConf.ParLemmaAttr,
+		gen.SketchConf.ParLemmaAttr.Name,
 		result.Value,
 		result.ResultType,
 	)
@@ -132,9 +132,9 @@ func (gen *VerbObjectQGen) FxCritInsertSQL(query_id int64, result *rdb.WorkerRes
 func (gen *VerbObjectQGen) FyQuery(collCandidate string) string {
 	return fmt.Sprintf(
 		`[%s="%s" & %s="%s" & %s="%s"]`,
-		gen.SketchConf.FuncAttr, gen.SketchConf.NounObjectValue,
-		gen.SketchConf.ParPosAttr, gen.SketchConf.VerbValue,
-		gen.SketchConf.ParLemmaAttr, collCandidate,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.NounObjectValue,
+		gen.SketchConf.ParPosAttr.Name, gen.SketchConf.VerbValue,
+		gen.SketchConf.ParLemmaAttr.Name, collCandidate,
 	)
 }
 
@@ -143,7 +143,7 @@ func (gen *VerbObjectQGen) FyQuerySelectSQL(collCandidate string) (sql string, a
 		"SELECT result, result_type FROM %s_scoll_query "+
 			"WHERE result_type = 'Fy' AND %s = ? AND %s = ? AND %s = ?",
 		gen.CorpusName,
-		gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name,
 	)
 	args = append(args, gen.SketchConf.NounObjectValue, gen.SketchConf.VerbValue, collCandidate)
 	return
@@ -156,7 +156,7 @@ func (gen *VerbObjectQGen) FyQueryInsertSQL(collCandidate string, result *rdb.Wo
 	sql = fmt.Sprintf(
 		"INSERT INTO %s_scoll_query (%s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
 		gen.CorpusName,
-		gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name,
 	)
 	args = append(
 		args,
@@ -173,19 +173,19 @@ func (gen *VerbObjectQGen) FxyQuery(word Word, collCandidate string) string {
 	if word.PoS == "" {
 		return fmt.Sprintf(
 			`[%s="%s" & %s="%s" & %s="%s" & %s="%s"]`,
-			gen.SketchConf.LemmaAttr, word.V,
-			gen.SketchConf.FuncAttr, gen.SketchConf.NounObjectValue,
-			gen.SketchConf.ParPosAttr, gen.SketchConf.VerbValue,
-			gen.SketchConf.ParLemmaAttr, collCandidate,
+			gen.SketchConf.LemmaAttr.Name, word.V,
+			gen.SketchConf.FuncAttr.Name, gen.SketchConf.NounObjectValue,
+			gen.SketchConf.ParPosAttr.Name, gen.SketchConf.VerbValue,
+			gen.SketchConf.ParLemmaAttr.Name, collCandidate,
 		)
 	}
 	return fmt.Sprintf(
 		`[%s="%s" & %s="%s" & %s="%s" & %s="%s" & %s="%s"]`,
-		gen.SketchConf.LemmaAttr, word.V,
-		gen.SketchConf.PosAttr, word.PoS,
-		gen.SketchConf.FuncAttr, gen.SketchConf.NounObjectValue,
-		gen.SketchConf.ParPosAttr, gen.SketchConf.VerbValue,
-		gen.SketchConf.ParLemmaAttr, collCandidate,
+		gen.SketchConf.LemmaAttr.Name, word.V,
+		gen.SketchConf.PosAttr.Name, word.PoS,
+		gen.SketchConf.FuncAttr.Name, gen.SketchConf.NounObjectValue,
+		gen.SketchConf.ParPosAttr.Name, gen.SketchConf.VerbValue,
+		gen.SketchConf.ParLemmaAttr.Name, collCandidate,
 	)
 }
 
@@ -195,7 +195,8 @@ func (gen *VerbObjectQGen) FxyQuerySelectSQL(word Word, collCandidate string) (s
 			"SELECT result, result_type FROM %s_scoll_query "+
 				"WHERE result_type = 'Fxy' AND %s = ? AND %s IS NULL AND %s = ? AND %s = ? AND %s = ? ",
 			gen.CorpusName,
-			gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+			gen.SketchConf.LemmaAttr.Name, gen.SketchConf.PosAttr.Name, gen.SketchConf.FuncAttr.Name,
+			gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name,
 		)
 		args = append(args, word.V, gen.SketchConf.NounObjectValue, gen.SketchConf.VerbValue, collCandidate)
 		return
@@ -204,7 +205,8 @@ func (gen *VerbObjectQGen) FxyQuerySelectSQL(word Word, collCandidate string) (s
 		"SELECT result, result_type FROM %s_scoll_query "+
 			"WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
 		gen.CorpusName,
-		gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+		gen.SketchConf.LemmaAttr.Name, gen.SketchConf.PosAttr.Name, gen.SketchConf.FuncAttr.Name,
+		gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name,
 	)
 	args = append(
 		args,
@@ -221,7 +223,8 @@ func (gen *VerbObjectQGen) FxyQueryInsertSQL(word Word, collCandidate string, re
 	sql = fmt.Sprintf(
 		"INSERT INTO %s_scoll_query (%s, %s, %s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		gen.CorpusName,
-		gen.SketchConf.LemmaAttr, gen.SketchConf.PosAttr, gen.SketchConf.FuncAttr, gen.SketchConf.ParPosAttr, gen.SketchConf.ParLemmaAttr,
+		gen.SketchConf.LemmaAttr.Name, gen.SketchConf.PosAttr.Name, gen.SketchConf.FuncAttr.Name,
+		gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name,
 	)
 	var posValue sqlLib.NullString
 	if word.PoS != "" {

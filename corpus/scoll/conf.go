@@ -82,30 +82,35 @@ func (setup *SketchSetup) ValidateAndDefaults(confContext string) error {
 	return nil
 }
 
+type PosAttrProps struct {
+	Name        string `json:"name"`
+	VerticalCol int    `json:"verticalCol"`
+}
+
 type CorpusSketchSetup struct {
 
 	// ParentIdxAttr specifies a positional attribute providing
 	// information about relative position of a parent token.
-	ParentIdxAttr string `json:"parentIdxAttr"`
+	ParentIdxAttr PosAttrProps `json:"parentIdxAttr"`
 
 	// LemmaAttr - an attribute specifying lemma
 	// (in intercorp_v13ud: `lemma`)
-	LemmaAttr string `json:"lemmaAttr"`
+	LemmaAttr PosAttrProps `json:"lemmaAttr"`
 
 	// ParLemmaAttr - an attribute specifying lemma in parent
 	// (in intercorp_v13ud: `p_lemma`)
-	ParLemmaAttr string `json:"parLemmaAttr"`
+	ParLemmaAttr PosAttrProps `json:"parLemmaAttr"`
 
 	// PosAttr - an attr specifying part of speech
 	// (in intercorp_v13ud: `upos`)
-	PosAttr string `json:"posAttr"`
+	PosAttr PosAttrProps `json:"posAttr"`
 
 	// ParPosAttr - an attr specifying part of speech in parent
 	// (in intercorp_v13ud: `p_upos`)
-	ParPosAttr string `json:"parPosAttr"`
+	ParPosAttr PosAttrProps `json:"parPosAttr"`
 
 	// (in intercorp_v13ud: `deprel`)
-	FuncAttr string `json:"funcAttr"`
+	FuncAttr PosAttrProps `json:"funcAttr"`
 
 	// (in intercorp_v13ud: `NOUN`)
 	NounValue string `json:"nounPosValue"`
@@ -124,22 +129,22 @@ type CorpusSketchSetup struct {
 }
 
 func (conf *CorpusSketchSetup) ValidateAndDefaults(confContext string) error {
-	if conf.ParentIdxAttr == "" {
+	if conf.ParentIdxAttr.Name == "" {
 		return fmt.Errorf("missing `%s.parentIdxAttr`", confContext)
 	}
-	if conf.LemmaAttr == "" {
+	if conf.LemmaAttr.Name == "" {
 		return fmt.Errorf("missing `%s.lemmaAttr`", confContext)
 	}
-	if conf.ParLemmaAttr == "" {
+	if conf.ParLemmaAttr.Name == "" {
 		return fmt.Errorf("missing `%s.parLemmaAttr`", confContext)
 	}
-	if conf.PosAttr == "" {
+	if conf.PosAttr.Name == "" {
 		return fmt.Errorf("missing `%s.posAttr`", confContext)
 	}
-	if conf.ParPosAttr == "" {
+	if conf.ParPosAttr.Name == "" {
 		return fmt.Errorf("missing `%s.parPosAttr`", confContext)
 	}
-	if conf.FuncAttr == "" {
+	if conf.FuncAttr.Name == "" {
 		return fmt.Errorf("missing `%s.funcAttr`", confContext)
 	}
 	if conf.NounValue == "" {
