@@ -68,9 +68,9 @@ func (table CounterTable) Add(lemma, upos, pLemma, pUpos, deprel string, val int
 type VertProcessor struct {
 	DeprelCol   int
 	DeprelTypes []string
-	LemmaCol    int
-	ParLemmaCol int
-	Table       CounterTable
+	scoll.SketchConfig
+	conf  *scoll.CorpusSketchSetup
+	Table CounterTable
 }
 
 func (vp *VertProcessor) ProcToken(token *vertigo.Token, line int, err error) error {
@@ -81,11 +81,13 @@ func (vp *VertProcessor) ProcToken(token *vertigo.Token, line int, err error) er
 		log.Error().Msgf("Too few token columns on line %d", line)
 		return nil
 	}
-	deprel := token.Attrs[8]
-	lemma := token.Attrs[2]
-	upos := token.Attrs[3]
-	pUpos := token.Attrs[11]
-	pLemma := token.Attrs[10]
+	fmt.Println("vp.conf.FuncAttr: ", vp.conf)
+	deprel := token.Attrs[vp.conf.FuncAttr.VerticalCol-1] // -1 because `word` in Vertigo is separated
+	lemma := token.Attrs[vp.conf.LemmaAttr.VerticalCol-1]
+	upos := token.Attrs[vp.conf.PosAttr.VerticalCol-1]
+	pUpos := token.Attrs[vp.conf.ParPosAttr.VerticalCol-1]
+	pLemma := token.Attrs[vp.conf.ParLemmaAttr.VerticalCol-1]
+	fmt.Println("deprel: ", deprel, ", lemma: ", lemma, ", upos: ", upos, ", pUpos: ", pUpos, ", pLemma: ", pLemma)
 	if collections.SliceContains(vp.DeprelTypes, deprel) {
 		vp.Table.Add(lemma, upos, pLemma, pUpos, deprel, 1)
 	}
@@ -112,7 +114,7 @@ func insertColl(db *sql.DB, item *CTItem) error {
 	return nil
 }
 
-func runForDeprel(corpusID, vertPath string, deprels []string, db *sql.DB) error {
+func runForDeprel(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *sql.DB) error {
 	pc := &vertigo.ParserConf{
 		InputFilePath:         vertPath,
 		Encoding:              "utf-8",
@@ -120,8 +122,13 @@ func runForDeprel(corpusID, vertPath string, deprels []string, db *sql.DB) error
 	}
 	table := make(CounterTable)
 	proc := &VertProcessor{
-		DeprelTypes: deprels,
-		Table:       table,
+		DeprelTypes: []string{
+			conf.NounModifiedValue,
+			conf.NounSubjectValue,
+			conf.NounObjectValue,
+		},
+		conf:  conf,
+		Table: table,
 	}
 	err := vertigo.ParseVerticalFile(pc, proc)
 	if err != nil {
@@ -186,11 +193,7 @@ func Run(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *sql.DB) e
 	return runForDeprel(
 		corpusID,
 		vertPath,
-		[]string{
-			conf.NounModifiedValue,
-			conf.NounSubjectValue,
-			conf.NounObjectValue,
-		},
+		conf,
 		db,
 	)
 
