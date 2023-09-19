@@ -143,14 +143,24 @@ func (gen *VerbSubjectQGen) FyQuery(collCandidate string) string {
 	)
 }
 
-func (gen *VerbSubjectQGen) FyQuerySelectSQL(collCandidate string) (sql string, args []any) {
+func (gen *VerbSubjectQGen) FyQuerySelectSQL(collCandidates []string) (sql string, args []any) {
+	placeholders := ""
+	for i, _ := range collCandidates {
+		placeholders += "?"
+		if i+1 < len(collCandidates) {
+			placeholders += ","
+		}
+	}
+
 	sql = fmt.Sprintf(
-		"SELECT result, result_type FROM %s_scoll_query "+
-			"WHERE result_type = 'Fy' AND %s = ? AND %s = ? AND %s = ? ",
-		gen.CorpusName,
-		gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name,
+		"SELECT %s AS id, result, result_type FROM %s_scoll_query "+
+			"WHERE result_type = 'Fy' AND %s = ? AND %s = ? AND %s IN (%s) ",
+		gen.SketchConf.ParLemmaAttr.Name, gen.CorpusName, gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name, gen.SketchConf.ParLemmaAttr.Name, placeholders,
 	)
-	args = append(args, gen.SketchConf.NounSubjectValue, gen.SketchConf.VerbValue, collCandidate)
+	args = append(args, gen.SketchConf.NounSubjectValue, gen.SketchConf.VerbValue)
+	for _, v := range collCandidates {
+		args = append(args, v)
+	}
 	return
 }
 

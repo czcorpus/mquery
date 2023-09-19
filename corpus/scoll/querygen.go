@@ -47,7 +47,7 @@ type QueryGenerator interface {
 	FxCritInsertSQL(query_id int64, result *rdb.WorkerResult) (string, []any) // we need `word` here to be able to join tables
 
 	FyQuery(collCandidate string) string
-	FyQuerySelectSQL(collCandidate string) (string, []any)
+	FyQuerySelectSQL(collCandidates []string) (string, []any)
 	FyQueryInsertSQL(collCandidate string, result *rdb.WorkerResult) (string, []any)
 
 	FxyQuery(word Word, collCandidate string) string

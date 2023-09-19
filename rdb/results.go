@@ -25,6 +25,7 @@ import (
 )
 
 type WorkerResult struct {
+	ID         string             `json:"id"`
 	ResultType results.ResultType `json:"resultType"`
 	Value      json.RawMessage    `json:"value"`
 }
