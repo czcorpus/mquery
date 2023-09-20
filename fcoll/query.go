@@ -22,6 +22,9 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -71,12 +74,15 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 		whereArgs = append(whereArgs, pUpos)
 	}
 	sql := fmt.Sprintf("SELECT SUM(freq) FROM %s_fcolls WHERE %s", cdb.corpusID, strings.Join(whereSQL, " AND "))
+	log.Debug().Str("sql", sql).Any("args", whereArgs).Msg("going to SELECT cumulative freq.")
+	t0 := time.Now()
 	row := cdb.db.QueryRow(sql, whereArgs...)
 	if row.Err() != nil {
 		return 0, row.Err()
 	}
 	var ans int64
 	row.Scan(&ans)
+	log.Debug().Float64("proctime", time.Since(t0).Seconds()).Msg(".... DONE (select cumulative freq.)")
 	return ans, nil
 }
 
@@ -106,6 +112,8 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 		"SELECT lemma, upos, freq FROM %s_fcolls WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
+	log.Debug().Str("sql", sql).Any("args", whereArgs).Msg("going to SELECT child candidates")
+	t0 := time.Now()
 	rows, err := cdb.db.Query(sql, whereArgs...)
 	if err != nil {
 		return []*Candidate{}, err
@@ -119,6 +127,7 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 		}
 		ans = append(ans, item)
 	}
+	log.Debug().Float64("proctime", time.Since(t0).Seconds()).Msg(".... DONE (SELECT child candidates)")
 	return ans, nil
 }
 
@@ -148,6 +157,8 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 		"SELECT p_lemma, p_upos, freq FROM %s_fcolls WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
+	log.Debug().Str("sql", sql).Any("args", whereArgs).Msg("going to SELECT parent candidates")
+	t0 := time.Now()
 	rows, err := cdb.db.Query(sql, whereArgs...)
 	if err != nil {
 		return []*Candidate{}, err
@@ -161,6 +172,7 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 		}
 		ans = append(ans, item)
 	}
+	log.Debug().Float64("proctime", time.Since(t0).Seconds()).Msg(".... DONE (SELECT parent candidates)")
 	return ans, nil
 }
 
