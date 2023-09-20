@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	candidatesFreqLimit = 10
+	candidatesFreqLimit = 15
 )
 
 type Candidate struct {
