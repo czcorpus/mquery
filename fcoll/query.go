@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -88,10 +89,36 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 }
 
 func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFreq int) ([]*Candidate, error) {
+	partialResults := make(chan []*Candidate)
+	wg := sync.WaitGroup{}
+	go func() {
+		for i := 1; i <= 32; i++ {
+			wg.Add(1)
+			go func(chunkID int) {
+				defer wg.Done()
+				ans, err := cdb.getChildCandidatesForChunk(pLemma, pUpos, deprel, minFreq, chunkID)
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to process") // TODO
+				}
+				partialResults <- ans
+			}(i)
+		}
+		wg.Wait()
+		close(partialResults)
+	}()
+
+	totalResult := make([]*Candidate, 0, 32*10)
+	for pr := range partialResults {
+		totalResult = append(totalResult, pr...)
+	}
+	return totalResult, nil // TODO err
+}
+
+func (cdb *CollDatabase) getChildCandidatesForChunk(pLemma, pUpos, deprel string, minFreq int, chunk int) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
-	whereSQL = append(whereSQL, "p_lemma = ?", "freq >= ?")
+	whereSQL = append(whereSQL, "p_lemma = ?", "freq >= ?", "chunk = ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, pLemma, minFreq)
+	whereArgs = append(whereArgs, pLemma, minFreq, chunk)
 
 	if deprel != "" {
 		deprelParsed := strings.Split(deprel, "|")

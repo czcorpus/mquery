@@ -140,6 +140,8 @@ func expandDeprelMultivalues(values []string) []string {
 	return ans
 }
 
+// TODO: update intercorp_v13ud_cs_fcolls set chunk = (FLOOR( 1 + RAND( ) *32))
+
 func runForDeprel(corpusID, vertPath string, conf *scoll.CorpusSketchSetup, db *sql.DB) error {
 	pc := &vertigo.ParserConf{
 		InputFilePath:         vertPath,
