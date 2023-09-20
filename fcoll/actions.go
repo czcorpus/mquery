@@ -29,6 +29,11 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	fyBatchSize = 100
 )
 
 type Actions struct {
@@ -77,21 +82,56 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		return
 	}
 
-	result := make(results.FreqDistribItemList, len(candidates))
-	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nmod")
+	result := make(results.FreqDistribItemList, 0, len(candidates))
+	argsBatch := make([]batchFreqArgs, 0, fyBatchSize)
+
+	processBatch := func(ab []batchFreqArgs) bool {
+		mapping := make(map[string]*batchFreqArgs)
+		for _, a := range ab {
+			mapping[a.Lemma] = &a
+		}
+		fyList, err := cdb.GetFreqBatch(ab)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return false
+		}
+		for _, fy := range fyList {
+			result = append(
+				result,
+				&results.FreqDistribItem{
+					Word:       fy.Lemma,
+					Freq:       mapping[fy.Lemma].fxy,
+					CollWeight: 14 + math.Log2(2*float64(mapping[fy.Lemma].fxy)/(float64(fx)+float64(fy.Freq))),
+				},
+			)
+		}
+		argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		return true
+	}
+
+	for _, cand := range candidates {
+		argsBatch = append(argsBatch, batchFreqArgs{
+			fxy:          cand.Freq,
+			isParentSrch: true,
+			Lemma:        cand.Lemma,
+			Upos:         cand.Upos,
+			Deprel:       "nmod",
+		})
+		if len(argsBatch) == fyBatchSize {
+			ok := processBatch(argsBatch)
+			if !ok {
+				return
+			}
+			argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		}
+	}
+	if len(argsBatch) > 0 {
+		ok := processBatch(argsBatch)
+		if !ok {
 			return
 		}
-		item := &results.FreqDistribItem{
-			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
-		}
-		result[i] = item
 	}
+
 	sort.SliceStable(
 		result,
 		func(i, j int) bool {
@@ -135,27 +175,67 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 
-	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod", 2) // TODO minfreq configurable
+	candidates, err := cdb.GetChildCandidates(w.V, w.PoS, "nmod", candidatesFreqLimit)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
 	}
 
-	result := make(results.FreqDistribItemList, len(candidates))
-	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq(cand.Lemma, cand.Upos, "", "", "nmod")
+	result := make(results.FreqDistribItemList, 0, len(candidates))
+	argsBatch := make([]batchFreqArgs, 0, fyBatchSize)
+
+	processBatch := func(ab []batchFreqArgs) bool {
+		mapping := make(map[string]*batchFreqArgs)
+		for _, a := range ab {
+			mapping[a.Lemma] = &a
+		}
+		fyList, err := cdb.GetFreqBatch(ab)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return false
+		}
+		for _, fy := range fyList {
+			res, ok := mapping[fy.Lemma]
+			if !ok {
+				log.Warn().Str("value", fy.Lemma).Msg("value mapping ambiguity")
+				continue
+			}
+			result = append(
+				result,
+				&results.FreqDistribItem{
+					Word:       fy.Lemma,
+					Freq:       res.fxy,
+					CollWeight: 14 + math.Log2(2*float64(res.fxy)/(float64(fx)+float64(fy.Freq))),
+				},
+			)
+		}
+		argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		return true
+	}
+
+	for _, cand := range candidates {
+		argsBatch = append(argsBatch, batchFreqArgs{
+			fxy:          cand.Freq,
+			isParentSrch: false,
+			Lemma:        cand.Lemma,
+			Upos:         cand.Upos,
+			Deprel:       "nmod",
+		})
+		if len(argsBatch) == fyBatchSize {
+			ok := processBatch(argsBatch)
+			if !ok {
+				return
+			}
+			argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		}
+	}
+	if len(argsBatch) > 0 {
+		ok := processBatch(argsBatch)
+		if !ok {
 			return
 		}
-		item := &results.FreqDistribItem{
-			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
-		}
-		result[i] = item
 	}
+
 	sort.SliceStable(
 		result,
 		func(i, j int) bool {
@@ -203,21 +283,56 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 
-	result := make(results.FreqDistribItemList, len(candidates))
-	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nsubj")
+	result := make(results.FreqDistribItemList, 0, len(candidates))
+	argsBatch := make([]batchFreqArgs, 0, fyBatchSize)
+
+	processBatch := func(ab []batchFreqArgs) bool {
+		mapping := make(map[string]*batchFreqArgs)
+		for _, a := range ab {
+			mapping[a.Lemma] = &a
+		}
+		fyList, err := cdb.GetFreqBatch(ab)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return false
+		}
+		for _, fy := range fyList {
+			result = append(
+				result,
+				&results.FreqDistribItem{
+					Word:       fy.Lemma,
+					Freq:       mapping[fy.Lemma].fxy,
+					CollWeight: 14 + math.Log2(2*float64(mapping[fy.Lemma].fxy)/(float64(fx)+float64(fy.Freq))),
+				},
+			)
+		}
+		argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		return true
+	}
+
+	for _, cand := range candidates {
+		argsBatch = append(argsBatch, batchFreqArgs{
+			fxy:          cand.Freq,
+			isParentSrch: true,
+			Lemma:        cand.Lemma,
+			Upos:         cand.Upos,
+			Deprel:       "nsubj",
+		})
+		if len(argsBatch) == fyBatchSize {
+			ok := processBatch(argsBatch)
+			if !ok {
+				return
+			}
+			argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		}
+	}
+	if len(argsBatch) > 0 {
+		ok := processBatch(argsBatch)
+		if !ok {
 			return
 		}
-		item := &results.FreqDistribItem{
-			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
-		}
-		result[i] = item
 	}
+
 	sort.SliceStable(
 		result,
 		func(i, j int) bool {
@@ -265,21 +380,56 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		return
 	}
 
-	result := make(results.FreqDistribItemList, len(candidates))
-	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "obj|iobj")
+	result := make(results.FreqDistribItemList, 0, len(candidates))
+	argsBatch := make([]batchFreqArgs, 0, fyBatchSize)
+
+	processBatch := func(ab []batchFreqArgs) bool {
+		mapping := make(map[string]*batchFreqArgs)
+		for _, a := range ab {
+			mapping[a.Lemma] = &a
+		}
+		fyList, err := cdb.GetFreqBatch(ab)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return false
+		}
+		for _, fy := range fyList {
+			result = append(
+				result,
+				&results.FreqDistribItem{
+					Word:       fy.Lemma,
+					Freq:       mapping[fy.Lemma].fxy,
+					CollWeight: 14 + math.Log2(2*float64(mapping[fy.Lemma].fxy)/(float64(fx)+float64(fy.Freq))),
+				},
+			)
+		}
+		argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		return true
+	}
+
+	for _, cand := range candidates {
+		argsBatch = append(argsBatch, batchFreqArgs{
+			fxy:          cand.Freq,
+			isParentSrch: true,
+			Lemma:        cand.Lemma,
+			Upos:         cand.Upos,
+			Deprel:       "obj|iobj",
+		})
+		if len(argsBatch) == fyBatchSize {
+			ok := processBatch(argsBatch)
+			if !ok {
+				return
+			}
+			argsBatch = make([]batchFreqArgs, 0, fyBatchSize)
+		}
+	}
+	if len(argsBatch) > 0 {
+		ok := processBatch(argsBatch)
+		if !ok {
 			return
 		}
-		item := &results.FreqDistribItem{
-			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
-		}
-		result[i] = item
 	}
+
 	sort.SliceStable(
 		result,
 		func(i, j int) bool {

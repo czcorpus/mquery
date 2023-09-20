@@ -37,9 +37,104 @@ type Candidate struct {
 	Freq  int64
 }
 
+type batchFreqArgs struct {
+	Lemma        string
+	Upos         string
+	Deprel       string
+	fxy          int64
+	isParentSrch bool
+}
+
 type CollDatabase struct {
 	db       *sql.DB
 	corpusID string
+}
+
+func (cdb *CollDatabase) createFreqQueryProps(arg batchFreqArgs) (string, []any) {
+	whereSQL := make([]string, 0, 4)
+	whereArgs := make([]any, 0, 4)
+	if arg.Deprel != "" {
+		deprelParsed := strings.Split(arg.Deprel, "|")
+		deprelArgs := make([]any, len(deprelParsed))
+		deprelSql := make([]string, len(deprelParsed))
+		for i, dp := range deprelParsed {
+			deprelSql[i] = fmt.Sprintf("deprel = ?")
+			deprelArgs[i] = dp
+		}
+		whereSQL = append(whereSQL, fmt.Sprintf("(%s)", strings.Join(deprelSql, " OR ")))
+		whereArgs = append(whereArgs, deprelArgs...)
+	}
+	if arg.isParentSrch {
+		if arg.Lemma != "" {
+			whereSQL = append(whereSQL, "p_lemma = ?")
+			whereArgs = append(whereArgs, arg.Lemma)
+		}
+		if arg.Upos != "" {
+			whereSQL = append(whereSQL, "p_upos = ?")
+			whereArgs = append(whereArgs, arg.Upos)
+		}
+
+	} else {
+		whereSQL = append(whereSQL, "lemma = ?")
+		whereArgs = append(whereArgs, arg.Lemma)
+
+		whereSQL = append(whereSQL, "upos = ?")
+		whereArgs = append(whereArgs, arg.Upos)
+	}
+
+	return "(" + strings.Join(whereSQL, " AND ") + ")", whereArgs
+}
+
+// GetFreqBatch
+// note: we expect all the brachFreqArgs:
+// 1) have all either "lemma", "upos" or "p_lemma", "p_upos" filled in
+// 2) have the same deprel value
+func (cdb *CollDatabase) GetFreqBatch(args []batchFreqArgs) ([]Candidate, error) {
+	whereSQL := make([]string, 0, len(args))
+	whereArgs := make([]any, 0, len(args))
+	for _, arg := range args {
+		ws, wa := cdb.createFreqQueryProps(arg)
+		whereSQL = append(whereSQL, ws)
+		whereArgs = append(whereArgs, wa...)
+	}
+
+	groupBySQL := make([]string, 0, len(args))
+	attrSelSQL := make([]string, 0, len(args))
+	if args[0].isParentSrch {
+		groupBySQL = append(groupBySQL, "p_lemma", "p_upos", "deprel")
+		attrSelSQL = append(attrSelSQL, "p_lemma AS lemma_val", "p_upos AS upos_val")
+
+	} else {
+		groupBySQL = append(groupBySQL, "lemma", "upos", "deprel")
+		attrSelSQL = append(attrSelSQL, "lemma AS lemma_val", "upos AS upos_val")
+	}
+
+	sql := fmt.Sprintf(
+		"SELECT SUM(freq), %s "+
+			"FROM %s_fcolls "+
+			"WHERE %s "+
+			"GROUP BY %s",
+		strings.Join(attrSelSQL, ", "),
+		cdb.corpusID, strings.Join(whereSQL, " OR "), strings.Join(groupBySQL, ", "))
+	t0 := time.Now()
+	row, err := cdb.db.Query(sql, whereArgs...)
+	if err != nil {
+		return []Candidate{}, err
+	}
+	freqs := make([]Candidate, 0, len(args))
+	for row.Next() {
+		var cand Candidate
+		err := row.Scan(&cand.Freq, &cand.Lemma, &cand.Upos)
+		if err != nil {
+			return []Candidate{}, err
+		}
+		freqs = append(freqs, cand)
+	}
+	log.Debug().
+		Float64("proctime", time.Since(t0).Seconds()).
+		Int("resultSize", len(freqs)).
+		Msg("DONE select cumulative freq.")
+	return freqs, nil
 }
 
 func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int64, error) {
@@ -74,7 +169,6 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 		whereArgs = append(whereArgs, pUpos)
 	}
 	sql := fmt.Sprintf("SELECT SUM(freq) FROM %s_fcolls WHERE %s", cdb.corpusID, strings.Join(whereSQL, " AND "))
-	log.Debug().Str("sql", sql).Any("args", whereArgs).Msg("going to SELECT cumulative freq.")
 	t0 := time.Now()
 	row := cdb.db.QueryRow(sql, whereArgs...)
 	if row.Err() != nil {
@@ -82,7 +176,7 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 	}
 	var ans int64
 	row.Scan(&ans)
-	log.Debug().Float64("proctime", time.Since(t0).Seconds()).Msg(".... DONE (select cumulative freq.)")
+	log.Debug().Float64("proctime", time.Since(t0).Seconds()).Msg("DONE select cumulative freq.")
 	return ans, nil
 }
 
