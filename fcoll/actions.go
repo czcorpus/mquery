@@ -23,6 +23,7 @@ import (
 	"math"
 	"mquery/corpus"
 	"mquery/corpus/scoll"
+	"mquery/mango"
 	"mquery/results"
 	"net/http"
 	"sort"
@@ -61,7 +62,12 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
+	corpusSize, err := mango.GetCorpusSize(corpusPath)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
 	// [lemma="team" & deprel="nmod" & p_upos="NOUN"]
 	cdb := NewCollDatabase(a.db, corpusID)
 
@@ -82,6 +88,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
 			Freq:       cand.FreqXY,
+			IPM:        float32(cand.FreqXY) / float32(corpusSize) * 1e6,
 			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
@@ -99,6 +106,7 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryNounsModifiedBy, sketchAttrs)
 	resp := results.FreqDistrib{
 		Freqs:            result,
+		CorpusSize:       corpusSize,
 		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
 	}
 	uniresp.WriteJSONResponse(
@@ -118,7 +126,12 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
+	corpusSize, err := mango.GetCorpusSize(corpusPath)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
 	// [p_lemma="team" & deprel="nmod" & upos="NOUN"]
 	cdb := NewCollDatabase(a.db, corpusID)
 
@@ -140,6 +153,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
 			Freq:       cand.FreqXY,
+			IPM:        float32(cand.FreqXY) / float32(corpusSize) * 1e6,
 			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
@@ -157,6 +171,7 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryModifiersOf, sketchAttrs)
 	resp := results.FreqDistrib{
 		Freqs:            result,
+		CorpusSize:       corpusSize,
 		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
 	}
 	uniresp.WriteJSONResponse(
@@ -176,6 +191,12 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
+	corpusSize, err := mango.GetCorpusSize(corpusPath)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
 	// [lemma="team" & deprel="nsubj" & p_upos="VERB"]
 	cdb := NewCollDatabase(a.db, corpusID)
 
@@ -196,6 +217,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
 			Freq:       cand.FreqXY,
+			IPM:        float32(cand.FreqXY) / float32(corpusSize) * 1e6,
 			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
@@ -213,6 +235,7 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryVerbsSubject, sketchAttrs)
 	resp := results.FreqDistrib{
 		Freqs:            result,
+		CorpusSize:       corpusSize,
 		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
 	}
 	uniresp.WriteJSONResponse(
@@ -232,6 +255,12 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
+	corpusPath := a.corpConf.GetRegistryPath(corpusID)
+	corpusSize, err := mango.GetCorpusSize(corpusPath)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
 	// [lemma="team" & deprel="obj|iobj" & p_upos="VERB"]
 	cdb := NewCollDatabase(a.db, corpusID)
 
@@ -252,6 +281,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
 			Freq:       cand.FreqXY,
+			IPM:        float32(cand.FreqXY) / float32(corpusSize) * 1e6,
 			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
@@ -269,6 +299,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	queryGen := scoll.NewQueryGenerator(corpusID, scoll.QueryVerbsObject, sketchAttrs)
 	resp := results.FreqDistrib{
 		Freqs:            result,
+		CorpusSize:       corpusSize,
 		ExamplesQueryTpl: queryGen.FxyQuery(w, "%s"),
 	}
 	uniresp.WriteJSONResponse(

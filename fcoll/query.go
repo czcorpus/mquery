@@ -112,7 +112,7 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 	sql := fmt.Sprintf(
 		"SELECT a.lemma, a.upos, a.freq, "+
 			"(SELECT SUM(freq) FROM intercorp_v13ud_cs_fcolls AS b "+
-			" WHERE b.p_lemma = a.p_lemma AND b.p_upos = a.p_upos AND b.deprel = a.deprel) "+
+			" WHERE b.lemma = a.lemma AND b.upos = a.upos AND b.deprel = a.deprel) "+
 			"FROM %s_fcolls AS a WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
@@ -160,7 +160,7 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 	sql := fmt.Sprintf(
 		"SELECT p_lemma, p_upos, freq, "+
 			"(SELECT SUM(freq) FROM intercorp_v13ud_cs_fcolls AS b "+
-			" WHERE b.lemma = a.lemma AND b.upos = a.upos AND b.deprel = a.deprel) "+
+			" WHERE b.p_lemma = a.p_lemma AND b.p_upos = a.p_upos AND b.deprel = a.deprel) "+
 			"FROM %s_fcolls AS a WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
