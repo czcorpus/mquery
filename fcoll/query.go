@@ -43,6 +43,17 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 
 	whereSQL := make([]string, 0, 4)
 	whereArgs := make([]any, 0, 4)
+	if deprel != "" {
+		deprelParsed := strings.Split(deprel, "|")
+		deprelArgs := make([]any, len(deprelParsed))
+		deprelSql := make([]string, len(deprelParsed))
+		for i, dp := range deprelParsed {
+			deprelSql[i] = fmt.Sprintf("deprel = ?")
+			deprelArgs[i] = dp
+		}
+		whereSQL = append(whereSQL, fmt.Sprintf("(%s)", strings.Join(deprelSql, " OR ")))
+		whereArgs = append(whereArgs, deprelArgs...)
+	}
 	if lemma != "" {
 		whereSQL = append(whereSQL, "lemma = ?")
 		whereArgs = append(whereArgs, lemma)
@@ -71,9 +82,22 @@ func (cdb *CollDatabase) GetFreq(lemma, upos, pLemma, pUpos, deprel string) (int
 
 func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFreq int) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
-	whereSQL = append(whereSQL, "deprel = ?", "p_lemma = ?", "freq >= ?")
+	whereSQL = append(whereSQL, "p_lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, deprel, pLemma, minFreq)
+	whereArgs = append(whereArgs, pLemma, minFreq)
+
+	if deprel != "" {
+		deprelParsed := strings.Split(deprel, "|")
+		deprelArgs := make([]any, len(deprelParsed))
+		deprelSql := make([]string, len(deprelParsed))
+		for i, dp := range deprelParsed {
+			deprelSql[i] = fmt.Sprintf("deprel = ?")
+			deprelArgs[i] = dp
+		}
+		whereSQL = append(whereSQL, fmt.Sprintf("(%s)", strings.Join(deprelSql, " OR ")))
+		whereArgs = append(whereArgs, deprelArgs...)
+	}
+
 	if pUpos != "" {
 		whereSQL = append(whereSQL, "p_upos = ?")
 		whereArgs = append(whereArgs, pUpos)
@@ -100,9 +124,22 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 
 func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq int) ([]*Candidate, error) {
 	whereSQL := make([]string, 0, 4)
-	whereSQL = append(whereSQL, "deprel = ?", "lemma = ?", "freq >= ?")
+	whereSQL = append(whereSQL, "lemma = ?", "freq >= ?")
 	whereArgs := make([]any, 0, 4)
-	whereArgs = append(whereArgs, deprel, lemma, minFreq)
+	whereArgs = append(whereArgs, lemma, minFreq)
+
+	if deprel != "" {
+		deprelParsed := strings.Split(deprel, "|")
+		deprelArgs := make([]any, len(deprelParsed))
+		deprelSql := make([]string, len(deprelParsed))
+		for i, dp := range deprelParsed {
+			deprelSql[i] = fmt.Sprintf("deprel = ?")
+			deprelArgs[i] = dp
+		}
+		whereSQL = append(whereSQL, fmt.Sprintf("(%s)", strings.Join(deprelSql, " OR ")))
+		whereArgs = append(whereArgs, deprelArgs...)
+	}
+
 	if upos != "" {
 		whereSQL = append(whereSQL, "upos = ?")
 		whereArgs = append(whereArgs, upos)
