@@ -18,6 +18,11 @@
 
 package corpus
 
+import (
+	"fmt"
+	"mquery/mango"
+)
+
 type DBInfo struct {
 	Name   string
 	Active int
@@ -42,4 +47,19 @@ func (info *DBInfo) GroupedName() string {
 		return info.ParallelCorpus
 	}
 	return info.Name
+}
+
+type SizesInfo map[string]int64
+
+func LoadSizes(corpora []string, conf *CorporaSetup) (SizesInfo, error) {
+	ans := make(SizesInfo)
+	for _, corpusID := range corpora {
+		corpusPath := conf.GetRegistryPath(corpusID)
+		corpusSize, err := mango.GetCorpusSize(corpusPath)
+		if err != nil {
+			return ans, fmt.Errorf("failed to get corpora sizes: %w", err)
+		}
+		ans[corpusID] = corpusSize
+	}
+	return ans, nil
 }

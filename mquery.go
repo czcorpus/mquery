@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
+	"mquery/corpus"
 	corpusEdit "mquery/corpus/edit"
 	"mquery/corpus/query"
 	"mquery/corpus/scoll"
@@ -176,7 +177,15 @@ func runApiServer(
 	engine.GET(
 		"/scoll/:corpusId/verbs-object", sketchActions.VerbsObject)
 
-	fcollActions := fcoll.NewActions(conf.CorporaSetup, conf.SketchSetup, sqlDB)
+	confCorpora := make([]string, 0, len(conf.SketchSetup.SketchAttrs))
+	for k := range conf.SketchSetup.SketchAttrs {
+		confCorpora = append(confCorpora, k)
+	}
+	corporaSizes, err := corpus.LoadSizes(confCorpora, conf.CorporaSetup)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize")
+	}
+	fcollActions := fcoll.NewActions(conf.CorporaSetup, conf.SketchSetup, sqlDB, corporaSizes)
 
 	engine.GET(
 		"/fcoll/:corpusId/noun-modified-by", fcollActions.NounsModifiedBy)

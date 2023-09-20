@@ -20,10 +20,10 @@ package fcoll
 
 import (
 	"database/sql"
+	"fmt"
 	"math"
 	"mquery/corpus"
 	"mquery/corpus/scoll"
-	"mquery/mango"
 	"mquery/results"
 	"net/http"
 	"sort"
@@ -33,9 +33,10 @@ import (
 )
 
 type Actions struct {
-	corpConf   *corpus.CorporaSetup
-	sketchConf *scoll.SketchSetup
-	db         *sql.DB
+	corpConf     *corpus.CorporaSetup
+	sketchConf   *scoll.SketchSetup
+	db           *sql.DB
+	corporaSizes corpus.SizesInfo
 }
 
 func (a *Actions) initScollAttrsOrWriteErr(ctx *gin.Context, corpusID string) *scoll.CorpusSketchSetup {
@@ -62,10 +63,9 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	corpusSize, err := mango.GetCorpusSize(corpusPath)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+	corpusSize, ok := a.corporaSizes[corpusID]
+	if !ok {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("corpus not found"), http.StatusInternalServerError)
 		return
 	}
 	// [lemma="team" & deprel="nmod" & p_upos="NOUN"]
@@ -126,10 +126,9 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	corpusSize, err := mango.GetCorpusSize(corpusPath)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+	corpusSize, ok := a.corporaSizes[corpusID]
+	if !ok {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("corpus not found"), http.StatusInternalServerError)
 		return
 	}
 	// [p_lemma="team" & deprel="nmod" & upos="NOUN"]
@@ -191,10 +190,9 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	corpusSize, err := mango.GetCorpusSize(corpusPath)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+	corpusSize, ok := a.corporaSizes[corpusID]
+	if !ok {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("corpus not found"), http.StatusInternalServerError)
 		return
 	}
 	// [lemma="team" & deprel="nsubj" & p_upos="VERB"]
@@ -255,10 +253,9 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	corpusPath := a.corpConf.GetRegistryPath(corpusID)
-	corpusSize, err := mango.GetCorpusSize(corpusPath)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+	corpusSize, ok := a.corporaSizes[corpusID]
+	if !ok {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("corpus not found"), http.StatusInternalServerError)
 		return
 	}
 	// [lemma="team" & deprel="obj|iobj" & p_upos="VERB"]
@@ -312,10 +309,12 @@ func NewActions(
 	corpConf *corpus.CorporaSetup,
 	sketchConf *scoll.SketchSetup,
 	db *sql.DB,
+	corporaSizes corpus.SizesInfo,
 ) *Actions {
 	return &Actions{
-		corpConf:   corpConf,
-		sketchConf: sketchConf,
-		db:         db,
+		corpConf:     corpConf,
+		sketchConf:   sketchConf,
+		db:           db,
+		corporaSizes: corporaSizes,
 	}
 }
