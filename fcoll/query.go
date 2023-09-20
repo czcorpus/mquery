@@ -133,7 +133,8 @@ func (cdb *CollDatabase) GetFreqBatch(args []batchFreqArgs) ([]Candidate, error)
 	log.Debug().
 		Float64("proctime", time.Since(t0).Seconds()).
 		Int("resultSize", len(freqs)).
-		Msg("DONE select cumulative freq.")
+		Int("batchSize", len(args)).
+		Msg("DONE select cumulative freq. (batch mode)")
 	return freqs, nil
 }
 
