@@ -96,12 +96,17 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 			return false
 		}
 		for _, fy := range fyList {
+			res, ok := mapping[fy.Lemma]
+			if !ok {
+				log.Warn().Str("value", fy.Lemma).Msg("value mapping ambiguity")
+				continue
+			}
 			result = append(
 				result,
 				&results.FreqDistribItem{
 					Word:       fy.Lemma,
-					Freq:       mapping[fy.Lemma].fxy,
-					CollWeight: 14 + math.Log2(2*float64(mapping[fy.Lemma].fxy)/(float64(fx)+float64(fy.Freq))),
+					Freq:       res.fxy,
+					CollWeight: 14 + math.Log2(2*float64(res.fxy)/(float64(fx)+float64(fy.Freq))),
 				},
 			)
 		}
@@ -297,12 +302,17 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 			return false
 		}
 		for _, fy := range fyList {
+			res, ok := mapping[fy.Lemma]
+			if !ok {
+				log.Warn().Str("value", fy.Lemma).Msg("value mapping ambiguity")
+				continue
+			}
 			result = append(
 				result,
 				&results.FreqDistribItem{
 					Word:       fy.Lemma,
-					Freq:       mapping[fy.Lemma].fxy,
-					CollWeight: 14 + math.Log2(2*float64(mapping[fy.Lemma].fxy)/(float64(fx)+float64(fy.Freq))),
+					Freq:       res.fxy,
+					CollWeight: 14 + math.Log2(2*float64(res.fxy)/(float64(fx)+float64(fy.Freq))),
 				},
 			)
 		}
@@ -394,12 +404,17 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 			return false
 		}
 		for _, fy := range fyList {
+			res, ok := mapping[fy.Lemma]
+			if !ok {
+				log.Warn().Str("value", fy.Lemma).Msg("value mapping ambiguity")
+				continue
+			}
 			result = append(
 				result,
 				&results.FreqDistribItem{
 					Word:       fy.Lemma,
-					Freq:       mapping[fy.Lemma].fxy,
-					CollWeight: 14 + math.Log2(2*float64(mapping[fy.Lemma].fxy)/(float64(fx)+float64(fy.Freq))),
+					Freq:       res.fxy,
+					CollWeight: 14 + math.Log2(2*float64(res.fxy)/(float64(fx)+float64(fy.Freq))),
 				},
 			)
 		}
