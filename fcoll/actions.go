@@ -79,16 +79,10 @@ func (a *Actions) NounsModifiedBy(ctx *gin.Context) {
 
 	result := make(results.FreqDistribItemList, len(candidates))
 	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nmod")
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
-		}
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+			Freq:       cand.FreqXY,
+			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
 	}
@@ -143,16 +137,10 @@ func (a *Actions) ModifiersOf(ctx *gin.Context) {
 
 	result := make(results.FreqDistribItemList, len(candidates))
 	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq(cand.Lemma, cand.Upos, "", "", "nmod")
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
-		}
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+			Freq:       cand.FreqXY,
+			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
 	}
@@ -205,16 +193,10 @@ func (a *Actions) VerbsSubject(ctx *gin.Context) {
 
 	result := make(results.FreqDistribItemList, len(candidates))
 	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nsubj")
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
-		}
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+			Freq:       cand.FreqXY,
+			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
 	}
@@ -267,16 +249,10 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 
 	result := make(results.FreqDistribItemList, len(candidates))
 	for i, cand := range candidates {
-		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "obj|iobj")
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
-		}
 		item := &results.FreqDistribItem{
 			Word:       cand.Lemma,
-			Freq:       fxy,
-			CollWeight: 14 + math.Log2(2*float64(fxy)/(float64(fx)+float64(fy))),
+			Freq:       cand.FreqXY,
+			CollWeight: 14 + math.Log2(2*float64(cand.FreqXY)/(float64(fx)+float64(cand.FreqY))),
 		}
 		result[i] = item
 	}

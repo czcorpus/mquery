@@ -32,9 +32,10 @@ const (
 )
 
 type Candidate struct {
-	Lemma string
-	Upos  string
-	Freq  int64
+	Lemma  string
+	Upos   string
+	FreqXY int64
+	FreqY  int64
 }
 
 type CollDatabase struct {
@@ -109,7 +110,10 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 		whereArgs = append(whereArgs, pUpos)
 	}
 	sql := fmt.Sprintf(
-		"SELECT lemma, upos, freq FROM %s_fcolls WHERE %s ",
+		"SELECT a.lemma, a.upos, a.freq, "+
+			"(SELECT SUM(freq) FROM intercorp_v13ud_cs_fcolls AS b "+
+			" WHERE b.p_lemma = a.p_lemma AND b.p_upos = a.p_upos AND b.deprel = a.deprel) "+
+			"FROM %s_fcolls AS a WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
 	log.Debug().Str("sql", sql).Any("args", whereArgs).Msg("going to SELECT child candidates")
@@ -121,7 +125,7 @@ func (cdb *CollDatabase) GetChildCandidates(pLemma, pUpos, deprel string, minFre
 	ans := make([]*Candidate, 0, 100)
 	for rows.Next() {
 		item := &Candidate{}
-		err := rows.Scan(&item.Lemma, &item.Upos, &item.Freq)
+		err := rows.Scan(&item.Lemma, &item.Upos, &item.FreqXY, &item.FreqXY)
 		if err != nil {
 			return ans, err
 		}
@@ -154,7 +158,10 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 		whereArgs = append(whereArgs, upos)
 	}
 	sql := fmt.Sprintf(
-		"SELECT p_lemma, p_upos, freq FROM %s_fcolls WHERE %s ",
+		"SELECT p_lemma, p_upos, freq, "+
+			"(SELECT SUM(freq) FROM intercorp_v13ud_cs_fcolls AS b "+
+			" WHERE b.lemma = a.lemma AND b.upos = a.upos AND b.deprel = a.deprel) "+
+			"FROM %s_fcolls AS a WHERE %s ",
 		cdb.corpusID, strings.Join(whereSQL, " AND "),
 	)
 	log.Debug().Str("sql", sql).Any("args", whereArgs).Msg("going to SELECT parent candidates")
@@ -166,7 +173,7 @@ func (cdb *CollDatabase) GetParentCandidates(lemma, upos, deprel string, minFreq
 	ans := make([]*Candidate, 0, 100)
 	for rows.Next() {
 		item := &Candidate{}
-		err := rows.Scan(&item.Lemma, &item.Upos, &item.Freq)
+		err := rows.Scan(&item.Lemma, &item.Upos, &item.FreqXY, &item.FreqY)
 		if err != nil {
 			return ans, err
 		}
