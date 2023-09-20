@@ -268,7 +268,7 @@ func (a *Actions) VerbsObject(ctx *gin.Context) {
 	result := make(results.FreqDistribItemList, len(candidates))
 	for i, cand := range candidates {
 		fxy := cand.Freq
-		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "nsobj|iobjubj")
+		fy, err := cdb.GetFreq("", "", cand.Lemma, cand.Upos, "obj|iobj")
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 			return
