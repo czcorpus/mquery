@@ -173,7 +173,7 @@ func (gen *ModifiersOfQGen) FyQueryInsertSQL(collCandidate string, result *rdb.W
 	}
 	sql = fmt.Sprintf(
 		"INSERT INTO %s_scoll_query (%s, %s, %s, result, result_type) VALUES (?, ?, ?, ?, ?)",
-		gen.CorpusName, gen.SketchConf.LemmaAttr, gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name,
+		gen.CorpusName, gen.SketchConf.LemmaAttr.Name, gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name,
 	)
 	args = append(
 		args,
@@ -210,9 +210,9 @@ func (gen *ModifiersOfQGen) FxyQuerySelectSQL(word Word, collCandidate string) (
 	if word.PoS == "" {
 		sql = fmt.Sprintf(
 			"SELECT result, result_type FROM %s_scoll_query "+
-				"WHERE result_type = 'Fxy' AND %s = ? AND %s IS NULL AND %s = ? AND %s = ? AND %s = ? ",
+				"WHERE result_type = 'Fxy' AND %s = ? AND %s = ? AND %s = ? AND %s = ? ",
 			gen.CorpusName,
-			gen.SketchConf.ParLemmaAttr.Name, gen.SketchConf.ParPosAttr.Name,
+			gen.SketchConf.ParLemmaAttr.Name,
 			gen.SketchConf.FuncAttr.Name, gen.SketchConf.ParPosAttr.Name, gen.SketchConf.LemmaAttr.Name,
 		)
 		args = append(
