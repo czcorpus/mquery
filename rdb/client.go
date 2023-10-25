@@ -124,23 +124,33 @@ type Adapter struct {
 	queryAnswerTimeout  time.Duration
 }
 
-func (a *Adapter) TestConnection(timeout time.Duration) error {
+func (a *Adapter) TestConnection(timeout time.Duration, cancel chan bool) error {
 
 	tick := time.NewTicker(2 * time.Second)
 	timeoutCh := time.After(timeout)
+	ctx2, cancelFunc := context.WithCancel(a.ctx)
+	go func() {
+		v := <-cancel
+		if v {
+			cancelFunc()
+			tick.Stop()
+		}
+	}()
 	for {
 		select {
 		case <-timeoutCh:
 			return fmt.Errorf("failed to connect to the Redis server at %s", a.conf.ServerInfo())
 		case <-tick.C:
-			_, err := a.redis.Ping(a.ctx).Result()
-			if err == nil {
-				return nil
-			}
 			log.Info().
-				Err(err).
 				Str("server", a.conf.ServerInfo()).
 				Msg("waiting for Redis server...")
+			_, err := a.redis.Ping(ctx2).Result()
+			if err != nil {
+				log.Error().Err(err).Msg("...failed to get response from Redis server")
+
+			} else {
+				return nil
+			}
 		}
 	}
 }

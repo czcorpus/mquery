@@ -241,26 +241,26 @@ func main() {
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
-
+	testConnCancel := make(chan bool)
 	go func() {
-		select {
-		case evt := <-syscallChan:
-			exitEvent <- evt
-			close(exitEvent)
-		}
+		evt := <-syscallChan
+		testConnCancel <- true
+		close(testConnCancel)
+		exitEvent <- evt
+		close(exitEvent)
 	}()
 
 	radapter := rdb.NewAdapter(conf.Redis)
 
 	switch action {
 	case "server":
-		err := radapter.TestConnection(20 * time.Second)
+		err := radapter.TestConnection(20*time.Second, testConnCancel)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
 		runApiServer(conf, syscallChan, exitEvent, radapter)
 	case "worker":
-		err := radapter.TestConnection(20 * time.Second)
+		err := radapter.TestConnection(20*time.Second, testConnCancel)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}

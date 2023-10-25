@@ -69,6 +69,9 @@ func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
 }
 
 func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
+	if cs == nil {
+		return fmt.Errorf("missing configuration section `%s`", confContext)
+	}
 	if cs.RegistryDir == "" {
 		return fmt.Errorf("missing `%s.registryDir`", confContext)
 	}
