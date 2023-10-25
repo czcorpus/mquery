@@ -20,6 +20,8 @@ package query
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/results"
@@ -104,6 +106,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
 	flimit := 1
 	maxItems := 0
+	within := ""
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
@@ -139,6 +142,19 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			)
 			return
 		}
+	}
+
+	if ctx.Request.URL.Query().Has("within") {
+		within = ctx.Request.URL.Query().Get("within")
+		if within == "" {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				errors.New("empty `within` argument"),
+				http.StatusBadRequest,
+			)
+			return
+		}
+		q = fmt.Sprintf("%s within <%s />", q, within)
 	}
 
 	mergedFreqLock := sync.Mutex{}
