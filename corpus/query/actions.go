@@ -21,7 +21,6 @@ package query
 import (
 	"encoding/json"
 	"mquery/corpus"
-	"mquery/corpus/scoll"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -47,7 +46,6 @@ var (
 
 type Actions struct {
 	conf     *corpus.CorporaSetup
-	sConf    scoll.SketchConfig
 	radapter *rdb.Adapter
 }
 
@@ -195,7 +193,7 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 		Query:         ctx.Query("query"),
 		Attrs:         attrs,
 		MaxItems:      10,
-		ParentIdxAttr: a.sConf[corpusName].ParentIdxAttr.Name,
+		ParentIdxAttr: a.conf.Resources[corpusName].SyntaxParentAttr.Name,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -240,12 +238,10 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 
 func NewActions(
 	conf *corpus.CorporaSetup,
-	sConf scoll.SketchConfig,
 	radapter *rdb.Adapter,
 ) *Actions {
 	return &Actions{
 		conf:     conf,
-		sConf:    sConf,
 		radapter: radapter,
 	}
 }

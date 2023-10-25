@@ -5,12 +5,9 @@ go 1.20
 require (
 	github.com/czcorpus/cnc-gokit v0.4.4
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rs/zerolog v1.29.1
-	github.com/tomachalek/vertigo/v5 v5.1.0
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
 
 require (

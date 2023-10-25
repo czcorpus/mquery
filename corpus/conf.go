@@ -31,6 +31,14 @@ const (
 	DfltMultisampledSubcSize = 100000000
 )
 
+type PosAttrProps struct {
+	Name string `json:"name"`
+}
+
+type CorpusSetup struct {
+	SyntaxParentAttr PosAttrProps `json:"syntaxParentAttr"`
+}
+
 // CorporaSetup defines mquery application configuration related
 // to a corpus
 type CorporaSetup struct {
@@ -52,6 +60,8 @@ type CorporaSetup struct {
 	MultisampledSubcSize int64 `json:"multisampledSubcSize"`
 
 	MktokencovPath string `json:"mktokencovPath"`
+
+	Resources map[string]*CorpusSetup `json:"resources"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"net/http"
@@ -19,12 +18,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
-	"mquery/corpus"
 	corpusEdit "mquery/corpus/edit"
 	"mquery/corpus/query"
-	"mquery/corpus/scoll"
-	"mquery/db"
-	"mquery/fcoll"
 	"mquery/general"
 	"mquery/monitoring"
 	"mquery/rdb"
@@ -92,14 +87,10 @@ func runApiServer(
 	syscallChan chan os.Signal,
 	exitEvent chan os.Signal,
 	radapter *rdb.Adapter,
-	sqlDB *sql.DB,
 ) {
 	if !conf.LogLevel.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
-	backend := db.NewBackend(sqlDB)
-	scollQueryExecutor := scoll.NewQueryExecutor(backend, radapter)
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -123,7 +114,7 @@ func runApiServer(
 	engine.POST(
 		"/corpus/:corpusId/collFreqData/:variant", ceActions.CollFreqData)
 
-	concActions := query.NewActions(conf.CorporaSetup, conf.SketchSetup.SketchAttrs, radapter)
+	concActions := query.NewActions(conf.CorporaSetup, radapter)
 
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)
@@ -158,48 +149,7 @@ func runApiServer(
 	engine.GET(
 		"/conc-examples/:corpusId", concActions.ConcExample)
 
-	sketchActions := scoll.NewActions(
-		conf.CorporaSetup,
-		conf.SketchSetup,
-		radapter,
-		scollQueryExecutor,
-	)
-
-	engine.GET(
-		"/scoll/:corpusId/noun-modified-by", sketchActions.NounsModifiedBy)
-
-	engine.GET(
-		"/scoll/:corpusId/modifiers-of", sketchActions.ModifiersOf)
-
-	engine.GET(
-		"/scoll/:corpusId/verbs-subject", sketchActions.VerbsSubject)
-
-	engine.GET(
-		"/scoll/:corpusId/verbs-object", sketchActions.VerbsObject)
-
-	confCorpora := make([]string, 0, len(conf.SketchSetup.SketchAttrs))
-	for k := range conf.SketchSetup.SketchAttrs {
-		confCorpora = append(confCorpora, k)
-	}
-	corporaSizes, err := corpus.LoadSizes(confCorpora, conf.CorporaSetup)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize")
-	}
-	fcollActions := fcoll.NewActions(conf.CorporaSetup, conf.SketchSetup, sqlDB, corporaSizes)
-
-	engine.GET(
-		"/fcoll/:corpusId/noun-modified-by", fcollActions.NounsModifiedBy)
-
-	engine.GET(
-		"/fcoll/:corpusId/modifiers-of", fcollActions.ModifiersOf)
-
-	engine.GET(
-		"/fcoll/:corpusId/verbs-subject", fcollActions.VerbsSubject)
-
-	engine.GET(
-		"/fcoll/:corpusId/verbs-object", fcollActions.VerbsObject)
-
-	logger := monitoring.NewWorkerJobLogger(sqlDB, conf.TimezoneLocation())
+	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
 	monitoringActions := monitoring.NewActions(logger, conf.TimezoneLocation())
 
@@ -232,9 +182,9 @@ func runApiServer(
 	}
 }
 
-func runWorker(conf *cnf.Conf, workerID string, radapter *rdb.Adapter, sqlDB *sql.DB, exitEvent chan os.Signal) {
+func runWorker(conf *cnf.Conf, workerID string, radapter *rdb.Adapter, exitEvent chan os.Signal) {
 	ch := radapter.Subscribe()
-	logger := monitoring.NewWorkerJobLogger(sqlDB, conf.TimezoneLocation())
+	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	w := worker.NewWorker(workerID, radapter, ch, exitEvent, logger)
 	w.Listen()
 }
@@ -301,10 +251,6 @@ func main() {
 	}()
 
 	radapter := rdb.NewAdapter(conf.Redis)
-	sqlDB, err := db.Open(conf.DB)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize cache database")
-	}
 
 	switch action {
 	case "server":
@@ -312,23 +258,13 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runApiServer(conf, syscallChan, exitEvent, radapter, sqlDB)
+		runApiServer(conf, syscallChan, exitEvent, radapter)
 	case "worker":
 		err := radapter.TestConnection(20 * time.Second)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runWorker(conf, getWorkerID(), radapter, sqlDB, exitEvent)
-	case "precalc":
-		scollConf, ok := conf.SketchSetup.SketchAttrs[flag.Arg(2)]
-		if !ok {
-			log.Fatal().Str("corpus", flag.Arg(2)).Msg("corpus not configured")
-			return
-		}
-		err := fcoll.Run(flag.Arg(2), flag.Arg(3), scollConf, sqlDB)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to process")
-		}
+		runWorker(conf, getWorkerID(), radapter, exitEvent)
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
