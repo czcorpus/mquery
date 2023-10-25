@@ -21,8 +21,6 @@ package cnf
 import (
 	"encoding/json"
 	"mquery/corpus"
-	"mquery/corpus/scoll"
-	"mquery/db"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -47,9 +45,7 @@ type Conf struct {
 	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
 	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
-	CorporaSetup           *corpus.CorporaSetup `json:"corporaSetup"`
-	SketchSetup            *scoll.SketchSetup   `json:"sketchSetup"`
-	DB                     *db.Conf             `json:"db"`
+	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
 	Redis                  *rdb.Conf            `json:"redis"`
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
@@ -114,7 +110,7 @@ func ValidateAndDefaults(conf *Conf) {
 		conf.Language = dfltLanguage
 		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
 	}
-	if err := conf.SketchSetup.ValidateAndDefaults("sketchSetup"); err != nil {
+	if err := conf.CorporaSetup.ValidateAndDefaults("corpora"); err != nil {
 		log.Fatal().Err(err).Msg("invalid configuration")
 	}
 	if err := conf.CorporaSetup.ValidateAndDefaults("corporaSetup"); err != nil {
