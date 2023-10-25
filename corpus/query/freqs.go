@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -154,9 +155,26 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			)
 			return
 		}
-		q = fmt.Sprintf("%s within <%s />", q, within)
+		tmp := strings.SplitN(within, "=", 2)
+		if len(tmp) != 2 {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				errors.New("invalid `within` expression"),
+				http.StatusBadRequest,
+			)
+			return
+		}
+		kv := strings.Split(tmp[0], ".")
+		if len(kv) != 2 {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				errors.New("invalid `within` expression"),
+				http.StatusBadRequest,
+			)
+			return
+		}
+		q = fmt.Sprintf("%s within <%s %s=\"%s\" />", q, kv[0], kv[1], tmp[1])
 	}
-
 	mergedFreqLock := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(len(sc.Subcorpora))
