@@ -105,6 +105,42 @@ func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*CitationInfo, er
 	return &citationInfo, nil
 }
 
+func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]Tagset, error) {
+	sql1 := "SELECT ct.corpus_name, ct.pos_attr, ct.feat_attr, t.tagset_type, ct.tagset_name, " +
+		"ct.kontext_widget_enabled, t.doc_url_local, t.doc_url_en, " +
+		"GROUP_CONCAT(CONCAT_WS(',', tpc.tag_search_pattern, tpc.pos) SEPARATOR ';') " +
+		"FROM tagset AS t " +
+		"JOIN corpus_tagset AS ct ON ct.tagset_name = t.name " +
+		"LEFT JOIN tagset_pos_category AS tpc ON ct.tagset_name = tpc.tagset_name " +
+		"WHERE ct.corpus_name = ? " +
+		"GROUP BY tagset_name"
+	log.Debug().Str("sql", sql1).Msgf("going to get tagsets for %s", corpusID)
+	rows, err := kdb.db.Query(sql1, corpusID)
+	if err != nil {
+		return nil, err
+	}
+	var tagsets []Tagset
+	for rows.Next() {
+		var tagset Tagset
+		var posAttr, docUrlLocal, docUrlEn sql.NullString
+		var posCategory string
+		err := rows.Scan(&tagset.CorpusName, &posAttr, &tagset.FeatAttr, &tagset.Type, &tagset.ID, &tagset.WidgetEnabled, &docUrlLocal, &docUrlEn, &posCategory)
+		if err != nil {
+			return nil, err
+		}
+		tagset.PosAttr = posAttr.String
+		tagset.DocUrlLocal = docUrlLocal.String
+		tagset.DocUrlEn = docUrlEn.String
+		for _, v := range strings.Split(posCategory, ";") {
+			if v != "" {
+				tagset.PosCategory = append(tagset.PosCategory, strings.Split(v, ","))
+			}
+		}
+		tagsets = append(tagsets, tagset)
+	}
+	return tagsets, nil
+}
+
 func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error) {
 
 	sql1 := "SELECT c.name, c.description_%s, c.size, c.web, " +
@@ -133,6 +169,10 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error)
 		}
 	}
 	info.CitationInfo, err = kdb.loadCitationInfo(corpusID)
+	if err != nil {
+		return nil, err
+	}
+	info.Tagsets, err = kdb.loadTagsets(corpusID)
 	if err != nil {
 		return nil, err
 	}
