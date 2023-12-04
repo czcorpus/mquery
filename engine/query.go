@@ -154,11 +154,12 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error)
 	log.Debug().Str("sql", sql1).Msgf("going to select corpus info for %s", corpusID)
 	var info CorpusInfo
 	row := kdb.db.QueryRow(fmt.Sprintf(sql1, kdb.language, kdb.language, kdb.corpusTable), corpusID)
-	var keywords, web sql.NullString
-	err := row.Scan(&info.Corpname, &info.Description, &info.Size, &web, &keywords)
+	var description, keywords, web sql.NullString
+	err := row.Scan(&info.Corpname, &description, &info.Size, &web, &keywords)
 	if err != nil {
 		return nil, err
 	}
+	info.Description = description.String
 	info.WebUrl = web.String
 	if keywords.Valid {
 		for _, keyword := range strings.Split(keywords.String, ";") {

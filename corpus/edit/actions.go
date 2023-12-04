@@ -329,9 +329,15 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		return
 	}
 	for _, v := range strings.Split(attrs, ",") {
+		size, err := mango.GetPosAttrSize(corpPath, v)
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+			return
+		}
 		info.AttrList = append(info.AttrList, engine.Item{
 			Name: v,
-			Size: 0,
+			Size: size,
 		})
 	}
 	structs, err := mango.GetCorpusConf(corpPath, "STRUCTLIST")
@@ -341,9 +347,15 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		return
 	}
 	for _, v := range strings.Split(structs, ",") {
+		size, err := mango.GetStructSize(corpPath, v)
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+			return
+		}
 		info.StructList = append(info.StructList, engine.Item{
 			Name: v,
-			Size: 0,
+			Size: size,
 		})
 	}
 

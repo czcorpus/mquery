@@ -259,3 +259,23 @@ func GetCorpusConf(corpusPath string, prop string) (string, error) {
 	}
 	return C.GoString(ans.value), nil
 }
+
+func GetPosAttrSize(corpusPath string, name string) (int, error) {
+	ans := C.get_posattr_size(C.CString(corpusPath), C.CString(name))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return 0, err
+	}
+	return int(ans.value), nil
+}
+
+func GetStructSize(corpusPath string, name string) (int, error) {
+	ans := C.get_struct_size(C.CString(corpusPath), C.CString(name))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return 0, err
+	}
+	return int(ans.value), nil
+}

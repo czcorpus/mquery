@@ -189,6 +189,9 @@ void delete_attr_val_iterator(AttrValMapIterator itr);
 
 AttrVal get_next_attr_val_size(AttrValMap srcMap, AttrValMapIterator itr);
 
+CorpusSizeRetrval get_posattr_size(const char* corpus_path, const char* name);
+
+CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name);
 
 
 #ifdef __cplusplus

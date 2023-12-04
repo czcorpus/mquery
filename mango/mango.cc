@@ -492,3 +492,31 @@ AttrVal get_next_attr_val_size(AttrValMap srcMap, AttrValMapIterator itr) {
     ++(*tItr);
     return ans;
 }
+
+CorpusSizeRetrval get_posattr_size(const char* corpus_path, const char* name) {
+    CorpusSizeRetrval ans;
+    ans.err = nullptr;
+    Corpus* corp = nullptr;
+    try {
+        corp = new Corpus(corpus_path);
+        ans.value = corp->get_attr(name, false)->id_range();
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    delete corp;
+    return ans;
+}
+
+CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name) {
+    CorpusSizeRetrval ans;
+    ans.err = nullptr;
+    Corpus* corp = nullptr;
+    try {
+        corp = new Corpus(corpus_path);
+        ans.value = corp->get_struct(name)->size();
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    delete corp;
+    return ans;
+}
