@@ -21,6 +21,7 @@ package cnf
 import (
 	"encoding/json"
 	"mquery/corpus"
+	"mquery/engine"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -47,6 +48,7 @@ type Conf struct {
 	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
 	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
 	Redis                  *rdb.Conf            `json:"redis"`
+	DB                     *engine.DBConf       `json:"db"`
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
 	Language               string               `json:"language"`

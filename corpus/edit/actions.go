@@ -19,9 +19,11 @@
 package edit
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"mquery/corpus"
+	"mquery/engine"
 	"mquery/rdb"
 	"net/http"
 	"sync"
@@ -49,8 +51,11 @@ type multiSubcCorpus interface {
 }
 
 type Actions struct {
-	conf     *corpus.CorporaSetup
-	radapter *rdb.Adapter
+	conf        *corpus.CorporaSetup
+	radapter    *rdb.Adapter
+	db          *sql.DB
+	language    string
+	corpusTable string
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {
@@ -306,9 +311,24 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, multicorp)
 }
 
-func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter) *Actions {
+func (a *Actions) CorpusInfo(ctx *gin.Context) {
+	// corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	kdb := engine.NewKontextDatabase(a.db, a.corpusTable, a.language)
+	info, err := kdb.LoadCorpusInfo(ctx.Param("corpusId"))
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, info)
+}
+
+func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter, sqlDB *sql.DB, corpusTable string, language string) *Actions {
 	return &Actions{
-		conf:     conf,
-		radapter: radapter,
+		conf:        conf,
+		radapter:    radapter,
+		db:          sqlDB,
+		corpusTable: corpusTable,
+		language:    language,
 	}
 }

@@ -4,7 +4,7 @@
     "serverReadTimeoutSecs": 120,
     "serverWriteTimeoutSecs": 60,
     "corsAllowedOrigins": ["http://localhost:8081", "http://localhost:8082"],
-    "corporaSetup": {
+    "corpora": {
         "registryDir": "/path/to/corpora/registry",
         "splitCorporaDir": "/path/to/split/corpora/dir",
         "multiprocChunkSize": 50000000,
@@ -27,6 +27,15 @@
         "channelQuery": "channel",
         "channelResultPrefix": "res",
         "queryAnswerTimeoutSecs": 600
+    },
+    "db" : {
+        "host": "host",
+        "name": "name",
+        "user": "user",
+        "password": "pwd",
+        "port": 3306,
+        "poolSize": 5,
+        "corpusTable": "kontext_corpus"
     },
     "logFile": "",
     "logLevel": "debug",
