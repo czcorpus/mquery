@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"mquery/corpus"
 	"mquery/engine"
+	"mquery/mango"
 	"mquery/rdb"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -312,7 +314,6 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 }
 
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
-	// corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	kdb := engine.NewKontextDatabase(a.db, a.corpusTable, a.language)
 	info, err := kdb.LoadCorpusInfo(ctx.Param("corpusId"))
 	if err != nil {
@@ -320,6 +321,32 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
+	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	attrs, err := mango.GetCorpusConf(corpPath, "ATTRLIST")
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	for _, v := range strings.Split(attrs, ",") {
+		info.AttrList = append(info.AttrList, engine.Item{
+			Name: v,
+			Size: 0,
+		})
+	}
+	structs, err := mango.GetCorpusConf(corpPath, "STRUCTLIST")
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	for _, v := range strings.Split(structs, ",") {
+		info.StructList = append(info.StructList, engine.Item{
+			Name: v,
+			Size: 0,
+		})
+	}
+
 	uniresp.WriteJSONResponse(ctx.Writer, info)
 }
 

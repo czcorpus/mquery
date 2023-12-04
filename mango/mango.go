@@ -247,3 +247,15 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 
 	return ans, nil
 }
+
+// GetCorpusConf returns a corpus configuration item
+// stored in a corpus configuration file (aka "registry file")
+func GetCorpusConf(corpusPath string, prop string) (string, error) {
+	ans := (C.get_corpus_conf(C.open_corpus(C.CString(corpusPath)).value, C.CString(prop)))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return "", err
+	}
+	return C.GoString(ans.value), nil
+}

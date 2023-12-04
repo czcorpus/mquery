@@ -36,7 +36,7 @@ type KontextDatabase struct {
 	ctx         context.Context
 }
 
-type StructAttr struct {
+type Item struct {
 	Name string `json:"name"`
 	Size int    `json:"size"`
 }
@@ -68,8 +68,8 @@ type CorpusInfo struct {
 	Corpname     string        `json:"corpname"`
 	Description  string        `json:"description"`
 	Size         int           `json:"size"`
-	AttrList     []StructAttr  `json:"attrlist"`
-	StructList   []StructAttr  `json:"structlist"`
+	AttrList     []Item        `json:"attrlist"`
+	StructList   []Item        `json:"structlist"`
 	WebUrl       string        `json:"webUrl"`
 	CitationInfo *CitationInfo `json:"citationInfo"`
 	Keywords     []Keyword     `json:"keywords"`
