@@ -11,8 +11,6 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583j
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/czcorpus/cnc-gokit v0.5.5 h1:Co7WsjApgHfNjQVW2Z55RiX1lQ0cj4LVaXZNDwuB2Ik=
 github.com/czcorpus/cnc-gokit v0.5.5/go.mod h1:m6/pi38R7LW9Dm598fwI0UTqcCcCuLD60Tx7pidWGcc=
-github.com/czcorpus/conomi v0.0.7 h1:1E36ozDNfKmT0OKca2wSZPitsF8Zz0+Ys9d0WRY3Ay4=
-github.com/czcorpus/conomi v0.0.7/go.mod h1:mcgk79NYf35sco1unxJE3W/xiLddUJI6RjuGwytc5So=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -37,6 +35,8 @@ github.com/goccy/go-json v0.10.2 h1:CrxCmQqYDkv1z7lO7Wbh2HN93uovUHgrECaO5ZrCXAU=
 github.com/goccy/go-json v0.10.2/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
+github.com/gomarkdown/markdown v0.0.0-20231115200524-a660076da3fd h1:PppHBegd3uPZ3Y/Iax/2mlCFJm1w4Qf/zP1MdW4ju2o=
+github.com/gomarkdown/markdown v0.0.0-20231115200524-a660076da3fd/go.mod h1:JDGcbDT52eL4fju3sZ4TeHGsQwhG9nbDV21aMyhwPoA=
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.8 h1:e6P7q2lk1O+qJJb4BtCQXlK8vWEO8V1ZeuEdJNOqZyg=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=

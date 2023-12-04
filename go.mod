@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/czcorpus/cnc-gokit v0.5.5
-	github.com/czcorpus/conomi v0.0.7
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.1
+	github.com/gomarkdown/markdown v0.0.0-20231115200524-a660076da3fd
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rs/zerolog v1.31.0

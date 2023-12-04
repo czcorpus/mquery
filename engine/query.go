@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"mquery/tools"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -64,15 +65,44 @@ type Tagset struct {
 }
 
 type CorpusInfo struct {
-	Corpname     string       `json:"corpname"`
-	Description  string       `json:"description"`
-	Size         int          `json:"size"`
-	AttrList     []StructAttr `json:"attrlist"`
-	StructList   []StructAttr `json:"structlist"`
-	WebUrl       string       `json:"webUrl"`
-	CitationInfo CitationInfo `json:"citationInfo"`
-	Keywords     []Keyword    `json:"keywords"`
-	Tagsets      []Tagset     `json:"tagsets"`
+	Corpname     string        `json:"corpname"`
+	Description  string        `json:"description"`
+	Size         int           `json:"size"`
+	AttrList     []StructAttr  `json:"attrlist"`
+	StructList   []StructAttr  `json:"structlist"`
+	WebUrl       string        `json:"webUrl"`
+	CitationInfo *CitationInfo `json:"citationInfo"`
+	Keywords     []Keyword     `json:"keywords"`
+	Tagsets      []Tagset      `json:"tagsets"`
+}
+
+func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*CitationInfo, error) {
+	sql1 := "SELECT ca.role, a.entry " +
+		"FROM kontext_article AS a " +
+		"JOIN kontext_corpus_article AS ca ON ca.article_id = a.id " +
+		"WHERE ca.corpus_name = ?"
+	log.Debug().Str("sql", sql1).Msgf("going to get articles for %s", corpusID)
+	rows, err := kdb.db.Query(sql1, corpusID)
+	if err != nil {
+		return nil, err
+	}
+	var citationInfo CitationInfo
+	for rows.Next() {
+		var role, entry string
+		err := rows.Scan(&role, &entry)
+		if err != nil {
+			return nil, err
+		}
+		switch role {
+		case "default":
+			citationInfo.DefaultRef = tools.MDToHTML(entry)
+		case "standard":
+			citationInfo.ArticleRef = append(citationInfo.ArticleRef, tools.MDToHTML(entry))
+		case "other":
+			citationInfo.OtherBibliography = tools.MDToHTML(entry)
+		}
+	}
+	return &citationInfo, nil
 }
 
 func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error) {
@@ -85,7 +115,7 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error)
 		"WHERE c.active = 1 AND c.name = ? " +
 		"GROUP BY c.name "
 
-	log.Debug().Str("sql", sql1).Msgf("going to corpus info for %s", corpusID)
+	log.Debug().Str("sql", sql1).Msgf("going to select corpus info for %s", corpusID)
 	var info CorpusInfo
 	row := kdb.db.QueryRow(fmt.Sprintf(sql1, kdb.language, kdb.language, kdb.corpusTable), corpusID)
 	var keywords, web sql.NullString
@@ -96,9 +126,15 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error)
 	info.WebUrl = web.String
 	if keywords.Valid {
 		for _, keyword := range strings.Split(keywords.String, ";") {
-			values := strings.Split(keyword, ":")
-			info.Keywords = append(info.Keywords, Keyword{Name: values[0], Color: values[1]})
+			if keyword != "" {
+				values := strings.Split(keyword, ":")
+				info.Keywords = append(info.Keywords, Keyword{Name: values[0], Color: values[1]})
+			}
 		}
+	}
+	info.CitationInfo, err = kdb.loadCitationInfo(corpusID)
+	if err != nil {
+		return nil, err
 	}
 	return &info, err
 }
