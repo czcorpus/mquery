@@ -314,8 +314,8 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 }
 
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
-	kdb := engine.NewKontextDatabase(a.db, a.corpusTable, a.language)
-	info, err := kdb.LoadCorpusInfo(ctx.Param("corpusId"))
+	kdb := engine.NewKontextDatabase(a.db, a.corpusTable)
+	info, err := kdb.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.language))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)

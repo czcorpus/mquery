@@ -32,7 +32,6 @@ import (
 type KontextDatabase struct {
 	db          *sql.DB
 	corpusTable string
-	language    string
 	ctx         context.Context
 }
 
@@ -141,7 +140,7 @@ func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]Tagset, error) {
 	return tagsets, nil
 }
 
-func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error) {
+func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*CorpusInfo, error) {
 
 	sql1 := "SELECT c.name, c.description_%s, c.size, c.web, " +
 		"GROUP_CONCAT(CONCAT(kk.label_%s, ':', COALESCE(kk.color, \"rgba(0, 0, 0, 0.0)\")), ';') " +
@@ -153,7 +152,7 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error)
 
 	log.Debug().Str("sql", sql1).Msgf("going to select corpus info for %s", corpusID)
 	var info CorpusInfo
-	row := kdb.db.QueryRow(fmt.Sprintf(sql1, kdb.language, kdb.language, kdb.corpusTable), corpusID)
+	row := kdb.db.QueryRow(fmt.Sprintf(sql1, language, language, kdb.corpusTable), corpusID)
 	var description, keywords, web sql.NullString
 	err := row.Scan(&info.Corpname, &description, &info.Size, &web, &keywords)
 	if err != nil {
@@ -180,11 +179,10 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string) (*CorpusInfo, error)
 	return &info, err
 }
 
-func NewKontextDatabase(db *sql.DB, corpusTable string, language string) *KontextDatabase {
+func NewKontextDatabase(db *sql.DB, corpusTable string) *KontextDatabase {
 	return &KontextDatabase{
 		db:          db,
 		corpusTable: corpusTable,
-		language:    language,
 		ctx:         context.Background(),
 	}
 }
