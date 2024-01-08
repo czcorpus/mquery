@@ -100,3 +100,12 @@ func DeserializeCollFreqDataResult(w *WorkerResult) (results.CollFreqData, error
 	}
 	return ans, nil
 }
+
+func DeserializeCorpusInfoDataResult(w *WorkerResult) (results.CorpusInfo, error) {
+	var ans results.CorpusInfo
+	err := json.Unmarshal(w.Value, &ans)
+	if err != nil {
+		return ans, fmt.Errorf("failed to deserialize CorpusInfo: %w", err)
+	}
+	return ans, nil
+}

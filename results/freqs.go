@@ -21,6 +21,7 @@ package results
 import (
 	"errors"
 	"mquery/corpus/conc"
+	"mquery/engine"
 	"mquery/mango"
 )
 
@@ -216,5 +217,24 @@ func (res *ConcExample) Err() error {
 }
 
 func (res *ConcExample) Type() ResultType {
+	return res.ResultType
+}
+
+// --------
+
+type CorpusInfo struct {
+	Data       engine.CorpusInfo `json:"data"`
+	ResultType ResultType        `json:"resultType"`
+	Error      string            `json:"error"`
+}
+
+func (res *CorpusInfo) Err() error {
+	if res.Error != "" {
+		return errors.New(res.Error)
+	}
+	return nil
+}
+
+func (res *CorpusInfo) Type() ResultType {
 	return res.ResultType
 }

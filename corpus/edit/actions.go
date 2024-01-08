@@ -19,15 +19,12 @@
 package edit
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"mquery/corpus"
 	"mquery/engine"
-	"mquery/mango"
 	"mquery/rdb"
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -44,6 +41,10 @@ const (
 
 type corpusStructVariant string
 
+type CorpusInfoProvider interface {
+	LoadCorpusInfo(corpusID string, language string) (*engine.CorpusInfo, error)
+}
+
 func (variant corpusStructVariant) Validate() bool {
 	return variant == SplitCorpus || variant == MultisampledCorpus
 }
@@ -53,11 +54,10 @@ type multiSubcCorpus interface {
 }
 
 type Actions struct {
-	conf        *corpus.CorporaSetup
-	radapter    *rdb.Adapter
-	db          *sql.DB
-	language    string
-	corpusTable string
+	conf         *corpus.CorporaSetup
+	radapter     *rdb.Adapter
+	infoProvider CorpusInfoProvider
+	language     string
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {
@@ -314,60 +314,25 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 }
 
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
-	kdb := engine.NewKontextDatabase(a.db, a.corpusTable)
-	info, err := kdb.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.language))
+	info, err := a.infoProvider.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.language))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	attrs, err := mango.GetCorpusConf(corpPath, "ATTRLIST")
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
-		return
-	}
-	for _, v := range strings.Split(attrs, ",") {
-		size, err := mango.GetPosAttrSize(corpPath, v)
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
-			return
-		}
-		info.AttrList = append(info.AttrList, engine.Item{
-			Name: v,
-			Size: size,
-		})
-	}
-	structs, err := mango.GetCorpusConf(corpPath, "STRUCTLIST")
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
-		return
-	}
-	for _, v := range strings.Split(structs, ",") {
-		size, err := mango.GetStructSize(corpPath, v)
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
-			return
-		}
-		info.StructList = append(info.StructList, engine.Item{
-			Name: v,
-			Size: size,
-		})
-	}
-
 	uniresp.WriteJSONResponse(ctx.Writer, info)
 }
 
-func NewActions(conf *corpus.CorporaSetup, radapter *rdb.Adapter, sqlDB *sql.DB, corpusTable string, language string) *Actions {
+func NewActions(
+	conf *corpus.CorporaSetup,
+	radapter *rdb.Adapter,
+	infoProvider CorpusInfoProvider,
+	language string,
+) *Actions {
 	return &Actions{
-		conf:        conf,
-		radapter:    radapter,
-		db:          sqlDB,
-		corpusTable: corpusTable,
-		language:    language,
+		conf:         conf,
+		radapter:     radapter,
+		infoProvider: infoProvider,
+		language:     language,
 	}
 }

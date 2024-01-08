@@ -26,6 +26,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type ManateeStructsProvider interface {
+	FillStructAndAttrsInfo(corpPath string, info *CorpusInfo) error
+	GetRegistryPath(corpusID string) string
+}
+
 // KontextDatabase
 // note: the lifecycle of the instance
 // is "per request"
@@ -33,46 +38,7 @@ type KontextDatabase struct {
 	db          *sql.DB
 	corpusTable string
 	ctx         context.Context
-}
-
-type Item struct {
-	Name string `json:"name"`
-	Size int    `json:"size"`
-}
-
-type CitationInfo struct {
-	DefaultRef        string   `json:"default_ref"`
-	ArticleRef        []string `json:"article_ref"`
-	OtherBibliography string   `json:"other_bibliography"`
-}
-
-type Keyword struct {
-	Name  string `json:"name"`
-	Color string `json:"color"`
-}
-
-type Tagset struct {
-	ID            string     `json:"ident"`
-	Type          string     `json:"type"`
-	CorpusName    string     `json:"corpusName"`
-	PosAttr       string     `json:"posAttr"`
-	FeatAttr      string     `json:"featAttr"`
-	WidgetEnabled bool       `json:"widgetEnabled"`
-	DocUrlLocal   string     `json:"docUrlLocal"`
-	DocUrlEn      string     `json:"docUrlEn"`
-	PosCategory   [][]string `json:"posCategory"`
-}
-
-type CorpusInfo struct {
-	Corpname     string        `json:"corpname"`
-	Description  string        `json:"description"`
-	Size         int           `json:"size"`
-	AttrList     []Item        `json:"attrlist"`
-	StructList   []Item        `json:"structlist"`
-	WebUrl       string        `json:"webUrl"`
-	CitationInfo *CitationInfo `json:"citationInfo"`
-	Keywords     []Keyword     `json:"keywords"`
-	Tagsets      []Tagset      `json:"tagsets"`
+	minfo       ManateeStructsProvider
 }
 
 func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*CitationInfo, error) {
@@ -176,12 +142,24 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*C
 	if err != nil {
 		return nil, err
 	}
+
+	corpPath := kdb.minfo.GetRegistryPath(corpusID)
+	err = kdb.minfo.FillStructAndAttrsInfo(corpPath, &info)
+	if err != nil {
+		return nil, err
+	}
+
 	return &info, err
 }
 
-func NewKontextDatabase(db *sql.DB, corpusTable string) *KontextDatabase {
+func NewKontextDatabase(
+	db *sql.DB,
+	minfo ManateeStructsProvider,
+	corpusTable string,
+) *KontextDatabase {
 	return &KontextDatabase{
 		db:          db,
+		minfo:       minfo,
 		corpusTable: corpusTable,
 		ctx:         context.Background(),
 	}
