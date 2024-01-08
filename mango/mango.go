@@ -247,3 +247,35 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 
 	return ans, nil
 }
+
+// GetCorpusConf returns a corpus configuration item
+// stored in a corpus configuration file (aka "registry file")
+func GetCorpusConf(corpusPath string, prop string) (string, error) {
+	ans := (C.get_corpus_conf(C.open_corpus(C.CString(corpusPath)).value, C.CString(prop)))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return "", err
+	}
+	return C.GoString(ans.value), nil
+}
+
+func GetPosAttrSize(corpusPath string, name string) (int, error) {
+	ans := C.get_posattr_size(C.CString(corpusPath), C.CString(name))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return 0, err
+	}
+	return int(ans.value), nil
+}
+
+func GetStructSize(corpusPath string, name string) (int, error) {
+	ans := C.get_struct_size(C.CString(corpusPath), C.CString(name))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return 0, err
+	}
+	return int(ans.value), nil
+}

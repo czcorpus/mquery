@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"mquery/cnf"
 	corpusEdit "mquery/corpus/edit"
 	"mquery/corpus/query"
+	"mquery/engine"
 	"mquery/general"
 	"mquery/monitoring"
 	"mquery/rdb"
@@ -87,6 +89,7 @@ func runApiServer(
 	syscallChan chan os.Signal,
 	exitEvent chan os.Signal,
 	radapter *rdb.Adapter,
+	sqlDB *sql.DB,
 ) {
 	if !conf.LogLevel.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
@@ -100,7 +103,7 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	ceActions := corpusEdit.NewActions(conf.CorporaSetup, radapter)
+	ceActions := corpusEdit.NewActions(conf.CorporaSetup, radapter, sqlDB, conf.DB.CorpusTable, conf.Language)
 
 	engine.POST(
 		"/corpus/:corpusId/split", ceActions.SplitCorpus)
@@ -113,6 +116,9 @@ func runApiServer(
 
 	engine.POST(
 		"/corpus/:corpusId/collFreqData/:variant", ceActions.CollFreqData)
+
+	engine.GET(
+		"/corpus/:corpusId/info", ceActions.CorpusInfo)
 
 	concActions := query.NewActions(conf.CorporaSetup, radapter)
 
@@ -258,7 +264,11 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		runApiServer(conf, syscallChan, exitEvent, radapter)
+		sqlDB, err := engine.Open(conf.DB)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to open database connection")
+		}
+		runApiServer(conf, syscallChan, exitEvent, radapter, sqlDB)
 	case "worker":
 		err := radapter.TestConnection(20*time.Second, testConnCancel)
 		if err != nil {
