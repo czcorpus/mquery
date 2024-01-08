@@ -22,14 +22,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"mquery/corpus/baseinfo"
 	"mquery/corpus/conc"
+	"mquery/engine"
 	"mquery/mango"
 	"mquery/rdb"
 	"mquery/results"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
@@ -101,6 +105,16 @@ func (w *Worker) tryNextQuery() error {
 	}
 
 	switch query.Func {
+	case "corpusInfo":
+		var args rdb.CorpusInfoArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.corpusInfo(args)
+		ans.ResultType = query.ResultType
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
 	case "freqDistrib":
 		var args rdb.FreqDistribArgs
 		if err := json.Unmarshal(query.Args, &args); err != nil {
@@ -260,6 +274,36 @@ func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
 	parser := conc.NewLineParser(args.Attrs, args.ParentIdxAttr)
 	ans.Lines = parser.Parse(concEx)
 	ans.ConcSize = concEx.ConcSize
+	return &ans
+}
+
+func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) *results.CorpusInfo {
+	var ans results.CorpusInfo
+	ans.Data = engine.CorpusInfo{Corpname: filepath.Base(args.CorpusPath)}
+	t, err := fs.IsFile(args.CorpusPath)
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	if !t {
+		ans.Error = fmt.Sprintf("Invalid corpus path: %s", args.CorpusPath)
+		return &ans
+	}
+	err = baseinfo.FillStructAndAttrsInfo(args.CorpusPath, &ans.Data)
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	ans.Data.Size, err = mango.GetCorpusSize(args.CorpusPath)
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
+	ans.Data.Description, err = mango.GetCorpusConf(args.CorpusPath, "INFO")
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
 	return &ans
 }
 

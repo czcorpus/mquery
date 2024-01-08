@@ -20,6 +20,7 @@ package cnf
 
 import (
 	"encoding/json"
+	"errors"
 	"mquery/corpus"
 	"mquery/engine"
 	"mquery/rdb"
@@ -125,5 +126,12 @@ func ValidateAndDefaults(conf *Conf) {
 	}
 	if _, err := time.LoadLocation(conf.TimeZone); err != nil {
 		log.Fatal().Err(err).Msg("invalid time zone")
+	}
+	if conf.DB != nil {
+		if conf.DB.CorpusTable == "" {
+			log.Fatal().
+				Err(errors.New("Missing `db.corpusTable` specification")).
+				Msg("failed to initialize corpus information database")
+		}
 	}
 }

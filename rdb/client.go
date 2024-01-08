@@ -52,6 +52,11 @@ type Query struct {
 	Args       json.RawMessage    `json:"args"`
 }
 
+type CorpusInfoArgs struct {
+	CorpusPath string `json:"corpusPath"`
+	Language   string `json:"language"`
+}
+
 type FreqDistribArgs struct {
 	CorpusPath  string `json:"corpusPath"`
 	SubcPath    string `json:"subcPath"`

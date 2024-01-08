@@ -1,8 +1,24 @@
+// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2023 Institute of the Czech National Corpus,
+//                Faculty of Arts, Charles University
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"net/http"
@@ -19,6 +35,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
+	"mquery/corpus/baseinfo"
+	"mquery/corpus/edit"
 	corpusEdit "mquery/corpus/edit"
 	"mquery/corpus/query"
 	"mquery/engine"
@@ -89,7 +107,7 @@ func runApiServer(
 	syscallChan chan os.Signal,
 	exitEvent chan os.Signal,
 	radapter *rdb.Adapter,
-	sqlDB *sql.DB,
+	infoProvider edit.CorpusInfoProvider,
 ) {
 	if !conf.LogLevel.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
@@ -103,7 +121,8 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	ceActions := corpusEdit.NewActions(conf.CorporaSetup, radapter, sqlDB, conf.DB.CorpusTable, conf.Language)
+	ceActions := corpusEdit.NewActions(
+		conf.CorporaSetup, radapter, infoProvider, conf.Language)
 
 	engine.POST(
 		"/corpus/:corpusId/split", ceActions.SplitCorpus)
@@ -264,11 +283,23 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		sqlDB, err := engine.Open(conf.DB)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to open database connection")
+		var infoProvider edit.CorpusInfoProvider
+		if conf.DB != nil {
+			sqlDB, err := engine.Open(conf.DB)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to open database connection")
+				return
+			}
+			infoProvider = engine.NewKontextDatabase(
+				sqlDB,
+				&minfoProvider{},
+				conf.DB.CorpusTable,
+			)
+
+		} else {
+			infoProvider = baseinfo.NewManateeCorpusInfo(radapter, conf.CorporaSetup)
 		}
-		runApiServer(conf, syscallChan, exitEvent, radapter, sqlDB)
+		runApiServer(conf, syscallChan, exitEvent, radapter, infoProvider)
 	case "worker":
 		err := radapter.TestConnection(20*time.Second, testConnCancel)
 		if err != nil {

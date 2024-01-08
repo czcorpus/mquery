@@ -33,6 +33,13 @@ type DBConf struct {
 	CorpusTable string `json:"corpusTable"`
 }
 
+func (dbc *DBConf) SafeGetCorpusTable() string {
+	if dbc == nil {
+		return ""
+	}
+	return dbc.CorpusTable
+}
+
 func Open(conf *DBConf) (*sql.DB, error) {
 	mconf := mysql.NewConfig()
 	mconf.Net = "tcp"
