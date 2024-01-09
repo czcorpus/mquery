@@ -16,12 +16,13 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package query
+package handlers
 
 import (
 	"encoding/json"
 	"math/rand"
 	"mquery/corpus"
+	"mquery/corpus/query"
 	"mquery/mango"
 	"mquery/rdb"
 	"net/http"
@@ -132,7 +133,7 @@ func (a *Actions) CollocationsParallel(ctx *gin.Context) {
 	mergedFreqLock := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(defaultNumSubcSamples)
-	result := new(MultivalueColls)
+	result := new(query.MultivalueColls)
 	result.Values = make(map[string][]*mango.GoCollItem)
 
 	for i := 0; i < defaultNumSubcSamples; i++ {

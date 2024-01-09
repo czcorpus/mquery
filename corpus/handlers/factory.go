@@ -16,26 +16,24 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package query
+package handlers
 
 import (
-	"mquery/mango"
-	"net/http"
-
-	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gin-gonic/gin"
+	"mquery/corpus"
+	"mquery/corpus/infoload"
+	"mquery/rdb"
 )
 
-func (a *Actions) TextTypesNorms(ctx *gin.Context) {
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	ans, err := mango.GetTextTypesNorms(corpusPath, ctx.Request.URL.Query().Get("attr"))
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
+func NewActions(
+	conf *corpus.CorporaSetup,
+	radapter *rdb.Adapter,
+	infoProvider infoload.Provider,
+	dfltLanguage string,
+) *Actions {
+	return &Actions{
+		conf:         conf,
+		radapter:     radapter,
+		infoProvider: infoProvider,
+		dfltLanguage: dfltLanguage,
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }

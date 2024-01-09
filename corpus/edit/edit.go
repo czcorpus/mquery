@@ -99,7 +99,7 @@ func CollFreqDataExists(subcPath, attrName string) (bool, error) {
 	return isFile, nil
 }
 
-func splitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (*corpus.SplitCorpus, error) {
+func SplitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (*corpus.SplitCorpus, error) {
 
 	ans := &corpus.SplitCorpus{CorpusPath: corpusPath}
 	size, err := mango.GetCorpusSize(corpusPath)

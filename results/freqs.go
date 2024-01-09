@@ -20,8 +20,8 @@ package results
 
 import (
 	"errors"
+	"mquery/corpus/baseinfo"
 	"mquery/corpus/conc"
-	"mquery/engine"
 	"mquery/mango"
 )
 
@@ -223,9 +223,9 @@ func (res *ConcExample) Type() ResultType {
 // --------
 
 type CorpusInfo struct {
-	Data       engine.CorpusInfo `json:"data"`
-	ResultType ResultType        `json:"resultType"`
-	Error      string            `json:"error"`
+	Data       baseinfo.Corpus `json:"data"`
+	ResultType ResultType      `json:"resultType"`
+	Error      string          `json:"error"`
 }
 
 func (res *CorpusInfo) Err() error {

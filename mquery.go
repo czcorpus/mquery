@@ -35,13 +35,12 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
-	"mquery/corpus/baseinfo"
-	"mquery/corpus/edit"
-	corpusEdit "mquery/corpus/edit"
-	"mquery/corpus/query"
-	"mquery/engine"
+	corpusActions "mquery/corpus/handlers"
+	"mquery/corpus/infoload"
+	"mquery/database"
 	"mquery/general"
 	"mquery/monitoring"
+	monitoringActions "mquery/monitoring/handlers"
 	"mquery/rdb"
 	"mquery/worker"
 )
@@ -107,7 +106,7 @@ func runApiServer(
 	syscallChan chan os.Signal,
 	exitEvent chan os.Signal,
 	radapter *rdb.Adapter,
-	infoProvider edit.CorpusInfoProvider,
+	infoProvider infoload.Provider,
 ) {
 	if !conf.LogLevel.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
@@ -121,7 +120,7 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	ceActions := corpusEdit.NewActions(
+	ceActions := corpusActions.NewActions(
 		conf.CorporaSetup, radapter, infoProvider, conf.Language)
 
 	engine.POST(
@@ -139,44 +138,42 @@ func runApiServer(
 	engine.GET(
 		"/corpus/:corpusId/info", ceActions.CorpusInfo)
 
-	concActions := query.NewActions(conf.CorporaSetup, radapter)
+	engine.GET(
+		"/freqs/:corpusId", ceActions.FreqDistrib)
 
 	engine.GET(
-		"/freqs/:corpusId", concActions.FreqDistrib)
+		"/freqs2/:corpusId", ceActions.FreqDistribParallel)
 
 	engine.GET(
-		"/freqs2/:corpusId", concActions.FreqDistribParallel)
+		"/text-types-norms/:corpusId", ceActions.TextTypesNorms)
 
 	engine.GET(
-		"/text-types-norms/:corpusId", concActions.TextTypesNorms)
+		"/text-types-streamed/:corpusId", ceActions.TextTypesStreamed)
 
 	engine.GET(
-		"/text-types-streamed/:corpusId", concActions.TextTypesStreamed)
+		"/freqs-by-year-streamed/:corpusId", ceActions.FreqsByYears)
 
 	engine.GET(
-		"/freqs-by-year-streamed/:corpusId", concActions.FreqsByYears)
+		"/text-types/:corpusId", ceActions.TextTypes)
 
 	engine.GET(
-		"/text-types/:corpusId", concActions.TextTypes)
+		"/text-types2/:corpusId", ceActions.TextTypesParallel)
 
 	engine.GET(
-		"/text-types2/:corpusId", concActions.TextTypesParallel)
+		"/collocs/:corpusId", ceActions.Collocations)
 
 	engine.GET(
-		"/collocs/:corpusId", concActions.Collocations)
+		"/collocs2/:corpusId", ceActions.CollocationsParallel)
 
 	engine.GET(
-		"/collocs2/:corpusId", concActions.CollocationsParallel)
+		"/word-forms/:corpusId", ceActions.WordForms)
 
 	engine.GET(
-		"/word-forms/:corpusId", concActions.WordForms)
-
-	engine.GET(
-		"/conc-examples/:corpusId", concActions.ConcExample)
+		"/conc-examples/:corpusId", ceActions.ConcExample)
 
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
-	monitoringActions := monitoring.NewActions(logger, conf.TimezoneLocation())
+	monitoringActions := monitoringActions.NewActions(logger, conf.TimezoneLocation())
 
 	engine.GET(
 		"/monitoring/workers-load", monitoringActions.WorkersLoad)
@@ -283,21 +280,21 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		var infoProvider edit.CorpusInfoProvider
+		var infoProvider infoload.Provider
 		if conf.DB != nil {
-			sqlDB, err := engine.Open(conf.DB)
+			sqlDB, err := database.Open(conf.DB)
 			if err != nil {
 				log.Fatal().Err(err).Msg("failed to open database connection")
 				return
 			}
-			infoProvider = engine.NewKontextDatabase(
+			infoProvider = database.NewKontextDatabase(
 				sqlDB,
-				&minfoProvider{},
+				infoload.NewAttributeFiller(conf.CorporaSetup),
 				conf.DB.CorpusTable,
 			)
 
 		} else {
-			infoProvider = baseinfo.NewManateeCorpusInfo(radapter, conf.CorporaSetup)
+			infoProvider = infoload.NewManatee(radapter, conf.CorporaSetup)
 		}
 		runApiServer(conf, syscallChan, exitEvent, radapter, infoProvider)
 	case "worker":

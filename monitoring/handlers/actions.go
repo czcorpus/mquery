@@ -16,9 +16,10 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package monitoring
+package handlers
 
 import (
+	"mquery/monitoring"
 	"net/http"
 	"time"
 
@@ -28,7 +29,7 @@ import (
 )
 
 type Actions struct {
-	logger   *WorkerJobLogger
+	logger   *monitoring.WorkerJobLogger
 	location *time.Location
 }
 
@@ -70,7 +71,7 @@ func (a *Actions) WorkersLoadTotal(ctx *gin.Context) {
 }
 
 func NewActions(
-	logger *WorkerJobLogger,
+	logger *monitoring.WorkerJobLogger,
 	location *time.Location,
 ) *Actions {
 	ans := &Actions{

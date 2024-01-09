@@ -1,4 +1,4 @@
-// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Martin Zimandl <martin.zimandl@gmail.com>
 // Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
@@ -16,11 +16,10 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package query
+package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
@@ -28,16 +27,17 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
-func (a *Actions) FreqDistrib(ctx *gin.Context) {
+func (a *Actions) TextTypes(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
+	attr := ctx.Request.URL.Query().Get("attr")
 	flimit := 1
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
@@ -52,12 +52,20 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		}
 	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	args, err := json.Marshal(rdb.FreqDistribArgs{
-		CorpusPath: corpusPath,
-		Query:      q,
-		Crit:       "lemma/e 0~0>0",
-		FreqLimit:  flimit,
-	})
+	freqArgs := rdb.FreqDistribArgs{
+		CorpusPath:  corpusPath,
+		Query:       q,
+		Crit:        fmt.Sprintf("%s 0", attr),
+		IsTextTypes: true,
+		FreqLimit:   flimit,
+	}
+
+	// TODO this probably needs some work
+	if ctx.Request.URL.Query().Has("subc") {
+		freqArgs.SubcPath = ctx.Request.URL.Query().Get("subc")
+	}
+
+	args, err := json.Marshal(freqArgs)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -80,7 +88,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-	result, err := rdb.DeserializeFreqDistribResult(rawResult)
+	result, err := rdb.DeserializeTextTypesResult(rawResult)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -103,11 +111,9 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	)
 }
 
-func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
+func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
-	flimit := 1
-	maxItems := 0
-	within := ""
+	attr := ctx.Request.URL.Query().Get("attr")
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
@@ -119,75 +125,30 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		return
 	}
 
-	if ctx.Request.URL.Query().Has("flimit") {
-		var err error
-		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusUnprocessableEntity,
-			)
-			return
-		}
+	flimit, ok := unireq.GetURLIntArgOrFail(ctx, "flimit", 1)
+	if !ok {
+		return
+	}
+	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", 0)
+	if !ok {
+		return
 	}
 
-	if ctx.Request.URL.Query().Has("maxItems") {
-		var err error
-		maxItems, err = strconv.Atoi(ctx.Request.URL.Query().Get("maxItems"))
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusUnprocessableEntity,
-			)
-			return
-		}
-	}
-
-	if ctx.Request.URL.Query().Has("within") {
-		within = ctx.Request.URL.Query().Get("within")
-		if within == "" {
-			uniresp.RespondWithErrorJSON(
-				ctx,
-				errors.New("empty `within` argument"),
-				http.StatusBadRequest,
-			)
-			return
-		}
-		tmp := strings.SplitN(within, "=", 2)
-		if len(tmp) != 2 {
-			uniresp.RespondWithErrorJSON(
-				ctx,
-				errors.New("invalid `within` expression"),
-				http.StatusBadRequest,
-			)
-			return
-		}
-		kv := strings.Split(tmp[0], ".")
-		if len(kv) != 2 {
-			uniresp.RespondWithErrorJSON(
-				ctx,
-				errors.New("invalid `within` expression"),
-				http.StatusBadRequest,
-			)
-			return
-		}
-		q = fmt.Sprintf("%s within <%s %s=\"%s\" />", q, kv[0], kv[1], tmp[1])
-	}
 	mergedFreqLock := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(len(sc.Subcorpora))
 	result := new(results.FreqDistrib)
 	result.Freqs = make([]*results.FreqDistribItem, 0)
+	errs := make([]error, 0, len(sc.Subcorpora))
 	for _, subc := range sc.Subcorpora {
 		args, err := json.Marshal(rdb.FreqDistribArgs{
-			CorpusPath: corpusPath,
-			SubcPath:   subc,
-			Query:      q,
-			Crit:       "lemma/e 0~0>0",
-			FreqLimit:  flimit,
-			MaxResults: maxItems,
+			CorpusPath:  corpusPath,
+			SubcPath:    subc,
+			Query:       q,
+			Crit:        fmt.Sprintf("%s 0", attr),
+			IsTextTypes: true,
+			FreqLimit:   flimit,
+			MaxResults:  maxItems,
 		})
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
@@ -203,20 +164,21 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			Args: args,
 		})
 		if err != nil {
-			// TODO
+			errs = append(errs, err)
 			log.Error().Err(err).Msg("failed to publish query")
+			wg.Done()
 
 		} else {
 			go func() {
 				defer wg.Done()
 				tmp := <-wait
-				resultNext, err := rdb.DeserializeFreqDistribResult(tmp)
+				resultNext, err := rdb.DeserializeTextTypesResult(tmp)
 				if err != nil {
-					// TODO
+					errs = append(errs, err)
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
-				if err := resultNext.Err(); err != nil {
-					// TODO
+				if err := result.Err(); err != nil {
+					errs = append(errs, err)
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
 				mergedFreqLock.Lock()
@@ -226,6 +188,13 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		}
 	}
 	wg.Wait()
+
+	if len(errs) > 0 {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
+		return
+	}
+
 	sort.SliceStable(
 		result.Freqs,
 		func(i, j int) bool {

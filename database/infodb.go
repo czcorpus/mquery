@@ -14,20 +14,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package database
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"mquery/corpus/baseinfo"
 	"mquery/tools"
 	"strings"
 
 	"github.com/rs/zerolog/log"
 )
 
-type ManateeStructsProvider interface {
-	FillStructAndAttrsInfo(corpPath string, info *CorpusInfo) error
+// manateeStructsProvider specifies an object able to provide
+// structural attribute info via Manatee-open library. Because
+// even if corpus information database is available, Mquery does
+// not expect it to provide structural and positional attribute
+// information (though CNC's database contains such information)
+type manateeStructsProvider interface {
+	FillStructAndAttrs(corpPath string, info *baseinfo.Corpus) error
 	GetRegistryPath(corpusID string) string
 }
 
@@ -38,10 +44,10 @@ type KontextDatabase struct {
 	db          *sql.DB
 	corpusTable string
 	ctx         context.Context
-	minfo       ManateeStructsProvider
+	minfo       manateeStructsProvider
 }
 
-func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*CitationInfo, error) {
+func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*baseinfo.Citation, error) {
 	sql1 := "SELECT ca.role, a.entry " +
 		"FROM kontext_article AS a " +
 		"JOIN kontext_corpus_article AS ca ON ca.article_id = a.id " +
@@ -51,7 +57,7 @@ func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*CitationInfo, er
 	if err != nil {
 		return nil, err
 	}
-	var citationInfo CitationInfo
+	var citationInfo baseinfo.Citation
 	for rows.Next() {
 		var role, entry string
 		err := rows.Scan(&role, &entry)
@@ -70,7 +76,7 @@ func (kdb *KontextDatabase) loadCitationInfo(corpusID string) (*CitationInfo, er
 	return &citationInfo, nil
 }
 
-func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]Tagset, error) {
+func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]baseinfo.Tagset, error) {
 	sql1 := "SELECT ct.corpus_name, ct.pos_attr, ct.feat_attr, t.tagset_type, ct.tagset_name, " +
 		"ct.kontext_widget_enabled, t.doc_url_local, t.doc_url_en, " +
 		"GROUP_CONCAT(CONCAT_WS(',', tpc.tag_search_pattern, tpc.pos) SEPARATOR ';') " +
@@ -84,9 +90,9 @@ func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]Tagset, error) {
 	if err != nil {
 		return nil, err
 	}
-	var tagsets []Tagset
+	var tagsets []baseinfo.Tagset
 	for rows.Next() {
-		var tagset Tagset
+		var tagset baseinfo.Tagset
 		var posAttr, docUrlLocal, docUrlEn sql.NullString
 		var posCategory string
 		err := rows.Scan(&tagset.CorpusName, &posAttr, &tagset.FeatAttr, &tagset.Type, &tagset.ID, &tagset.WidgetEnabled, &docUrlLocal, &docUrlEn, &posCategory)
@@ -106,7 +112,7 @@ func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]Tagset, error) {
 	return tagsets, nil
 }
 
-func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*CorpusInfo, error) {
+func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*baseinfo.Corpus, error) {
 
 	sql1 := "SELECT c.name, c.description_%s, c.size, c.web, " +
 		"GROUP_CONCAT(CONCAT(kk.label_%s, ':', COALESCE(kk.color, \"rgba(0, 0, 0, 0.0)\")), ';') " +
@@ -117,7 +123,7 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*C
 		"GROUP BY c.name "
 
 	log.Debug().Str("sql", sql1).Msgf("going to select corpus info for %s", corpusID)
-	var info CorpusInfo
+	var info baseinfo.Corpus
 	row := kdb.db.QueryRow(fmt.Sprintf(sql1, language, language, kdb.corpusTable), corpusID)
 	var description, keywords, web sql.NullString
 	err := row.Scan(&info.Corpname, &description, &info.Size, &web, &keywords)
@@ -130,7 +136,10 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*C
 		for _, keyword := range strings.Split(keywords.String, ";") {
 			if keyword != "" {
 				values := strings.Split(keyword, ":")
-				info.Keywords = append(info.Keywords, Keyword{Name: values[0], Color: values[1]})
+				info.Keywords = append(
+					info.Keywords,
+					baseinfo.Keyword{Name: values[0], Color: values[1]},
+				)
 			}
 		}
 	}
@@ -144,7 +153,7 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*C
 	}
 
 	corpPath := kdb.minfo.GetRegistryPath(corpusID)
-	err = kdb.minfo.FillStructAndAttrsInfo(corpPath, &info)
+	err = kdb.minfo.FillStructAndAttrs(corpPath, &info)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +163,7 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*C
 
 func NewKontextDatabase(
 	db *sql.DB,
-	minfo ManateeStructsProvider,
+	minfo manateeStructsProvider,
 	corpusTable string,
 ) *KontextDatabase {
 	return &KontextDatabase{

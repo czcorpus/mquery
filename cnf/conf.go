@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"mquery/corpus"
-	"mquery/engine"
+	"mquery/database"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -49,7 +49,7 @@ type Conf struct {
 	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
 	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
 	Redis                  *rdb.Conf            `json:"redis"`
-	DB                     *engine.DBConf       `json:"db"`
+	DB                     *database.DBConf     `json:"db"`
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
 	Language               string               `json:"language"`
