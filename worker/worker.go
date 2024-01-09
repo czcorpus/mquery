@@ -24,7 +24,7 @@ import (
 	"math/rand"
 	"mquery/corpus/baseinfo"
 	"mquery/corpus/conc"
-	"mquery/engine"
+	"mquery/corpus/infoload"
 	"mquery/mango"
 	"mquery/rdb"
 	"mquery/results"
@@ -279,7 +279,7 @@ func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
 
 func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) *results.CorpusInfo {
 	var ans results.CorpusInfo
-	ans.Data = engine.CorpusInfo{Corpname: filepath.Base(args.CorpusPath)}
+	ans.Data = baseinfo.Corpus{Corpname: filepath.Base(args.CorpusPath)}
 	t, err := fs.IsFile(args.CorpusPath)
 	if err != nil {
 		ans.Error = err.Error()
@@ -289,7 +289,7 @@ func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) *results.CorpusInfo {
 		ans.Error = fmt.Sprintf("Invalid corpus path: %s", args.CorpusPath)
 		return &ans
 	}
-	err = baseinfo.FillStructAndAttrsInfo(args.CorpusPath, &ans.Data)
+	err = infoload.FillStructAndAttrs(args.CorpusPath, &ans.Data)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans

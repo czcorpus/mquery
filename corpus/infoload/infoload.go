@@ -1,4 +1,4 @@
-// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2024 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2023 Martin Zimandl <martin.zimandl@gmail.com>
 // Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
@@ -15,22 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package infoload
 
-import (
-	"mquery/cnf"
-	"mquery/corpus/baseinfo"
-	"mquery/engine"
-)
+import "mquery/corpus/baseinfo"
 
-type minfoProvider struct {
-	conf *cnf.Conf
-}
-
-func (mp *minfoProvider) FillStructAndAttrsInfo(corpPath string, info *engine.CorpusInfo) error {
-	return baseinfo.FillStructAndAttrsInfo(corpPath, info)
-}
-
-func (mp *minfoProvider) GetRegistryPath(corpusID string) string {
-	return mp.conf.CorporaSetup.GetRegistryPath(corpusID)
+type Provider interface {
+	LoadCorpusInfo(corpusID string, language string) (*baseinfo.Corpus, error)
 }

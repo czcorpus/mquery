@@ -16,11 +16,10 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package query
+package handlers
 
 import (
 	"encoding/json"
-	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -43,11 +42,6 @@ var (
 		"tScore":        "t",
 	}
 )
-
-type Actions struct {
-	conf     *corpus.CorporaSetup
-	radapter *rdb.Adapter
-}
 
 func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*results.LemmaItem, error) {
 	q := "word=\"" + word + "\""
@@ -234,14 +228,4 @@ func (a *Actions) ConcExample(ctx *gin.Context) {
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, result)
-}
-
-func NewActions(
-	conf *corpus.CorporaSetup,
-	radapter *rdb.Adapter,
-) *Actions {
-	return &Actions{
-		conf:     conf,
-		radapter: radapter,
-	}
 }

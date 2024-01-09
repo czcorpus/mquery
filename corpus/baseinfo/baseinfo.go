@@ -1,5 +1,5 @@
-// Copyright 2024 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2023 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //
@@ -17,84 +17,42 @@
 
 package baseinfo
 
-import (
-	"encoding/json"
-	"mquery/corpus"
-	"mquery/engine"
-	"mquery/mango"
-	"mquery/rdb"
-	"strings"
-)
-
-type ManateeCorpusInfo struct {
-	conf         *corpus.CorporaSetup
-	queryHandler corpus.QueryHandler
+type Item struct {
+	Name string `json:"name"`
+	Size int    `json:"size"`
 }
 
-func (kdb *ManateeCorpusInfo) LoadCorpusInfo(corpusId string, language string) (*engine.CorpusInfo, error) {
-	args, err := json.Marshal(rdb.CorpusInfoArgs{
-		CorpusPath: kdb.conf.GetRegistryPath(corpusId),
-		Language:   language,
-	})
-	if err != nil {
-		return nil, err
-	}
-	wait, err := kdb.queryHandler.PublishQuery(rdb.Query{
-		Func: "corpusInfo",
-		Args: args,
-	})
-	if err != nil {
-		return nil, err
-	}
-	rawResult := <-wait
-	corpusInfo, err := rdb.DeserializeCorpusInfoDataResult(rawResult)
-	if err != nil {
-		return nil, err
-	}
-	if corpusInfo.Err() != nil {
-		return nil, corpusInfo.Err()
-	}
-	return &corpusInfo.Data, nil
+type Citation struct {
+	DefaultRef        string   `json:"default_ref"`
+	ArticleRef        []string `json:"article_ref"`
+	OtherBibliography string   `json:"other_bibliography"`
 }
 
-func NewManateeCorpusInfo(
-	queryHandler corpus.QueryHandler,
-	conf *corpus.CorporaSetup,
-) *ManateeCorpusInfo {
-	return &ManateeCorpusInfo{
-		queryHandler: queryHandler,
-		conf:         conf,
-	}
+type Keyword struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
 }
 
-func FillStructAndAttrsInfo(corpPath string, info *engine.CorpusInfo) error {
-	attrs, err := mango.GetCorpusConf(corpPath, "ATTRLIST")
-	if err != nil {
-		return err
-	}
-	for _, v := range strings.Split(attrs, ",") {
-		size, err := mango.GetPosAttrSize(corpPath, v)
-		if err != nil {
-			return err
-		}
-		info.AttrList = append(info.AttrList, engine.Item{
-			Name: v,
-			Size: size,
-		})
-	}
-	structs, err := mango.GetCorpusConf(corpPath, "STRUCTLIST")
-	if err != nil {
-		return err
-	}
-	for _, v := range strings.Split(structs, ",") {
-		size, err := mango.GetStructSize(corpPath, v)
-		if err != nil {
-			return err
-		}
-		info.StructList = append(info.StructList, engine.Item{
-			Name: v,
-			Size: size,
-		})
-	}
-	return nil
+type Tagset struct {
+	ID            string     `json:"ident"`
+	Type          string     `json:"type"`
+	CorpusName    string     `json:"corpusName"`
+	PosAttr       string     `json:"posAttr"`
+	FeatAttr      string     `json:"featAttr"`
+	WidgetEnabled bool       `json:"widgetEnabled"`
+	DocUrlLocal   string     `json:"docUrlLocal"`
+	DocUrlEn      string     `json:"docUrlEn"`
+	PosCategory   [][]string `json:"posCategory"`
+}
+
+type Corpus struct {
+	Corpname     string    `json:"corpname"`
+	Description  string    `json:"description"`
+	Size         int64     `json:"size"`
+	AttrList     []Item    `json:"attrlist"`
+	StructList   []Item    `json:"structlist"`
+	WebUrl       string    `json:"webUrl"`
+	CitationInfo *Citation `json:"citationInfo"`
+	Keywords     []Keyword `json:"keywords"`
+	Tagsets      []Tagset  `json:"tagsets"`
 }

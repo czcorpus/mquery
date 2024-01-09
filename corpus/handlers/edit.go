@@ -16,13 +16,14 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package edit
+package handlers
 
 import (
 	"encoding/json"
 	"fmt"
 	"mquery/corpus"
-	"mquery/engine"
+	"mquery/corpus/edit"
+	"mquery/corpus/infoload"
 	"mquery/rdb"
 	"net/http"
 	"sync"
@@ -41,10 +42,6 @@ const (
 
 type corpusStructVariant string
 
-type CorpusInfoProvider interface {
-	LoadCorpusInfo(corpusID string, language string) (*engine.CorpusInfo, error)
-}
-
 func (variant corpusStructVariant) Validate() bool {
 	return variant == SplitCorpus || variant == MultisampledCorpus
 }
@@ -56,13 +53,13 @@ type multiSubcCorpus interface {
 type Actions struct {
 	conf         *corpus.CorporaSetup
 	radapter     *rdb.Adapter
-	infoProvider CorpusInfoProvider
-	language     string
+	infoProvider infoload.Provider
+	dfltLanguage string
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	exists, err := SplitCorpusExists(a.conf.SplitCorporaDir, corpPath)
+	exists, err := edit.SplitCorpusExists(a.conf.SplitCorporaDir, corpPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
@@ -73,7 +70,7 @@ func (a *Actions) DeleteSplit(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionError("split does not exist"), http.StatusNotFound)
 		return
 	}
-	err = DeleteSplit(a.conf.SplitCorporaDir, corpPath)
+	err = edit.DeleteSplit(a.conf.SplitCorporaDir, corpPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
@@ -85,7 +82,7 @@ func (a *Actions) DeleteSplit(ctx *gin.Context) {
 
 func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	exists, err := SplitCorpusExists(a.conf.SplitCorporaDir, corpPath)
+	exists, err := edit.SplitCorpusExists(a.conf.SplitCorporaDir, corpPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
@@ -103,7 +100,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	}
 
 	// note: `splitCorpus` is very fast so there is no need to delegate it to a worker
-	corp, err := splitCorpus(a.conf.SplitCorporaDir, corpPath, int64(chunkSize))
+	corp, err := edit.SplitCorpus(a.conf.SplitCorporaDir, corpPath, int64(chunkSize))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
@@ -156,7 +153,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 
 func (a *Actions) MultiSample(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	exists, err := MultisampleCorpusExists(a.conf.MultisampledCorporaDir, corpPath)
+	exists, err := edit.MultisampleCorpusExists(a.conf.MultisampledCorporaDir, corpPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
@@ -171,7 +168,7 @@ func (a *Actions) MultiSample(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	corp, err := MultisampleCorpus(
+	corp, err := edit.MultisampleCorpus(
 		a.conf.MultisampledCorporaDir, corpPath, a.conf.MultisampledSubcSize, numSamples)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -263,7 +260,7 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 	errs := make([]error, 0, len(multicorp.GetSubcorpora()))
 	for _, subc := range multicorp.GetSubcorpora() {
 		for _, attr := range []string{"word", "lemma"} {
-			exists, err := CollFreqDataExists(subc, attr)
+			exists, err := edit.CollFreqDataExists(subc, attr)
 			if err != nil {
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to determine freq file existence")
@@ -314,25 +311,11 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 }
 
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
-	info, err := a.infoProvider.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.language))
+	info, err := a.infoProvider.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.dfltLanguage))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, info)
-}
-
-func NewActions(
-	conf *corpus.CorporaSetup,
-	radapter *rdb.Adapter,
-	infoProvider CorpusInfoProvider,
-	language string,
-) *Actions {
-	return &Actions{
-		conf:         conf,
-		radapter:     radapter,
-		infoProvider: infoProvider,
-		language:     language,
-	}
 }
