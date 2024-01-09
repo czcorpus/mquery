@@ -22,6 +22,8 @@ import (
 	"mquery/corpus"
 	"mquery/corpus/baseinfo"
 	"mquery/rdb"
+
+	"github.com/czcorpus/cnc-gokit/fs"
 )
 
 type Manatee struct {
@@ -30,12 +32,20 @@ type Manatee struct {
 }
 
 func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*baseinfo.Corpus, error) {
+	corpusPath := kdb.conf.GetRegistryPath(corpusId)
 	args, err := json.Marshal(rdb.CorpusInfoArgs{
-		CorpusPath: kdb.conf.GetRegistryPath(corpusId),
+		CorpusPath: corpusPath,
 		Language:   language,
 	})
 	if err != nil {
 		return nil, err
+	}
+	registryExists, err := fs.IsFile(corpusPath)
+	if err != nil {
+		return nil, err
+	}
+	if !registryExists {
+		return nil, corpus.ErrNotFound
 	}
 	wait, err := kdb.queryHandler.PublishQuery(rdb.Query{
 		Func: "corpusInfo",

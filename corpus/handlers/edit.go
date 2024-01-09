@@ -312,7 +312,12 @@ func (a *Actions) CollFreqData(ctx *gin.Context) {
 
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
 	info, err := a.infoProvider.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.dfltLanguage))
-	if err != nil {
+	if err == corpus.ErrNotFound {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
+		return
+
+	} else if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
