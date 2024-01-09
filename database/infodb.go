@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"mquery/corpus"
 	"mquery/corpus/baseinfo"
 	"mquery/tools"
 	"strings"
@@ -112,10 +113,12 @@ func (kdb *KontextDatabase) loadTagsets(corpusID string) ([]baseinfo.Tagset, err
 	return tagsets, nil
 }
 
+// LoadCorpusInfo loads corpus information from database.
+// In case a requested corpus is not found, corpus.ErrNotFound is returned.
 func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*baseinfo.Corpus, error) {
 
 	sql1 := "SELECT c.name, c.description_%s, c.size, c.web, " +
-		"GROUP_CONCAT(CONCAT(kk.label_%s, ':', COALESCE(kk.color, \"rgba(0, 0, 0, 0.0)\")), ';') " +
+		"GROUP_CONCAT(CONCAT(kk.label_%s, ':', COALESCE(kk.color, \"rgba(0, 0, 0, 0.0)\")) SEPARATOR ';') " +
 		"FROM %s AS c " +
 		"LEFT JOIN kontext_keyword_corpus AS kkc ON kkc.corpus_name = c.name " +
 		"LEFT JOIN kontext_keyword AS kk ON kkc.keyword_id = kk.id " +
@@ -127,7 +130,10 @@ func (kdb *KontextDatabase) LoadCorpusInfo(corpusID string, language string) (*b
 	row := kdb.db.QueryRow(fmt.Sprintf(sql1, language, language, kdb.corpusTable), corpusID)
 	var description, keywords, web sql.NullString
 	err := row.Scan(&info.Corpname, &description, &info.Size, &web, &keywords)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, corpus.ErrNotFound
+
+	} else if err != nil {
 		return nil, err
 	}
 	info.Description = description.String

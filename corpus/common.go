@@ -19,10 +19,15 @@
 package corpus
 
 import (
+	"errors"
 	"fmt"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
+)
+
+var (
+	ErrNotFound = errors.New("corpus not found")
 )
 
 type SplitCorpus struct {
