@@ -33,9 +33,6 @@
 
 using namespace std;
 
-// a bunch of wrapper functions we need to get data
-// from Manatee
-
 
 CorpusRetval open_corpus(const char* corpusPath) {
     string tmp(corpusPath);
@@ -229,17 +226,52 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
  * @param limit
  * @return KWICRowsRetval
  */
-KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const char* attrs, PosInt limit) {
+KWICRowsRetval conc_examples(
+    const char* corpusPath, const char* query, const char* attrs, PosInt fromLine, PosInt limit,
+        PosInt maxContext, const char* viewContextStruct) {
+
     string cPath(corpusPath);
     try {
         Corpus* corp = new Corpus(cPath);
         Concordance* conc = new Concordance(
             corp, corp->filter_query(eval_cqpquery(query, corp)));
         conc->sync();
+        if (conc->size() == 0 && fromLine == 0) {
+            KWICRowsRetval ans {
+                nullptr,
+                0,
+                0,
+                nullptr
+            };
+            return ans;
+        }
+        if (conc->size() < fromLine) {
+            const char* msg = "line range out of result size";
+            char* dynamicStr = static_cast<char*>(malloc(strlen(msg) + 1));
+            strcpy(dynamicStr, msg);
+            KWICRowsRetval ans {
+                nullptr,
+                0,
+                0,
+                dynamicStr,
+                1
+            };
+            return ans;
+        }
         conc->shuffle();
+        PosInt concSize = conc->size();
         KWICLines* kl = new KWICLines(
-            corp, conc->RS(true, 0, 100), "-1:s", "1:s",
-			attrs, attrs, "", "", limit, false);
+            corp,
+            conc->RS(true, fromLine, fromLine+limit),
+            ("-1:"+std::string(viewContextStruct)).c_str(),
+            ("1:"+std::string(viewContextStruct)).c_str(),
+            attrs,
+            attrs,
+            "",
+            "#",
+            maxContext,
+            false
+        );
         if (conc->size() < limit) {
             limit = conc->size();
         }
@@ -250,6 +282,8 @@ KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const ch
             auto kwc = kl->get_kwic();
             auto rgt = kl->get_right();
             std::ostringstream buffer;
+
+            buffer << kl->get_refs() << " ";
 
             for (size_t i = 0; i < lft.size(); ++i) {
                 if (i > 0) {
@@ -275,12 +309,21 @@ KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const ch
                 break;
             }
         }
+        // We've allocated memory for `limit` rows,
+        // but it's possible that there is less rows
+        // available so here we fill the remaining items
+        // with empty strings.
+        for (int i2 = i; i2 < limit; i2++) {
+            lines[i2] = strdup("");
+        }
         delete conc;
         delete corp;
         KWICRowsRetval ans {
             lines,
             limit,
-            nullptr
+            concSize,
+            nullptr,
+            0
         };
         return ans;
 
@@ -288,7 +331,9 @@ KWICRowsRetval conc_examples(const char* corpusPath, const char* query, const ch
         KWICRowsRetval ans {
             nullptr,
             0,
-            strdup(e.what())
+            0,
+            strdup(e.what()),
+            0
         };
         return ans;
     }

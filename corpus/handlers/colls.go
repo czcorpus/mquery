@@ -20,17 +20,11 @@ package handlers
 
 import (
 	"encoding/json"
-	"math/rand"
-	"mquery/corpus"
-	"mquery/corpus/query"
-	"mquery/mango"
 	"mquery/rdb"
 	"net/http"
-	"sync"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -102,93 +96,5 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		result,
-	)
-}
-
-func (a *Actions) CollocationsParallel(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
-
-	collFnArg := ctx.Request.URL.Query().Get("fn")
-	collFn, ok := collFunc[collFnArg]
-	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("unknown collocations function %s", collFnArg),
-			http.StatusUnprocessableEntity,
-		)
-		return
-	}
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-
-	sc, err := corpus.OpenMultisampledCorpus(a.conf.MultisampledCorporaDir, corpusPath)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	mergedFreqLock := sync.Mutex{}
-	wg := sync.WaitGroup{}
-	wg.Add(defaultNumSubcSamples)
-	result := new(query.MultivalueColls)
-	result.Values = make(map[string][]*mango.GoCollItem)
-
-	for i := 0; i < defaultNumSubcSamples; i++ {
-		subc := sc.Subcorpora[rand.Intn(len(sc.Subcorpora))]
-		args, err := json.Marshal(rdb.CollocationsArgs{
-			CorpusPath: corpusPath,
-			SubcPath:   subc,
-			Query:      q,
-			Attr:       CollDefaultAttr,
-			CollFn:     collFn,
-			MinFreq:    2,
-			MaxItems:   20,
-		})
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-
-		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "collocations",
-			Args: args,
-		})
-
-		if err != nil {
-			// TODO
-			log.Error().Err(err).Msg("failed to publish query")
-			wg.Done()
-
-		} else {
-			go func() {
-				defer wg.Done()
-				tmp := <-wait
-				resultNext, err := rdb.DeserializeCollocationsResult(tmp)
-				if err != nil {
-					// TODO
-					log.Error().Err(err).Msg("failed to deserialize query")
-				}
-				if err := resultNext.Err(); err != nil {
-					// TODO
-					log.Error().Err(err).Msg("failed to deserialize query")
-				}
-				mergedFreqLock.Lock()
-				result.Add(resultNext.Colls)
-				mergedFreqLock.Unlock()
-			}()
-		}
-	}
-	wg.Wait()
-	resp := result.SortedByAvgScore()
-	uniresp.WriteJSONResponse(
-		ctx.Writer,
-		resp,
 	)
 }

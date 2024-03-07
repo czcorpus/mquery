@@ -21,8 +21,9 @@ package results
 import (
 	"errors"
 	"mquery/corpus/baseinfo"
-	"mquery/corpus/conc"
 	"mquery/mango"
+
+	"github.com/czcorpus/mquery-common/concordance"
 )
 
 const (
@@ -203,10 +204,10 @@ func (res *CollFreqData) Type() ResultType {
 // ----
 
 type Concordance struct {
-	Lines      []conc.ConcordanceLine `json:"lines"`
-	ConcSize   int                    `json:"concSize"`
-	ResultType ResultType             `json:"resultType"`
-	Error      string                 `json:"error"`
+	Lines      []concordance.Line `json:"lines"`
+	ConcSize   int                `json:"concSize"`
+	ResultType ResultType         `json:"resultType"`
+	Error      string             `json:"error"`
 }
 
 func (res *Concordance) Err() error {

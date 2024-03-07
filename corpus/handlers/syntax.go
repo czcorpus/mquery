@@ -28,6 +28,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	dfltMaxContext = 50
+)
+
 func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 	corpusName := ctx.Param("corpusId")
 	corpusConf, ok := a.conf.Resources[corpusName]
@@ -39,12 +43,15 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 		)
 	}
 	args, err := json.Marshal(rdb.ConcordanceArgs{
-		CorpusPath:    a.conf.GetRegistryPath(corpusName),
-		QueryLemma:    ctx.Query("lemma"),
-		Query:         ctx.Query("query"),
-		Attrs:         corpusConf.SyntaxConcordance.ResultAttrs,
-		MaxItems:      10,
-		ParentIdxAttr: corpusConf.SyntaxConcordance.ParentAttr,
+		CorpusPath:        a.conf.GetRegistryPath(corpusName),
+		QueryLemma:        ctx.Query("lemma"),
+		Query:             ctx.Query("q"),
+		Attrs:             corpusConf.SyntaxConcordance.ResultAttrs,
+		ParentIdxAttr:     corpusConf.SyntaxConcordance.ParentAttr,
+		StartLine:         0, // TODO
+		MaxItems:          corpusConf.MaximumRecords,
+		MaxContext:        dfltMaxContext,
+		ViewContextStruct: corpusConf.ViewContextStruct,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
