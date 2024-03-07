@@ -83,12 +83,15 @@ type ConcSizeArgs struct {
 }
 
 type ConcordanceArgs struct {
-	CorpusPath    string   `json:"corpusPath"`
-	QueryLemma    string   `json:"queryLemma"`
-	Query         string   `json:"query"`
-	Attrs         []string `json:"attrs"`
-	ParentIdxAttr string   `json:"parentIdxAttr"`
-	MaxItems      int      `json:"maxItems"`
+	CorpusPath        string   `json:"corpusPath"`
+	Query             string   `json:"query"`
+	QueryLemma        string   `json:"queryLemma"`
+	Attrs             []string `json:"attrs"`
+	MaxItems          int      `json:"maxItems"`
+	StartLine         int      `json:"startLine"`
+	MaxContext        int      `json:"maxContext"`
+	ViewContextStruct string   `json:"viewContextStruct"`
+	ParentIdxAttr     string   `json:"parentIdxAttr"`
 }
 
 type CalcCollFreqDataArgs struct {

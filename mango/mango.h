@@ -98,7 +98,9 @@ typedef struct CollsRetVal {
 typedef struct KWICRowsRetval {
     KWICRowsV value;
     PosInt size;
+    PosInt concSize;
     const char * err;
+    int errorCode;
 } KWICRowsRetval;
 
 
@@ -138,7 +140,23 @@ FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt 
 
 FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* query, const char* fcrit, PosInt flimit);
 
-KWICRowsRetval conc_examples(const char* corpusPath, const char*query, const char* attrs, PosInt limit);
+/**
+ * @brief Based on provided query, return at most `limit` sentences matching the query.
+ * The returned string is always in form "[kwic_token_id] [rest...]" - so to parse the
+ * data properly, the ID must be cut from the rest of the data.
+ * Please note that when called from Go via function `GetConcExamples`, the Go function
+ * checks the `limit` argument against `mango.MaxRecordsInternalLimit` and will not allow
+ * larger value.
+ *
+ * @param corpusPath
+ * @param query
+ * @param attrs Positional attributes (comma-separated) to be attached to returned tokens
+ * @param limit
+ * @return KWICRowsRetval
+ */
+KWICRowsRetval conc_examples(
+    const char* corpusPath, const char*query, const char* attrs, PosInt fromLine, PosInt limit,
+    PosInt maxContext, const char* viewContextStruct);
 
 void conc_examples_free(KWICRowsV value, int numItems);
 

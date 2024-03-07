@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math/rand"
 	"mquery/corpus/baseinfo"
-	"mquery/corpus/conc"
 	"mquery/corpus/infoload"
 	"mquery/mango"
 	"mquery/rdb"
@@ -34,6 +33,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
@@ -266,13 +266,15 @@ func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
 
 func (w *Worker) concordance(args rdb.ConcordanceArgs) *results.Concordance {
 	var ans results.Concordance
-	concEx, err := mango.GetConcordance(args.CorpusPath, args.Query, args.Attrs, args.MaxItems)
+	concEx, err := mango.GetConcordance(
+		args.CorpusPath, args.Query, args.Attrs, args.StartLine, args.MaxItems,
+		args.MaxContext, args.ViewContextStruct)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
 	}
-	parser := conc.NewLineParser(args.Attrs, args.ParentIdxAttr)
-	ans.Lines = parser.Parse(concEx)
+	parser := concordance.NewLineParser(args.Attrs)
+	ans.Lines = parser.Parse(concEx.Lines)
 	ans.ConcSize = concEx.ConcSize
 	return &ans
 }

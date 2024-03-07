@@ -24,12 +24,21 @@ package mango
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
 	"unsafe"
 
 	"github.com/czcorpus/cnc-gokit/maths"
+)
+
+const (
+	MaxRecordsInternalLimit = 1000
+)
+
+var (
+	ErrRowsRangeOutOfConc = errors.New("rows range is out of concordance size")
 )
 
 type GoVector struct {
@@ -47,14 +56,14 @@ type Freqs struct {
 
 // ---
 
-type GoConcSize struct {
-	Value      int64
-	CorpusSize int64
-}
-
 type GoConcordance struct {
 	Lines    []string
 	ConcSize int
+}
+
+type GoConcSize struct {
+	Value      int64
+	CorpusSize int64
 }
 
 type GoCollItem struct {
@@ -106,22 +115,38 @@ func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
 	return nil
 }
 
-func GetConcordance(corpusPath, query string, attrs []string, maxItems int) (GoConcordance, error) {
+func GetConcordance(
+	corpusPath, query string,
+	attrs []string,
+	fromLine, maxItems, maxContext int,
+	viewContextStruct string,
+) (GoConcordance, error) {
 	ans := C.conc_examples(
-		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")), C.longlong(maxItems))
+		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")),
+		C.longlong(fromLine), C.longlong(maxItems), C.longlong(maxContext),
+		C.CString(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
+	ret.ConcSize = int(ans.concSize)
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
+		if ans.errorCode == 1 {
+			return ret, ErrRowsRangeOutOfConc
+		}
 		return ret, err
 
 	} else {
 		defer C.conc_examples_free(ans.value, C.int(ans.size))
 	}
-	tmp := (*[1000]*C.char)(unsafe.Pointer(ans.value))
+	tmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.value))
 	for i := 0; i < int(ans.size); i++ {
-		ret.Lines = append(ret.Lines, C.GoString(tmp[i]))
+		str := C.GoString(tmp[i])
+		// we must test str len as our c++ wrapper may return it
+		// e.g. in case our offset is higher than actual num of lines
+		if len(str) > 0 {
+			ret.Lines = append(ret.Lines, C.GoString(tmp[i]))
+		}
 	}
 	return ret, nil
 }

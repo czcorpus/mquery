@@ -52,9 +52,15 @@ type CorpusSetup struct {
 	ID                string            `json:"id"`
 	FullName          string            `json:"fullName"`
 	Description       map[string]string `json:"description"`
-	SyntaxConcordance SyntaxConcordance `json:"syntaxConcordace"`
+	SyntaxConcordance SyntaxConcordance `json:"syntaxConcordance"`
 	PosAttrs          []PosAttr         `json:"posAttrs"`
 	StructAttrs       []StructAttr      `json:"structAttrs"`
+	MaximumRecords    int               `json:"maximumRecords"`
+	TTOverviewAttrs   []string          `json:"ttOverviewAttrs"`
+	// ViewContextStruct is a structure used to specify "units"
+	// for KWIC left and right context. Typically, this is
+	// a structure representing a sentence or a speach.
+	ViewContextStruct string `json:"viewContextStruct"`
 }
 
 // CorporaSetup defines mquery application configuration related
