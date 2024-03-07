@@ -13,8 +13,9 @@
         "mktokencovPath": "/path/to/mktokencov/binary",
         "resources": {
             "syn2020": {
-                "syntaxParentAttr": {
-                    "name": "someParent"
+                "syntaxConcordance": {
+                    "parentAttr": "someParent",
+                    "resultAttrs": ["word", "lemma", "p_lemma", "parent"]
                 }
             }
         }
@@ -27,15 +28,6 @@
         "channelQuery": "channel",
         "channelResultPrefix": "res",
         "queryAnswerTimeoutSecs": 600
-    },
-    "db" : {
-        "host": "host",
-        "name": "name",
-        "user": "user",
-        "password": "pwd",
-        "port": 3306,
-        "poolSize": 5,
-        "corpusTable": "kontext_corpus"
     },
     "logFile": "",
     "logLevel": "debug",

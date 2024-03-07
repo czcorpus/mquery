@@ -31,12 +31,30 @@ const (
 	DfltMultisampledSubcSize = 100000000
 )
 
-type PosAttrProps struct {
+type PosAttr struct {
 	Name string `json:"name"`
 }
 
+type StructAttr struct {
+	Name string `json:"name"`
+}
+
+type SyntaxConcordance struct {
+	ParentAttr string `json:"parentAttr"`
+
+	// ResultAttrs is a list of positional attributes
+	// we need to provide all the required information about
+	// syntax in for the "syntax-conc-examples" endpoint
+	ResultAttrs []string `json:"resultAttrs"`
+}
+
 type CorpusSetup struct {
-	SyntaxParentAttr PosAttrProps `json:"syntaxParentAttr"`
+	ID                string            `json:"id"`
+	FullName          string            `json:"fullName"`
+	Description       map[string]string `json:"description"`
+	SyntaxConcordance SyntaxConcordance `json:"syntaxConcordace"`
+	PosAttrs          []PosAttr         `json:"posAttrs"`
+	StructAttrs       []StructAttr      `json:"structAttrs"`
 }
 
 // CorporaSetup defines mquery application configuration related

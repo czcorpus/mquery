@@ -74,11 +74,11 @@ func DeserializeConcSizeResult(w *WorkerResult) (results.ConcSize, error) {
 	return ans, nil
 }
 
-func DeserializeConcExampleResult(w *WorkerResult) (results.ConcExample, error) {
-	var ans results.ConcExample
+func DeserializeConcordanceResult(w *WorkerResult) (results.Concordance, error) {
+	var ans results.Concordance
 	err := json.Unmarshal(w.Value, &ans)
 	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize ConcExample: %w", err)
+		return ans, fmt.Errorf("failed to deserialize Concordance: %w", err)
 	}
 	return ans, nil
 }

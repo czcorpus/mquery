@@ -21,7 +21,6 @@ package conc
 import (
 	"mquery/mango"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -48,7 +47,7 @@ type ConcordanceLine struct {
 	Text TokenSlice `json:"text"`
 }
 
-type ConcExamples struct {
+type Concordance struct {
 	Lines []ConcordanceLine `json:"lines"`
 }
 
@@ -60,19 +59,26 @@ type LineParser struct {
 func (lp *LineParser) parseTokenQuadruple(s []string) *Token {
 	mAttrs := make(map[string]string)
 	rawAttrs := strings.Split(s[2], "/")[1:]
-	for i, attr := range lp.attrs[1:] {
-		mAttrs[attr] = rawAttrs[i]
+	var token Token
+	if len(rawAttrs) != len(lp.attrs)-1 {
+		log.Warn().
+			Str("value", s[2]).
+			Int("expectedNumAttrs", len(lp.attrs)-1).
+			Msg("cannot parse token quadruple")
+		token.Word = s[0]
+		for _, attr := range lp.attrs[1:] {
+			mAttrs[attr] = "N/A"
+		}
+
+	} else {
+		for i, attr := range lp.attrs[1:] {
+			mAttrs[attr] = rawAttrs[i]
+		}
+		token.Word = s[0]
+		token.Strong = len(s[1]) > 2
+		token.Attrs = mAttrs
 	}
-	p, err := strconv.Atoi(mAttrs[lp.parentIdxAttr])
-	if err != nil {
-		p = invalidParent
-	}
-	return &Token{
-		Word:   s[0],
-		Strong: len(s[1]) > 2,
-		Parent: p,
-		Attrs:  mAttrs,
-	}
+	return &token
 }
 
 func (lp *LineParser) normalizeTokens(tokens []string) []string {
@@ -136,7 +142,7 @@ func (lp *LineParser) parseRawLine(line string) ConcordanceLine {
 	return ConcordanceLine{Text: tokens}
 }
 
-func (lp *LineParser) Parse(data mango.GoConcExamples) []ConcordanceLine {
+func (lp *LineParser) Parse(data mango.GoConcordance) []ConcordanceLine {
 	pLines := make([]ConcordanceLine, len(data.Lines))
 	for i, line := range data.Lines {
 		pLines[i] = lp.parseRawLine(line)

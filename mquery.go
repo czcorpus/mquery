@@ -37,7 +37,6 @@ import (
 	"mquery/cnf"
 	corpusActions "mquery/corpus/handlers"
 	"mquery/corpus/infoload"
-	"mquery/database"
 	"mquery/general"
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
@@ -169,7 +168,10 @@ func runApiServer(
 		"/word-forms/:corpusId", ceActions.WordForms)
 
 	engine.GET(
-		"/conc-examples/:corpusId", ceActions.ConcExample)
+		"/syntax-conc-examples/:corpusId", ceActions.SyntaxConcordance)
+
+	engine.GET(
+		"/conc-examples/:corpusId", ceActions.Concordance)
 
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
@@ -280,22 +282,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to connect to Redis")
 		}
-		var infoProvider infoload.Provider
-		if conf.DB != nil {
-			sqlDB, err := database.Open(conf.DB)
-			if err != nil {
-				log.Fatal().Err(err).Msg("failed to open database connection")
-				return
-			}
-			infoProvider = database.NewKontextDatabase(
-				sqlDB,
-				infoload.NewAttributeFiller(conf.CorporaSetup),
-				conf.DB.CorpusTable,
-			)
-
-		} else {
-			infoProvider = infoload.NewManatee(radapter, conf.CorporaSetup)
-		}
+		infoProvider := infoload.NewManatee(radapter, conf.CorporaSetup)
 		runApiServer(conf, syscallChan, exitEvent, radapter, infoProvider)
 	case "worker":
 		err := radapter.TestConnection(20*time.Second, testConnCancel)

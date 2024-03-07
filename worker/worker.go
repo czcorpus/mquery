@@ -135,12 +135,12 @@ func (w *Worker) tryNextQuery() error {
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
-	case "concExample":
-		var args rdb.ConcExampleArgs
+	case "concordance":
+		var args rdb.ConcordanceArgs
 		if err := json.Unmarshal(query.Args, &args); err != nil {
 			return err
 		}
-		ans := w.concExample(args)
+		ans := w.concordance(args)
 		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
@@ -264,9 +264,9 @@ func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
 	return &ans
 }
 
-func (w *Worker) concExample(args rdb.ConcExampleArgs) *results.ConcExample {
-	var ans results.ConcExample
-	concEx, err := mango.GetConcExamples(args.CorpusPath, args.Query, args.Attrs, args.MaxItems)
+func (w *Worker) concordance(args rdb.ConcordanceArgs) *results.Concordance {
+	var ans results.Concordance
+	concEx, err := mango.GetConcordance(args.CorpusPath, args.Query, args.Attrs, args.MaxItems)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans

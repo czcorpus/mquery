@@ -87,15 +87,15 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*resul
 }
 
 func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*results.WordFormsItem, error) {
-	q := "lemma=\"" + lemma + "\""
+	q := "lemma=\"" + lemma + "\"" // TODO hardcoded `lemma`
 	if len(pos) > 0 {
-		q += " & pos=\"" + pos + "\""
+		q += " & pos=\"" + pos + "\"" // TODO hardcoded `pos`
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
 	args, err := json.Marshal(rdb.FreqDistribArgs{
 		CorpusPath: corpusPath,
 		Query:      "[" + q + "]",
-		Crit:       "word/i 0~0>0",
+		Crit:       "word/i 0~0>0", // TODO hardcoded `word`
 		FreqLimit:  1,
 	})
 	if err != nil {
@@ -176,56 +176,4 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 	}
 
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
-}
-
-func (a *Actions) ConcExample(ctx *gin.Context) {
-	attrs := []string{"word", "lemma", "p_lemma", "parent"} // TODO configurable
-	corpusName := ctx.Param("corpusId")
-	args, err := json.Marshal(rdb.ConcExampleArgs{
-		CorpusPath:    a.conf.GetRegistryPath(corpusName),
-		QueryLemma:    ctx.Query("lemma"),
-		Query:         ctx.Query("query"),
-		Attrs:         attrs,
-		MaxItems:      10,
-		ParentIdxAttr: a.conf.Resources[corpusName].SyntaxParentAttr.Name,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "concExample",
-		Args: args,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	rawResult := <-wait
-	result, err := rdb.DeserializeConcExampleResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	if err := result.Err(); err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, result)
 }

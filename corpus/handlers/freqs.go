@@ -36,6 +36,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	defaultFreqCrit = "lemma/e 0~0>0"
+)
+
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
 	flimit := 1
@@ -51,11 +55,15 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			return
 		}
 	}
+	fcrit := ctx.Request.URL.Query().Get("fcrit")
+	if fcrit == "" {
+		fcrit = defaultFreqCrit
+	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	args, err := json.Marshal(rdb.FreqDistribArgs{
 		CorpusPath: corpusPath,
 		Query:      q,
-		Crit:       "lemma/e 0~0>0",
+		Crit:       fcrit,
 		FreqLimit:  flimit,
 	})
 	if err != nil {
@@ -180,12 +188,16 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	wg.Add(len(sc.Subcorpora))
 	result := new(results.FreqDistrib)
 	result.Freqs = make([]*results.FreqDistribItem, 0)
+	fcrit := ctx.Request.URL.Query().Get("fcrit")
+	if fcrit == "" {
+		fcrit = defaultFreqCrit
+	}
 	for _, subc := range sc.Subcorpora {
 		args, err := json.Marshal(rdb.FreqDistribArgs{
 			CorpusPath: corpusPath,
 			SubcPath:   subc,
 			Query:      q,
-			Crit:       "lemma/e 0~0>0",
+			Crit:       fcrit,
 			FreqLimit:  flimit,
 			MaxResults: maxItems,
 		})
