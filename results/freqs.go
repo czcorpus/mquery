@@ -202,21 +202,21 @@ func (res *CollFreqData) Type() ResultType {
 
 // ----
 
-type ConcExample struct {
+type Concordance struct {
 	Lines      []conc.ConcordanceLine `json:"lines"`
 	ConcSize   int                    `json:"concSize"`
 	ResultType ResultType             `json:"resultType"`
 	Error      string                 `json:"error"`
 }
 
-func (res *ConcExample) Err() error {
+func (res *Concordance) Err() error {
 	if res.Error != "" {
 		return errors.New(res.Error)
 	}
 	return nil
 }
 
-func (res *ConcExample) Type() ResultType {
+func (res *Concordance) Type() ResultType {
 	return res.ResultType
 }
 

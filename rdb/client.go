@@ -82,7 +82,7 @@ type ConcSizeArgs struct {
 	Query      string `json:"query"`
 }
 
-type ConcExampleArgs struct {
+type ConcordanceArgs struct {
 	CorpusPath    string   `json:"corpusPath"`
 	QueryLemma    string   `json:"queryLemma"`
 	Query         string   `json:"query"`

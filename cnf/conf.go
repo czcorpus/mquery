@@ -20,9 +20,7 @@ package cnf
 
 import (
 	"encoding/json"
-	"errors"
 	"mquery/corpus"
-	"mquery/database"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -49,7 +47,6 @@ type Conf struct {
 	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
 	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
 	Redis                  *rdb.Conf            `json:"redis"`
-	DB                     *database.DBConf     `json:"db"`
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
 	Language               string               `json:"language"`
@@ -126,12 +123,5 @@ func ValidateAndDefaults(conf *Conf) {
 	}
 	if _, err := time.LoadLocation(conf.TimeZone); err != nil {
 		log.Fatal().Err(err).Msg("invalid time zone")
-	}
-	if conf.DB != nil {
-		if conf.DB.CorpusTable == "" {
-			log.Fatal().
-				Err(errors.New("Missing `db.corpusTable` specification")).
-				Msg("failed to initialize corpus information database")
-		}
 	}
 }

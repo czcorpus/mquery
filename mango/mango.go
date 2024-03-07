@@ -52,7 +52,7 @@ type GoConcSize struct {
 	CorpusSize int64
 }
 
-type GoConcExamples struct {
+type GoConcordance struct {
 	Lines    []string
 	ConcSize int
 }
@@ -106,10 +106,10 @@ func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
 	return nil
 }
 
-func GetConcExamples(corpusPath, query string, attrs []string, maxItems int) (GoConcExamples, error) {
+func GetConcordance(corpusPath, query string, attrs []string, maxItems int) (GoConcordance, error) {
 	ans := C.conc_examples(
 		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")), C.longlong(maxItems))
-	var ret GoConcExamples
+	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
