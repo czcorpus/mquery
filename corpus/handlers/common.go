@@ -42,8 +42,8 @@ func (qp queryProps) hasError() bool {
 func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProps {
 	var ans queryProps
 	ans.corpus = ctx.Param("corpusId")
-	corpusConf, ok := cConf.Resources[ans.corpus]
-	if !ok {
+	corpusConf := cConf.Resources.Get(ans.corpus)
+	if corpusConf == nil {
 		ans.err = fmt.Errorf("corpus %s not found", ans.corpus)
 		ans.status = http.StatusNotFound
 		return ans
