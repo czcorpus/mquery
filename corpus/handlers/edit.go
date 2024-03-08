@@ -20,7 +20,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"mquery/corpus"
 	"mquery/corpus/edit"
 	"mquery/corpus/infoload"
@@ -35,15 +34,14 @@ import (
 )
 
 const (
-	DfltNumSamples                         = 30
-	SplitCorpus        corpusStructVariant = "split"
-	MultisampledCorpus corpusStructVariant = "multisampled"
+	DfltNumSamples                     = 30
+	SplitCorpus    corpusStructVariant = "split"
 )
 
 type corpusStructVariant string
 
 func (variant corpusStructVariant) Validate() bool {
-	return variant == SplitCorpus || variant == MultisampledCorpus
+	return variant == SplitCorpus
 }
 
 type multiSubcCorpus interface {
@@ -149,165 +147,6 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
-}
-
-func (a *Actions) MultiSample(ctx *gin.Context) {
-	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	exists, err := edit.MultisampleCorpusExists(a.conf.MultisampledCorporaDir, corpPath)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
-		return
-	}
-	if exists {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError("multisampled corpus already exists"), http.StatusConflict)
-		return
-	}
-	numSamples, ok := unireq.GetURLIntArgOrFail(ctx, "numSamples", DfltNumSamples)
-	if !ok {
-		return
-	}
-	corp, err := edit.MultisampleCorpus(
-		a.conf.MultisampledCorporaDir, corpPath, a.conf.MultisampledSubcSize, numSamples)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
-		return
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(corp.Subcorpora))
-	errs := make([]error, 0, len(corp.Subcorpora))
-	for _, subc := range corp.Subcorpora {
-		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
-			CorpusPath:     corpPath,
-			SubcPath:       subc,
-			Attrs:          []string{"word", "lemma"}, // TODO hardcoded stuff
-			Structs:        []string{"doc"},           // TODO hardcoded stuff
-			MktokencovPath: a.conf.MktokencovPath,
-		})
-		if err != nil {
-			wg.Done()
-			log.Error().Err(err).Msg("failed to publish task")
-			errs = append(errs, err)
-			continue
-		}
-		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "calcCollFreqData",
-			Args: args,
-		})
-		go func() {
-			defer wg.Done()
-			ans := <-wait
-			resp, err := rdb.DeserializeCollFreqDataResult(ans)
-			if err != nil {
-				errs = append(errs, err)
-				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
-			}
-			if err := resp.Err(); err != nil {
-				errs = append(errs, err)
-				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
-			}
-		}()
-	}
-	wg.Wait()
-	if len(errs) > 0 {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
-		return
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, corp)
-}
-
-// CollFreqData
-// TODO add support for token coverage
-func (a *Actions) CollFreqData(ctx *gin.Context) {
-	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	variant := corpusStructVariant(ctx.Param("variant"))
-	if !variant.Validate() {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError(
-				fmt.Sprintf("invalid corpus composition variant: %s", variant),
-			),
-			http.StatusUnprocessableEntity,
-		)
-		return
-	}
-	var multicorp multiSubcCorpus
-	var err error
-	if variant == SplitCorpus {
-		multicorp, err = corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpPath)
-
-	} else if variant == MultisampledCorpus {
-		multicorp, err = corpus.OpenMultisampledCorpus(a.conf.MultisampledCorporaDir, corpPath)
-
-	} else {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("invalid corpus structure type specified: %s", variant),
-			http.StatusUnprocessableEntity,
-		)
-		return
-	}
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusConflict)
-		return
-	}
-	wg := sync.WaitGroup{}
-	errs := make([]error, 0, len(multicorp.GetSubcorpora()))
-	for _, subc := range multicorp.GetSubcorpora() {
-		for _, attr := range []string{"word", "lemma"} {
-			exists, err := edit.CollFreqDataExists(subc, attr)
-			if err != nil {
-				errs = append(errs, err)
-				log.Error().Err(err).Msg("failed to determine freq file existence")
-				continue
-
-			} else if !exists {
-				wg.Add(1)
-				args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
-					CorpusPath:     corpPath,
-					SubcPath:       subc,
-					Attrs:          []string{attr},
-					MktokencovPath: a.conf.MktokencovPath,
-				})
-				if err != nil {
-					errs = append(errs, err)
-					log.Error().Err(err).Msg("failed to publish task")
-					wg.Done()
-					continue
-				}
-				wait, err := a.radapter.PublishQuery(rdb.Query{
-					Func: "calcCollFreqData",
-					Args: args,
-				})
-				go func() {
-					defer wg.Done()
-					ans := <-wait
-					resp, err := rdb.DeserializeCollFreqDataResult(ans)
-					if err != nil {
-						errs = append(errs, err)
-						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
-
-					}
-					if err := resp.Err(); err != nil {
-						errs = append(errs, err)
-						log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
-					}
-				}()
-			}
-		}
-	}
-	wg.Wait()
-	if len(errs) > 0 {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
-		return
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, multicorp)
 }
 
 func (a *Actions) CorpusInfo(ctx *gin.Context) {

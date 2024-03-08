@@ -22,12 +22,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"math/rand"
 	"mquery/corpus"
 	"mquery/mango"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/maths"
@@ -70,35 +68,6 @@ func DeleteSplit(subcBaseDir, corpusPath string) error {
 	return nil
 }
 
-func MultisampleCorpusExists(subcBaseDir, corpusPath string) (bool, error) {
-	cname := filepath.Base(corpusPath)
-	path := filepath.Join(subcBaseDir, cname)
-	isDir, err := fs.IsDir(path)
-	if err != nil {
-		return false, fmt.Errorf("failed to determine multisample corpus existence: %w", err)
-	}
-	if !isDir {
-		return false, nil
-	}
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return false, fmt.Errorf("failed to determine multisample corpus existence: %w", err)
-	}
-	return isDir && len(entries) > 0, nil
-}
-
-func CollFreqDataExists(subcPath, attrName string) (bool, error) {
-	subcf := filepath.Base(subcPath)
-	rootDir := filepath.Dir(subcPath)
-	tmp := strings.TrimSuffix(subcf, filepath.Ext(subcf))
-	freqFilename := fmt.Sprintf("%s.%s.frq", tmp, attrName)
-	isFile, err := fs.IsFile(filepath.Join(rootDir, freqFilename))
-	if err != nil {
-		return false, err
-	}
-	return isFile, nil
-}
-
 func SplitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (*corpus.SplitCorpus, error) {
 
 	ans := &corpus.SplitCorpus{CorpusPath: corpusPath}
@@ -127,36 +96,6 @@ func SplitCorpus(subcBaseDir, corpusPath string, chunkSize int64) (*corpus.Split
 		err := createSubcorpus(path, int64(i)*chunkSize, limit)
 		if err != nil {
 			return ans, fmt.Errorf("failed to create split corpus: %w", err)
-		}
-		ans.Subcorpora[i] = path
-	}
-	return ans, nil
-}
-
-func MultisampleCorpus(subcBaseDir, corpusPath string, sampleSize int64, numSamples int) (corpus.MultisampledCorpus, error) {
-	ans := corpus.MultisampledCorpus{CorpusPath: corpusPath}
-	size, err := mango.GetCorpusSize(corpusPath)
-	if err != nil {
-		return ans, fmt.Errorf("failed create split corpus: %w", err)
-	}
-	ans.Subcorpora = make([]string, numSamples)
-	cname := filepath.Base(corpusPath)
-	corpDir := filepath.Join(subcBaseDir, cname)
-	cdirExists, err := fs.IsDir(corpDir)
-	if err != nil {
-		return ans, fmt.Errorf("failed create split corpus: %w", err)
-	}
-	if !cdirExists {
-		os.Mkdir(corpDir, 0755)
-	}
-
-	for i := 0; i < numSamples; i++ {
-		path := filepath.Join(subcBaseDir, cname, fmt.Sprintf("sample_%02d.subc", i))
-		position := rand.Intn(int(size - sampleSize))
-		err := createSubcorpus(path, int64(position), int64(position)+sampleSize)
-		fmt.Println("mk subc: ", int64(position), int64(position)+sampleSize)
-		if err != nil {
-			return ans, fmt.Errorf("failed to create multisampled corpus: %w", err)
 		}
 		ans.Subcorpora[i] = path
 	}

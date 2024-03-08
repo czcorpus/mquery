@@ -59,35 +59,6 @@ func OpenSplitCorpus(subcBaseDir, corpPath string) (*SplitCorpus, error) {
 	return ans, nil
 }
 
-type MultisampledCorpus struct {
-	CorpusPath string
-	Subcorpora []string
-}
-
-func (mc *MultisampledCorpus) GetSubcorpora() []string {
-	return mc.Subcorpora
-}
-
-func OpenMultisampledCorpus(subcBaseDir, corpPath string) (*MultisampledCorpus, error) {
-	ans := &MultisampledCorpus{
-		CorpusPath: corpPath,
-		Subcorpora: make([]string, 0, 30),
-	}
-	corpName := filepath.Base(corpPath)
-	p := filepath.Join(subcBaseDir, corpName)
-	files, err := os.ReadDir(p)
-	if err != nil {
-		return ans, fmt.Errorf("failed to open multisampled corpus: %w", err)
-	}
-	for _, item := range files {
-		suff := filepath.Ext(item.Name())
-		if suff == ".subc" {
-			ans.Subcorpora = append(ans.Subcorpora, filepath.Join(p, item.Name()))
-		}
-	}
-	return ans, nil
-}
-
 type QueryHandler interface {
 	PublishQuery(query rdb.Query) (<-chan *rdb.WorkerResult, error)
 }
