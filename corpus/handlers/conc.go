@@ -20,8 +20,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"net/http"
@@ -74,38 +72,15 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 }
 
 func (a *Actions) anyConcordance(ctx *gin.Context, argsBuilder ConcArgsBuilder) {
-	corpusName := ctx.Param("corpusId")
-	corpusConf := a.conf.Resources.Get(corpusName)
-	if corpusConf == nil {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("corpus %s not found", corpusName),
-			http.StatusNotFound,
-		)
-	}
-
-	var ttCQL string
-	userQuery := ctx.Query("q")
-	if userQuery == "" {
-		uniresp.RespondWithErrorJSON(
-			ctx, errors.New("empty query"), http.StatusUnprocessableEntity,
-		)
+	queryProps := DetermineQueryProps(ctx, a.conf)
+	if queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
-	}
-	subc := ctx.Query("subcorpus")
-	if subc != "" {
-		ttCQL = corpus.SubcorpusToCQL(corpusConf.Subcorpora[subc].TextTypes)
-		if ttCQL == "" {
-			uniresp.RespondWithErrorJSON(
-				ctx, errors.New("invalid subcorpus specification"), http.StatusUnprocessableEntity,
-			)
-			return
-		}
 	}
 
 	args, err := json.Marshal(argsBuilder(
-		corpusConf,
-		userQuery+ttCQL,
+		queryProps.corpusConf,
+		queryProps.query,
 	))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(

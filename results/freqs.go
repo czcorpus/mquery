@@ -60,11 +60,10 @@ func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 }
 
 type FreqDistribItem struct {
-	Word       string  `json:"word"`
-	Freq       int64   `json:"freq"`
-	Norm       int64   `json:"norm"`
-	IPM        float32 `json:"ipm"`
-	CollWeight float64 `json:"collWeight"`
+	Word string  `json:"word"`
+	Freq int64   `json:"freq"`
+	Norm int64   `json:"norm"`
+	IPM  float32 `json:"ipm"`
 }
 
 type WordFormsItem struct {
@@ -133,7 +132,6 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 	for _, v2 := range other.Freqs {
 		v1 := res.FindItem(v2.Word)
 		if v1 != nil {
-			v1.CollWeight = 0 // we cannot merge coll values
 			v1.Freq += v2.Freq
 			v1.IPM = float32(v1.Freq) / float32(v1.Norm) * 1e6
 
