@@ -8,8 +8,6 @@
         "registryDir": "/path/to/corpora/registry",
         "splitCorporaDir": "/path/to/split/corpora/dir",
         "multiprocChunkSize": 50000000,
-        "multisampledCorporaDir": "/path/to/multisampled/corpora/dir",
-        "multisampledSubcSize": 50000000,
         "mktokencovPath": "/path/to/mktokencov/binary",
         "resources": {
             "syn2020": {

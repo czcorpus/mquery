@@ -21,14 +21,15 @@ package corpus
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	DfltSplitChunkSize       = 100000000
-	DfltMultisampledSubcSize = 100000000
+	DfltSplitChunkSize = 100000000
 )
 
 type PosAttr struct {
@@ -63,6 +64,27 @@ type CorpusSetup struct {
 	ViewContextStruct string `json:"viewContextStruct"`
 }
 
+func (cs *CorpusSetup) IsDynamic() bool {
+	return strings.Contains(cs.ID, "*")
+}
+
+type Resources map[string]*CorpusSetup
+
+func (rscs Resources) Get(name string) *CorpusSetup {
+	for k, v := range rscs {
+		if strings.Contains(k, "*") {
+			ptrn := regexp.MustCompile(strings.ReplaceAll(k, "*", ".*"))
+			if ptrn.MatchString(name) {
+				return v
+			}
+
+		} else if k == name {
+			return v
+		}
+	}
+	return nil
+}
+
 // CorporaSetup defines mquery application configuration related
 // to a corpus
 type CorporaSetup struct {
@@ -76,16 +98,9 @@ type CorporaSetup struct {
 	// I.e. the value only affects newly created splits.
 	MultiprocChunkSize int64 `json:"multiprocChunkSize"`
 
-	// MultisampledCorporaDir serves for an experimental collocation
-	// calculation module where multiple calculations are performed
-	// on random samples (= subcorpora)
-	MultisampledCorporaDir string `json:"multisampledCorporaDir"`
-
-	MultisampledSubcSize int64 `json:"multisampledSubcSize"`
-
 	MktokencovPath string `json:"mktokencovPath"`
 
-	Resources map[string]*CorpusSetup `json:"resources"`
+	Resources Resources `json:"resources"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
@@ -121,12 +136,6 @@ func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 		log.Warn().
 			Int("value", DfltSplitChunkSize).
 			Msgf("`%s.multiprocChunkSize` not set, using default", confContext)
-	}
-
-	if cs.MultisampledSubcSize == 0 {
-		log.Warn().
-			Int("value", DfltMultisampledSubcSize).
-			Msgf("`%s.multisampledSubcSize` not set, using default", confContext)
 	}
 
 	isFile, err := fs.IsFile(cs.MktokencovPath)
