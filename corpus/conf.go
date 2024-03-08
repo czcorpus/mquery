@@ -68,6 +68,12 @@ type Subcorpus struct {
 	Description map[string]string `json:"description"`
 }
 
+type CorpusVariant struct {
+	ID          string            `json:"id"`
+	FullName    map[string]string `json:"fullName"`
+	Description map[string]string `json:"description"`
+}
+
 type CorpusSetup struct {
 	ID                string               `json:"id"`
 	FullName          map[string]string    `json:"fullName"`
@@ -81,7 +87,8 @@ type CorpusSetup struct {
 	// ViewContextStruct is a structure used to specify "units"
 	// for KWIC left and right context. Typically, this is
 	// a structure representing a sentence or a speach.
-	ViewContextStruct string `json:"viewContextStruct"`
+	ViewContextStruct string                   `json:"viewContextStruct"`
+	Variants          map[string]CorpusVariant `json:"variants"`
 }
 
 func (cs *CorpusSetup) IsDynamic() bool {
@@ -115,6 +122,18 @@ func (rscs Resources) Get(name string) *CorpusSetup {
 		if strings.Contains(k, "*") {
 			ptrn := regexp.MustCompile(strings.ReplaceAll(k, "*", ".*"))
 			if ptrn.MatchString(name) {
+				if v.Variants != nil {
+					variant, ok := v.Variants[name]
+					if ok {
+						// make a copy of CorpusSetup and replace values for specific variant
+						merged := *v
+						merged.Variants = nil
+						merged.ID = variant.ID
+						merged.FullName = variant.FullName
+						merged.Description = variant.Description
+						return &merged
+					}
+				}
 				return v
 			}
 
