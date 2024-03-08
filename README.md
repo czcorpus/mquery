@@ -1,4 +1,6 @@
-# MQuery - an HTTP API server for mining corpora using Manatee-Open engine
+# MQuery 
+
+MQuery is an HTTP API server for mining language corpora using Manatee-Open engine.
 
 ## API
 
