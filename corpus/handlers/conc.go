@@ -75,8 +75,8 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 
 func (a *Actions) anyConcordance(ctx *gin.Context, argsBuilder ConcArgsBuilder) {
 	corpusName := ctx.Param("corpusId")
-	corpusConf, ok := a.conf.Resources[corpusName]
-	if !ok {
+	corpusConf := a.conf.Resources.Get(corpusName)
+	if corpusConf == nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
 			fmt.Errorf("corpus %s not found", corpusName),
