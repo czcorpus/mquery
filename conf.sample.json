@@ -9,14 +9,16 @@
         "splitCorporaDir": "/path/to/split/corpora/dir",
         "multiprocChunkSize": 50000000,
         "mktokencovPath": "/path/to/mktokencov/binary",
-        "resources": {
-            "syn2020": {
+        "resources": [
+            {
+                "id": "syn2020",
+                "fullName": {"en": "SYN 2020"},
                 "syntaxConcordance": {
                     "parentAttr": "someParent",
                     "resultAttrs": ["word", "lemma", "p_lemma", "parent"]
                 }
             }
-        }
+        ]
     },
     "redis": {
         "host": "10.0.3.130",

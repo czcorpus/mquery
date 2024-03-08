@@ -96,8 +96,17 @@ func (cs *CorpusSetup) IsDynamic() bool {
 }
 
 func (cs *CorpusSetup) ValidateAndDefaults() error {
-	if len(cs.FullName) == 0 || cs.FullName["en"] == "" {
-		return fmt.Errorf("missing corpus `fullName`, at least `en` value must be set")
+	if cs.IsDynamic() {
+		for _, variant := range cs.Variants {
+			if len(variant.FullName) == 0 || variant.FullName["en"] == "" {
+				return fmt.Errorf("missing corpus variant `fullName`, at least `en` value must be set")
+			}
+		}
+
+	} else {
+		if len(cs.FullName) == 0 || cs.FullName["en"] == "" {
+			return fmt.Errorf("missing corpus `fullName`, at least `en` value must be set")
+		}
 	}
 	if len(cs.PosAttrs) == 0 {
 		return fmt.Errorf("at least one positional attribute in `posAttrs` must be defined")
@@ -115,12 +124,12 @@ func (cs *CorpusSetup) ValidateAndDefaults() error {
 	return nil
 }
 
-type Resources map[string]*CorpusSetup
+type Resources []*CorpusSetup
 
 func (rscs Resources) Get(name string) *CorpusSetup {
-	for k, v := range rscs {
-		if strings.Contains(k, "*") {
-			ptrn := regexp.MustCompile(strings.ReplaceAll(k, "*", ".*"))
+	for _, v := range rscs {
+		if strings.Contains(v.ID, "*") {
+			ptrn := regexp.MustCompile(strings.ReplaceAll(v.ID, "*", ".*"))
 			if ptrn.MatchString(name) {
 				if v.Variants != nil {
 					variant, ok := v.Variants[name]
@@ -137,7 +146,7 @@ func (rscs Resources) Get(name string) *CorpusSetup {
 				return v
 			}
 
-		} else if k == name {
+		} else if v.ID == name {
 			return v
 		}
 	}
