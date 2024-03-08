@@ -162,10 +162,10 @@ func runApiServer(
 		"/word-forms/:corpusId", ceActions.WordForms)
 
 	engine.GET(
-		"/syntax-conc-examples/:corpusId", ceActions.SyntaxConcordance)
+		"/conc-examples/:corpusId", ceActions.SyntaxConcordance) // TODO rename API endpoint (where is `syntax`?)
 
 	engine.GET(
-		"/conc-examples/:corpusId", ceActions.Concordance)
+		"/concordance/:corpusId", ceActions.Concordance)
 
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()

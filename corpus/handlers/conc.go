@@ -19,9 +19,131 @@
 package handlers
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"mquery/corpus"
+	"mquery/rdb"
+	"net/http"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	dfltMaxContext = 50
+)
+
+type ConcArgsBuilder func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs
+
+func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
+	a.anyConcordance(
+		ctx,
+		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+			return rdb.ConcordanceArgs{
+				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
+				QueryLemma:        ctx.Query("lemma"),
+				Query:             q,
+				Attrs:             conf.SyntaxConcordance.ResultAttrs,
+				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				StartLine:         0, // TODO
+				MaxItems:          conf.MaximumRecords,
+				MaxContext:        dfltMaxContext,
+				ViewContextStruct: conf.ViewContextStruct,
+			}
+		},
+	)
+}
+
 func (a *Actions) Concordance(ctx *gin.Context) {
-	// TODO
+	a.anyConcordance(
+		ctx,
+		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+			return rdb.ConcordanceArgs{
+				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
+				Query:             q,
+				Attrs:             conf.PosAttrs.GetIDs(),
+				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				StartLine:         0, // TODO
+				MaxItems:          conf.MaximumRecords,
+				MaxContext:        dfltMaxContext,
+				ViewContextStruct: conf.ViewContextStruct,
+			}
+		},
+	)
+}
+
+func (a *Actions) anyConcordance(ctx *gin.Context, argsBuilder ConcArgsBuilder) {
+	corpusName := ctx.Param("corpusId")
+	corpusConf, ok := a.conf.Resources[corpusName]
+	if !ok {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("corpus %s not found", corpusName),
+			http.StatusNotFound,
+		)
+	}
+
+	var ttCQL string
+	userQuery := ctx.Query("q")
+	if userQuery == "" {
+		uniresp.RespondWithErrorJSON(
+			ctx, errors.New("empty query"), http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	subc := ctx.Query("subcorpus")
+	if subc != "" {
+		ttCQL = corpus.SubcorpusToCQL(corpusConf.Subcorpora[subc].TextTypes)
+		if ttCQL == "" {
+			uniresp.RespondWithErrorJSON(
+				ctx, errors.New("invalid subcorpus specification"), http.StatusUnprocessableEntity,
+			)
+			return
+		}
+	}
+
+	args, err := json.Marshal(argsBuilder(
+		corpusConf,
+		userQuery+ttCQL,
+	))
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "concordance",
+		Args: args,
+	})
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	rawResult := <-wait
+	result, err := rdb.DeserializeConcordanceResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	if err := result.Err(); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, result)
 }

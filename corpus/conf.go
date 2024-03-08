@@ -30,10 +30,21 @@ import (
 
 const (
 	DfltSplitChunkSize = 100000000
+	DfltMaximumRecords = 50
 )
 
 type PosAttr struct {
 	Name string `json:"name"`
+}
+
+type PosAttrList []PosAttr
+
+func (pal PosAttrList) GetIDs() []string {
+	ans := make([]string, len(pal))
+	for i, v := range pal {
+		ans[i] = v.Name
+	}
+	return ans
 }
 
 type StructAttr struct {
@@ -49,15 +60,24 @@ type SyntaxConcordance struct {
 	ResultAttrs []string `json:"resultAttrs"`
 }
 
+type TextTypes map[string][]string
+
+type Subcorpus struct {
+	ID          string            `json:"id"`
+	TextTypes   TextTypes         `json:"textTypes"`
+	Description map[string]string `json:"description"`
+}
+
 type CorpusSetup struct {
-	ID                string            `json:"id"`
-	FullName          string            `json:"fullName"`
-	Description       map[string]string `json:"description"`
-	SyntaxConcordance SyntaxConcordance `json:"syntaxConcordance"`
-	PosAttrs          []PosAttr         `json:"posAttrs"`
-	StructAttrs       []StructAttr      `json:"structAttrs"`
-	MaximumRecords    int               `json:"maximumRecords"`
-	TTOverviewAttrs   []string          `json:"ttOverviewAttrs"`
+	ID                string               `json:"id"`
+	FullName          map[string]string    `json:"fullName"`
+	Description       map[string]string    `json:"description"`
+	SyntaxConcordance SyntaxConcordance    `json:"syntaxConcordance"`
+	PosAttrs          PosAttrList          `json:"posAttrs"`
+	StructAttrs       []StructAttr         `json:"structAttrs"`
+	MaximumRecords    int                  `json:"maximumRecords"`
+	TTOverviewAttrs   []string             `json:"ttOverviewAttrs"`
+	Subcorpora        map[string]Subcorpus `json:"subcorpora"`
 	// ViewContextStruct is a structure used to specify "units"
 	// for KWIC left and right context. Typically, this is
 	// a structure representing a sentence or a speach.
@@ -66,6 +86,26 @@ type CorpusSetup struct {
 
 func (cs *CorpusSetup) IsDynamic() bool {
 	return strings.Contains(cs.ID, "*")
+}
+
+func (cs *CorpusSetup) ValidateAndDefaults() error {
+	if len(cs.FullName) == 0 || cs.FullName["en"] == "" {
+		return fmt.Errorf("missing corpus `fullName`, at least `en` value must be set")
+	}
+	if len(cs.PosAttrs) == 0 {
+		return fmt.Errorf("at least one positional attribute in `posAttrs` must be defined")
+	}
+	if cs.MaximumRecords == 0 {
+		cs.MaximumRecords = DfltMaximumRecords
+		log.Warn().
+			Int("value", cs.MaximumRecords).
+			Msg("missing or zero `maximumRecords`, using default")
+	}
+	if len(cs.TTOverviewAttrs) == 0 {
+		log.Warn().
+			Msg("no `ttOverviewAttrs` defined, some freq. function will be disabled")
+	}
+	return nil
 }
 
 type Resources map[string]*CorpusSetup
@@ -144,6 +184,11 @@ func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 	}
 	if !isFile {
 		return fmt.Errorf("the `%s.mktokencovPath` does not point to a file", confContext)
+	}
+	for _, v := range cs.Resources {
+		if err := v.ValidateAndDefaults(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
