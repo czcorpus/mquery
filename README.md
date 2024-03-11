@@ -8,7 +8,7 @@ Note: all the responses are in JSON
 
 ### Info
 
-:orange_circle: `GET /info/[corpus ID]?args...`
+:orange_circle: `GET /info/[corpus ID]?[args...]`
 
 Show a corpus information.
 
