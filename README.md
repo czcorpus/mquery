@@ -41,7 +41,7 @@ Response:
 
 ### Concordance
 
-:orange_circle: `GET /concordance/[corpus ID]?args...`
+:orange_circle: `GET /concordance/[corpus ID]?[args...]`
 
 Show a concordance in a "sentence" mode based on provided query. Positional attributes
 in the output depend on corpus configuration.
@@ -71,7 +71,7 @@ Response:
 
 ### Frequency information
 
-:orange_circle: `GET /text-types-overview/[corpus ID]?args...`
+:orange_circle: `GET /text-types-overview/[corpus ID]?[args...]`
 
 Provide basic overview of frequencies of a searched expression based on different text types.
 
@@ -99,7 +99,7 @@ Response:
 
 ```
 
-:orange_circle: `GET /freqs/[corpus ID]?args...`
+:orange_circle: `GET /freqs/[corpus ID]?[args...]`
 
 Calculate a frequency distribution for the searched term (KWIC).
 
@@ -138,7 +138,7 @@ This is a parallel variant of `freqs2` which calculates frequencies on smaller c
 them together. It is most suitable for larger corpora.
 
 
-:orange_circle: `GET /text-types/[corpus ID]`
+:orange_circle: `GET /text-types/[corpus ID]?[args...]`
 
 Calculate frequencies of all the values of a requested structural attribute found in structures
 matching required query (e.g. all the authors found in `&lt;doc author="..."&gt;`)
@@ -169,7 +169,7 @@ Response:
 ```
 
 
-:orange_circle: `GET /text-types2/[corpus ID]`
+:orange_circle: `GET /text-types2/[corpus ID]?[args...]`
 
 This is a parallel variant of `text-types2` which calculates frequencies on smaller chunks and merges
 them together. It is most suitable for larger corpora.
@@ -177,7 +177,7 @@ them together. It is most suitable for larger corpora.
 
 ### Collocation profile
 
-:orange_circle: `GET /collocs/[corpus ID]`
+:orange_circle: `GET /collocs/[corpus ID]?[args...]`
 
 
 TODO
