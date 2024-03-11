@@ -45,7 +45,7 @@ type StreamData struct {
 
 	Total int `json:"totalChunks"`
 
-	Error string `json:"error"`
+	Error string `json:"error,omitempty"`
 }
 
 type streamedFreqsBaseArgs struct {

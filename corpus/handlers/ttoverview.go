@@ -33,7 +33,49 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type ttOverviewResult map[string]results.FreqDistrib
+type ttOverviewResult struct {
+	freqs map[string]results.FreqDistrib
+	error string
+}
+
+func (tto *ttOverviewResult) set(attr string, v results.FreqDistrib) {
+	tto.freqs[attr] = v
+}
+
+func (tto *ttOverviewResult) findError() string {
+	for _, v := range tto.freqs {
+		if v.Error != "" {
+			return v.Error
+		}
+	}
+	return ""
+}
+
+func (tto *ttOverviewResult) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		struct {
+			Freqs      map[string]results.FreqDistrib `json:"freqs"`
+			Error      string                         `json:"error,omitempty"`
+			ResultType results.ResultType             `json:"resultType"`
+		}{
+			Freqs:      tto.freqs,
+			ResultType: tto.Type(),
+			Error:      tto.findError(),
+		},
+	)
+}
+
+func (tto *ttOverviewResult) Type() results.ResultType {
+	return results.ResultTypeMultipleFreqs
+}
+
+func newTtOverviewResult() *ttOverviewResult {
+	return &ttOverviewResult{
+		freqs: make(map[string]results.FreqDistrib),
+	}
+}
+
+// ----
 
 func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
@@ -58,7 +100,7 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 
 	mergedFreqLock := sync.Mutex{}
-	result := make(ttOverviewResult)
+	result := newTtOverviewResult()
 	errs := make([]error, 0, len(queryProps.corpusConf.TTOverviewAttrs))
 	wg := sync.WaitGroup{}
 	wg.Add(len(queryProps.corpusConf.TTOverviewAttrs))
@@ -93,7 +135,7 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 			wg.Done()
 
 		} else {
-			go func() {
+			go func(attrx string) {
 				defer wg.Done()
 				tmp := <-wait
 				resultNext, err := rdb.DeserializeTextTypesResult(tmp)
@@ -102,9 +144,9 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
 				mergedFreqLock.Lock()
-				result[attr] = resultNext
+				result.set(attrx, resultNext)
 				mergedFreqLock.Unlock()
-			}()
+			}(attr)
 		}
 	}
 
@@ -116,5 +158,5 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 		return
 	}
 
-	uniresp.WriteJSONResponse(ctx.Writer, result)
+	uniresp.WriteJSONResponse(ctx.Writer, &result)
 }

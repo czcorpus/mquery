@@ -34,7 +34,20 @@ const (
 )
 
 type PosAttr struct {
-	Name string `json:"name"`
+	Name        string            `json:"name"`
+	Description map[string]string `json:"description"`
+}
+
+func (p PosAttr) IsZero() bool {
+	return p.Name == ""
+}
+
+func (p PosAttr) LocaleDescription(lang string) string {
+	d := p.Description[lang]
+	if d != "" {
+		return d
+	}
+	return p.Description["en"]
 }
 
 type PosAttrList []PosAttr
@@ -47,9 +60,26 @@ func (pal PosAttrList) GetIDs() []string {
 	return ans
 }
 
+// ----
+
 type StructAttr struct {
-	Name string `json:"name"`
+	Name        string            `json:"name"`
+	Description map[string]string `json:"description"`
 }
+
+func (s StructAttr) LocaleDescription(lang string) string {
+	d := s.Description[lang]
+	if d != "" {
+		return d
+	}
+	return s.Description["en"]
+}
+
+func (s StructAttr) IsZero() bool {
+	return s.Name == ""
+}
+
+// ----
 
 type SyntaxConcordance struct {
 	ParentAttr string `json:"parentAttr"`
@@ -89,10 +119,38 @@ type CorpusSetup struct {
 	// a structure representing a sentence or a speach.
 	ViewContextStruct string                   `json:"viewContextStruct"`
 	Variants          map[string]CorpusVariant `json:"variants"`
+	SrchKeywords      []string                 `json:"srchKeywords"`
+	WebURL            string                   `json:"webUrl"`
+}
+
+func (cs *CorpusSetup) LocaleDescription(lang string) string {
+	d := cs.Description[lang]
+	if d != "" {
+		return d
+	}
+	return cs.Description["en"]
 }
 
 func (cs *CorpusSetup) IsDynamic() bool {
 	return strings.Contains(cs.ID, "*")
+}
+
+func (cs *CorpusSetup) GetPosAttr(name string) PosAttr {
+	for _, v := range cs.PosAttrs {
+		if v.Name == name {
+			return v
+		}
+	}
+	return PosAttr{}
+}
+
+func (cs *CorpusSetup) GetStruct(name string) StructAttr {
+	for _, v := range cs.StructAttrs {
+		if v.Name == name {
+			return v
+		}
+	}
+	return StructAttr{}
 }
 
 func (cs *CorpusSetup) ValidateAndDefaults() error {
@@ -138,8 +196,12 @@ func (rscs Resources) Get(name string) *CorpusSetup {
 						merged := *v
 						merged.Variants = nil
 						merged.ID = variant.ID
-						merged.FullName = variant.FullName
-						merged.Description = variant.Description
+						if len(variant.FullName) > 0 {
+							merged.FullName = variant.FullName
+						}
+						if len(variant.Description) > 0 {
+							merged.Description = variant.Description
+						}
 						return &merged
 					}
 				}

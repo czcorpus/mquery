@@ -46,10 +46,9 @@ var (
 )
 
 type Query struct {
-	ResultType results.ResultType `json:"resultType"`
-	Channel    string             `json:"channel"`
-	Func       string             `json:"func"`
-	Args       json.RawMessage    `json:"args"`
+	Channel string          `json:"channel"`
+	Func    string          `json:"func"`
+	Args    json.RawMessage `json:"args"`
 }
 
 type CorpusInfoArgs struct {
@@ -219,8 +218,8 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 				if cmd.Err() != nil {
 					result.AttachValue(
 						&results.ErrorResult{
-							ResultType: query.ResultType,
-							Error:      cmd.Err().Error(),
+							Func:  query.Func,
+							Error: cmd.Err().Error(),
 						},
 					)
 

@@ -21,8 +21,8 @@ package results
 import "errors"
 
 type ErrorResult struct {
-	ResultType ResultType `json:"resultType"`
-	Error      string     `json:"error"`
+	Func  string `json:"func"`
+	Error string `json:"error"`
 }
 
 func (res *ErrorResult) Err() error {
@@ -30,5 +30,5 @@ func (res *ErrorResult) Err() error {
 }
 
 func (res *ErrorResult) Type() ResultType {
-	return res.ResultType
+	return ResultTypeError
 }

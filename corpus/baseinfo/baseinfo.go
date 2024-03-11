@@ -18,19 +18,15 @@
 package baseinfo
 
 type Item struct {
-	Name string `json:"name"`
-	Size int    `json:"size"`
+	Name        string `json:"name"`
+	Size        int    `json:"size"`
+	Description string `json:"description,omitempty"`
 }
 
 type Citation struct {
 	DefaultRef        string   `json:"default_ref"`
 	ArticleRef        []string `json:"article_ref"`
 	OtherBibliography string   `json:"other_bibliography"`
-}
-
-type Keyword struct {
-	Name  string `json:"name"`
-	Color string `json:"color"`
 }
 
 type Tagset struct {
@@ -49,10 +45,9 @@ type Corpus struct {
 	Corpname     string    `json:"corpname"`
 	Description  string    `json:"description"`
 	Size         int64     `json:"size"`
-	AttrList     []Item    `json:"attrlist"`
-	StructList   []Item    `json:"structlist"`
+	AttrList     []Item    `json:"attrList"`
+	StructList   []Item    `json:"structList"`
 	WebUrl       string    `json:"webUrl"`
 	CitationInfo *Citation `json:"citationInfo"`
-	Keywords     []Keyword `json:"keywords"`
-	Tagsets      []Tagset  `json:"tagsets"`
+	SrchKeywords []string  `json:"srchKeywords"`
 }

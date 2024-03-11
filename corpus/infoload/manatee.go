@@ -22,6 +22,7 @@ import (
 	"mquery/corpus"
 	"mquery/corpus/baseinfo"
 	"mquery/rdb"
+	"mquery/results"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 )
@@ -29,6 +30,35 @@ import (
 type Manatee struct {
 	conf         *corpus.CorporaSetup
 	queryHandler corpus.QueryHandler
+}
+
+func mergeConfigInfo(conf *corpus.CorpusSetup, info *results.CorpusInfo, lang string) {
+	newAttrList := make([]baseinfo.Item, len(info.Data.AttrList))
+	for i, attr := range info.Data.AttrList {
+		srch := conf.GetPosAttr(attr.Name)
+		if !srch.IsZero() {
+			attr.Description = srch.LocaleDescription(lang)
+		}
+		newAttrList[i] = attr
+	}
+	info.Data.AttrList = newAttrList
+	newStructList := make([]baseinfo.Item, len(info.Data.StructList))
+	for i, strct := range info.Data.StructList {
+		srch := conf.GetStruct(strct.Name)
+		if !srch.IsZero() {
+			strct.Description = srch.LocaleDescription(lang)
+		}
+		newStructList[i] = strct
+	}
+	info.Data.StructList = newStructList
+	desc := conf.LocaleDescription(lang)
+	if desc != "" {
+		info.Data.Description = desc
+	}
+	info.Data.SrchKeywords = conf.SrchKeywords
+	if info.Data.SrchKeywords == nil {
+		info.Data.SrchKeywords = []string{}
+	}
 }
 
 func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*baseinfo.Corpus, error) {
@@ -62,6 +92,7 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*baseinfo.
 	if corpusInfo.Err() != nil {
 		return nil, corpusInfo.Err()
 	}
+	mergeConfigInfo(kdb.conf.Resources.Get(corpusId), &corpusInfo, language)
 	return &corpusInfo.Data, nil
 }
 

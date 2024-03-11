@@ -123,13 +123,13 @@ func runApiServer(
 		conf.CorporaSetup, radapter, infoProvider, conf.Language)
 
 	engine.POST(
-		"/corpus/:corpusId/split", ceActions.SplitCorpus)
+		"/split/:corpusId", ceActions.SplitCorpus)
 
 	engine.DELETE(
-		"/corpus/:corpusId/split", ceActions.DeleteSplit)
+		"/split/:corpusId", ceActions.DeleteSplit)
 
 	engine.GET(
-		"/corpus/:corpusId/info", ceActions.CorpusInfo)
+		"/info/:corpusId", ceActions.CorpusInfo)
 
 	engine.GET(
 		"/freqs/:corpusId", ceActions.FreqDistrib)

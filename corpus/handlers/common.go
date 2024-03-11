@@ -53,8 +53,8 @@ func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProp
 	var ttCQL string
 	userQuery := ctx.Query("q")
 	if userQuery == "" {
-		ans.err = errors.New("empty query")
-		ans.status = http.StatusUnprocessableEntity
+		ans.err = errors.New("missing `q` argument")
+		ans.status = http.StatusBadRequest
 		return ans
 	}
 	subc := ctx.Query("subcorpus")

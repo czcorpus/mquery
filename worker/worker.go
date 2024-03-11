@@ -20,6 +20,7 @@ package worker
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"mquery/corpus/baseinfo"
@@ -47,6 +48,10 @@ type jobLogger interface {
 	Log(rec results.JobLog)
 }
 
+type recoveredError struct {
+	error
+}
+
 type Worker struct {
 	ID         string
 	messages   <-chan *redis.Message
@@ -70,7 +75,79 @@ func (w *Worker) publishResult(res results.SerializableResult, channel string) e
 	return w.radapter.PublishResult(channel, ans)
 }
 
+func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			ansErr = recoveredError{fmt.Errorf(fmt.Sprintf("recovered error: %v", r))}
+			return
+		}
+	}()
+	switch query.Func {
+	case "corpusInfo":
+		var args rdb.CorpusInfoArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.corpusInfo(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "freqDistrib":
+		var args rdb.FreqDistribArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.freqDistrib(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "concSize":
+		var args rdb.ConcSizeArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.concSize(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "concordance":
+		var args rdb.ConcordanceArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.concordance(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "collocations":
+		var args rdb.CollocationsArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.collocations(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	case "calcCollFreqData":
+		var args rdb.CalcCollFreqDataArgs
+		if err := json.Unmarshal(query.Args, &args); err != nil {
+			return err
+		}
+		ans := w.calcCollFreqData(args)
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	default:
+		ans := &results.ErrorResult{Error: fmt.Sprintf("unknown query function: %s", query.Func)}
+		if err := w.publishResult(ans, query.Channel); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (w *Worker) tryNextQuery() error {
+
 	time.Sleep(time.Duration(rand.Intn(40)) * time.Millisecond)
 	query, err := w.radapter.DequeueQuery()
 	if err == rdb.ErrorEmptyQueue {
@@ -104,68 +181,14 @@ func (w *Worker) tryNextQuery() error {
 		Begin:    time.Now(),
 	}
 
-	switch query.Func {
-	case "corpusInfo":
-		var args rdb.CorpusInfoArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	err = w.runQueryProtected(query)
+	var rcvErr recoveredError
+	if errors.As(err, &rcvErr) {
+		ans := &results.ErrorResult{
+			Error: fmt.Sprintf("worker panicked: %s", rcvErr.Error()),
+			Func:  query.Func,
 		}
-		ans := w.corpusInfo(args)
-		ans.ResultType = query.ResultType
 		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
-		}
-	case "freqDistrib":
-		var args rdb.FreqDistribArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
-		}
-		ans := w.freqDistrib(args)
-		ans.ResultType = query.ResultType
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
-		}
-	case "concSize":
-		var args rdb.ConcSizeArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
-		}
-		ans := w.concSize(args)
-		ans.ResultType = query.ResultType
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
-		}
-	case "concordance":
-		var args rdb.ConcordanceArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
-		}
-		ans := w.concordance(args)
-		ans.ResultType = query.ResultType
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
-		}
-	case "collocations":
-		var args rdb.CollocationsArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
-		}
-		ans := w.collocations(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
-		}
-	case "calcCollFreqData":
-		var args rdb.CalcCollFreqDataArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
-		}
-		ans := w.calcCollFreqData(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
-		}
-	default:
-		ans := &results.ErrorResult{Error: fmt.Sprintf("unknown query function: %s", query.Func)}
-		if err = w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
 	}
@@ -213,6 +236,7 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize
+	ans.Fcrit = args.Crit
 	return &ans
 }
 

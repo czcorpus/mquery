@@ -107,7 +107,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		&result,
 	)
 }
 

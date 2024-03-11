@@ -120,5 +120,5 @@ func (a *Actions) anyConcordance(ctx *gin.Context, argsBuilder ConcArgsBuilder) 
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, result)
+	uniresp.WriteJSONResponse(ctx.Writer, &result)
 }

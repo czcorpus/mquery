@@ -21,6 +21,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mquery/rdb"
 	"net/http"
@@ -31,8 +32,21 @@ import (
 )
 
 func (a *Actions) TextTypes(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
+	queryProps := DetermineQueryProps(ctx, a.conf)
+	if queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
+		return
+	}
+
 	attr := ctx.Request.URL.Query().Get("attr")
+	if attr == "" {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			errors.New("missing attribute `attr`"),
+			http.StatusBadRequest,
+		)
+		return
+	}
 	flimit := 1
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
@@ -49,7 +63,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	freqArgs := rdb.FreqDistribArgs{
 		CorpusPath:  corpusPath,
-		Query:       q,
+		Query:       queryProps.query,
 		Crit:        fmt.Sprintf("%s 0", attr),
 		IsTextTypes: true,
 		FreqLimit:   flimit,
@@ -102,6 +116,6 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		&result,
 	)
 }
