@@ -87,12 +87,14 @@ Response:
     concSize:number;
     corpusSize:number;
     searchSize:number; // TODO unfinished, please do not use
-    freqs:Array<{
-        word:string;
-        freq:number;
-        norm:number;
-        ipm:nmber;
-    }>;
+    freqs:{
+        [attr:string]:Array<{
+            word:string;
+            freq:number;
+            norm:number;
+            ipm:nmber;
+        }>
+    };
     examplesQueryTpl?:string;
     resultType:'freqTT';
 }
