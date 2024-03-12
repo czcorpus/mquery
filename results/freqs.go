@@ -204,10 +204,13 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 // ----
 
 type Collocations struct {
-	ConcSize   int64               `json:"concSize"`
-	CorpusSize int64               `json:"corpusSize"`
-	Colls      []*mango.GoCollItem `json:"colls"`
-	Error      string              `json:"error,omitempty"`
+	ConcSize   int64
+	CorpusSize int64
+	SearchSize int64
+	Colls      []*mango.GoCollItem
+	Measure    string
+	SrchRange  [2]int
+	Error      string
 }
 
 func (res *Collocations) Err() error {
@@ -225,17 +228,22 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
 			CorpusSize int64               `json:"corpusSize"`
+			SearchSize int64               `json:"searchSize"`
 			Colls      []*mango.GoCollItem `json:"colls"`
 			ResultType ResultType          `json:"resultType"`
+			Measure    string              `json:"measure"`
+			SrchRange  [2]int              `json:"srchRange"`
 			Error      string              `json:"error,omitempty"`
 		}{
 			CorpusSize: res.CorpusSize,
+			SearchSize: res.SearchSize,
 			Colls:      res.Colls,
 			ResultType: res.Type(),
+			Measure:    res.Measure,
+			SrchRange:  res.SrchRange,
 			Error:      res.Error,
 		},
 	)
-
 }
 
 // ----

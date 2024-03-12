@@ -156,7 +156,7 @@ Response:
 {
     concSize:number;
     corpusSize:number;
-    searchSize:number; // TODO unfinished, please do not use
+    searchSize:number; // actual searched data size - applies for subc., TODO unfinished, please do not use
     fcrit:string; // applied Manatee freq. criterion
     freqs:Array<{
         word:string;
@@ -180,4 +180,48 @@ them together. It is most suitable for larger corpora.
 :orange_circle: `GET /collocs/[corpus ID]?[args...]`
 
 
-TODO
+Calculate a defined collocation profile of a searched expression. Values are sorted in descending order
+by their coll. score.
+
+URL arguments:
+
+* `q` - a Manatee CQL query
+* `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
+* `measure`  - a collocation measure. If omitted, `logDice` is used. The available values are:
+  * `absFreq`
+  * `logLikelihood`
+  * `logDice`
+  * `minSensitivity`
+  * `mutualInfo`
+  * `mutualInfo3`
+  * `mutualInfoLogF`
+  * `relFreq`
+  * `tScore`
+* `srchLeft` - left range for candidates searching (`0` is KWIC, values `< 0` are on the left side of the KWIC, values `> 0` are to the right of the KWIC). The argument can be omitted in which case `-5` is used
+* `srchRight` - right range for candidates searching (the meaning of concrete values is the same as in `srchLeft`). The argument can be omitted in which case `-5` is used.
+* `minCollFreq` - the minimum frequency that a collocate must have in the searched range. The argument is optional with default value of `3`
+* `maxItems`- maximum number of result items. The argument is optional with default value of `20`
+
+example req:
+
+```
+/collocations/intercorp_v13ud_cs?q=[lemma=%22podoba%22]&subcorpus=core&measure=mutualInfo&srchLeft=3&maxItems=5
+```
+
+Response:
+
+```ts
+{
+    corpusSize:number;
+    searchSize:number; // actual searched data size - applies for subc., TODO unfinished, please do not use
+    concSize:number;
+    measure:string; // applied measure
+    resultType:'coll';
+    srchRange:[number, number];
+    colls:Array<{
+        word:string;
+        score:number;
+        freq:number;
+    }>;
+}
+```

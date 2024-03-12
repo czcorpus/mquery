@@ -92,6 +92,7 @@ typedef struct CollsRetVal {
     PosInt resultSize;
     PosInt concSize;
     PosInt corpusSize;
+    PosInt searchSize;
     const char * err;
 } CollsRetVal;
 

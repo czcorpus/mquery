@@ -71,7 +71,8 @@ type CollocationsArgs struct {
 	SubcPath   string `json:"subcPath"`
 	Query      string `json:"query"`
 	Attr       string `json:"attr"`
-	CollFn     string `json:"collFn"`
+	Measure    string `json:"measure"`
+	SrchRange  [2]int `json:"srchRange"`
 	MinFreq    int64  `json:"minFreq"`
 	MaxItems   int    `json:"maxItems"`
 }

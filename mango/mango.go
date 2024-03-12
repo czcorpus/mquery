@@ -67,18 +67,16 @@ type GoConcSize struct {
 }
 
 type GoCollItem struct {
-	Word     string
-	Score    float64
-	ScoreLCI float64
-	ScoreRCI float64
-	Stdev    float64
-	Freq     int64
+	Word  string  `json:"word"`
+	Score float64 `json:"score"`
+	Freq  int64   `json:"freq"`
 }
 
 type GoColls struct {
 	Colls      []*GoCollItem
 	ConcSize   int64
 	CorpusSize int64
+	SearchSize int64
 }
 
 func GetCorpusSize(corpusPath string) (int64, error) {
@@ -216,13 +214,15 @@ func IntVectorToSlice(vector GoVector) []int64 {
 func GetCollcations(
 	corpusID, subcID, query string,
 	attrName string,
-	calcFn byte,
+	measure byte,
+	srchRange [2]int,
 	minFreq int64,
 	maxItems int,
 ) (GoColls, error) {
 	colls := C.collocations(
-		C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(attrName), C.char(calcFn), C.char(calcFn),
-		C.longlong(minFreq), C.longlong(minFreq), -5, 5, C.int(maxItems))
+		C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(attrName),
+		C.char(measure), C.char(measure), C.longlong(minFreq), C.longlong(minFreq),
+		C.int(srchRange[0]), C.int(srchRange[1]), C.int(maxItems))
 	if colls.err != nil {
 		err := fmt.Errorf(C.GoString(colls.err))
 		defer C.free(unsafe.Pointer(colls.err))
@@ -242,6 +242,7 @@ func GetCollcations(
 		Colls:      items,
 		ConcSize:   int64(colls.concSize),
 		CorpusSize: int64(colls.corpusSize),
+		SearchSize: int64(colls.searchSize),
 	}, nil
 }
 

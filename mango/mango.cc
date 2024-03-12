@@ -420,6 +420,7 @@ CollsRetVal collocations(
         ans.corpusSize = corp->size();
         conc->sync();
         ans.concSize = conc->size();
+        ans.searchSize = corp->size();
         ans.resultSize = 0;
         collocs = new CollocItems(conc, string(attrName), sortFunCode, minfreq, minbgr, fromw, tow, maxitems);
         CollItem* items = (CollItem*) malloc(maxitems * sizeof(CollItem));

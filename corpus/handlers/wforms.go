@@ -29,20 +29,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var (
-	collFunc = map[string]string{
-		"absoluteFreq":  "f",
-		"LLH":           "l",
-		"logDice":       "d",
-		"minSens":       "s",
-		"mutualInf":     "m",
-		"mutualInf3":    "3",
-		"mutualInfLogF": "p",
-		"relativeFreq":  "r",
-		"tScore":        "t",
-	}
-)
-
 func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*results.LemmaItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {
