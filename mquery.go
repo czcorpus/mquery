@@ -156,7 +156,7 @@ func runApiServer(
 		"/text-types-overview/:corpusId", ceActions.TextTypesOverview)
 
 	engine.GET(
-		"/collocs/:corpusId", ceActions.Collocations)
+		"/collocations/:corpusId", ceActions.Collocations)
 
 	engine.GET(
 		"/word-forms/:corpusId", ceActions.WordForms)

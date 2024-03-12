@@ -23,37 +23,60 @@ import (
 	"mquery/rdb"
 	"net/http"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	CollDefaultAttr       = "lemma"
-	defaultNumSubcSamples = 30
+	CollDefaultAttr        = "lemma"
+	defaultNumSubcSamples  = 30
+	defaultSrchLeft        = -5
+	defaultSrchRight       = 5
+	defaultMinCollFreq     = 3
+	defaultCollocationFunc = "logDice"
+	defaultCollMaxItems    = 20
 )
 
 func (a *Actions) Collocations(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
-
-	collFnArg := ctx.Request.URL.Query().Get("fn")
-	collFn, ok := collFunc[collFnArg]
-	if !ok {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("unknown collocations function %s", collFnArg),
-			http.StatusUnprocessableEntity,
-		)
+	queryProps := DetermineQueryProps(ctx, a.conf)
+	if queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+
+	measure := ctx.Request.URL.Query().Get("measure")
+	if measure == "" {
+		measure = defaultCollocationFunc
+	}
+
+	srchLeft, ok := unireq.GetURLIntArgOrFail(ctx, "srchLeft", defaultSrchLeft)
+	if !ok {
+		return
+	}
+	srchRight, ok := unireq.GetURLIntArgOrFail(ctx, "srchRight", defaultSrchRight)
+	if !ok {
+		return
+	}
+	minCollFreq, ok := unireq.GetURLIntArgOrFail(ctx, "minCollFreq", defaultMinCollFreq)
+	if !ok {
+		return
+	}
+	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", defaultCollMaxItems)
+	if !ok {
+		return
+	}
+
+	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 
 	args, err := json.Marshal(rdb.CollocationsArgs{
 		CorpusPath: corpusPath,
-		Query:      q,
+		Query:      queryProps.query,
 		Attr:       CollDefaultAttr,
-		CollFn:     collFn,
-		MinFreq:    20,
-		MaxItems:   20,
+		Measure:    measure,
+		SrchRange:  [2]int{srchLeft, srchRight},
+		MinFreq:    int64(minCollFreq),
+		MaxItems:   maxItems,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -95,6 +118,6 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	}
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
-		result,
+		&result,
 	)
 }

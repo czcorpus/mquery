@@ -39,6 +39,11 @@ func (qp queryProps) hasError() bool {
 	return qp.err != nil
 }
 
+// DetermineQueryProps searches for common arguments
+// required for most query+operation actions (freqs, colls, concordance)
+// Those are:
+// * `q` for Manatee CQL query
+// * `subcorpus` for a named ad-hoc subcorpus
 func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProps {
 	var ans queryProps
 	ans.corpus = ctx.Param("corpusId")

@@ -242,9 +242,21 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 
 func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	var ans results.Collocations
+	msr, err := mango.ImportCollMeasure(args.Measure)
+	if err != nil {
+		ans.Error = err.Error()
+		return &ans
+	}
 	colls, err := mango.GetCollcations(
-		args.CorpusPath, args.SubcPath, args.Query, args.Attr, byte(args.CollFn[0]),
-		args.MinFreq, args.MaxItems)
+		args.CorpusPath,
+		args.SubcPath,
+		args.Query,
+		args.Attr,
+		msr,
+		args.SrchRange,
+		args.MinFreq,
+		args.MaxItems,
+	)
 	if err != nil {
 		ans.Error = err.Error()
 		return &ans
@@ -252,6 +264,9 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	ans.Colls = colls.Colls
 	ans.ConcSize = colls.ConcSize
 	ans.CorpusSize = colls.CorpusSize
+	ans.SearchSize = colls.SearchSize
+	ans.Measure = args.Measure
+	ans.SrchRange = args.SrchRange
 	return &ans
 }
 
