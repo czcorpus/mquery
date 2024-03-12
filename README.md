@@ -177,7 +177,7 @@ them together. It is most suitable for larger corpora.
 
 ### Collocation profile
 
-:orange_circle: `GET /collocs/[corpus ID]?[args...]`
+:orange_circle: `GET /collocations/[corpus ID]?[args...]`
 
 
 Calculate a defined collocation profile of a searched expression. Values are sorted in descending order
