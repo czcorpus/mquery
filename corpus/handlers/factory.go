@@ -19,6 +19,7 @@
 package handlers
 
 import (
+	"mquery/cnf"
 	"mquery/corpus"
 	"mquery/corpus/infoload"
 	"mquery/rdb"
@@ -27,13 +28,13 @@ import (
 func NewActions(
 	conf *corpus.CorporaSetup,
 	radapter *rdb.Adapter,
-	infoProvider infoload.Provider,
-	dfltLanguage string,
+	infoProvider *infoload.Manatee,
+	locales cnf.LocalesConf,
 ) *Actions {
 	return &Actions{
 		conf:         conf,
 		radapter:     radapter,
 		infoProvider: infoProvider,
-		dfltLanguage: dfltLanguage,
+		locales:      locales,
 	}
 }

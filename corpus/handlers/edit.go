@@ -20,6 +20,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"mquery/cnf"
 	"mquery/corpus"
 	"mquery/corpus/edit"
 	"mquery/corpus/infoload"
@@ -51,8 +52,8 @@ type multiSubcCorpus interface {
 type Actions struct {
 	conf         *corpus.CorporaSetup
 	radapter     *rdb.Adapter
-	infoProvider infoload.Provider
-	dfltLanguage string
+	infoProvider *infoload.Manatee
+	locales      cnf.LocalesConf
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {
@@ -147,19 +148,4 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, corp)
-}
-
-func (a *Actions) CorpusInfo(ctx *gin.Context) {
-	info, err := a.infoProvider.LoadCorpusInfo(ctx.Param("corpusId"), ctx.DefaultQuery("lang", a.dfltLanguage))
-	if err == corpus.ErrNotFound {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
-		return
-
-	} else if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
-		return
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, info)
 }

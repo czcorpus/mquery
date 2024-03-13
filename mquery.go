@@ -105,7 +105,7 @@ func runApiServer(
 	syscallChan chan os.Signal,
 	exitEvent chan os.Signal,
 	radapter *rdb.Adapter,
-	infoProvider infoload.Provider,
+	infoProvider *infoload.Manatee,
 ) {
 	if !conf.LogLevel.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
@@ -120,7 +120,7 @@ func runApiServer(
 	engine.NoRoute(uniresp.NotFoundHandler)
 
 	ceActions := corpusActions.NewActions(
-		conf.CorporaSetup, radapter, infoProvider, conf.Language)
+		conf.CorporaSetup, radapter, infoProvider, conf.Locales)
 
 	engine.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)
@@ -130,6 +130,9 @@ func runApiServer(
 
 	engine.GET(
 		"/info/:corpusId", ceActions.CorpusInfo)
+
+	engine.GET(
+		"/corplist", ceActions.Corplist)
 
 	engine.GET(
 		"/freqs/:corpusId", ceActions.FreqDistrib)

@@ -24,6 +24,7 @@ import (
 	"mquery/rdb"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -38,6 +39,41 @@ const (
 	dfltTimeZone               = "Europe/Prague"
 )
 
+type LocaleConf struct {
+	Name      string `json:"name"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+type LocalesConf []LocaleConf
+
+func (conf LocalesConf) SupportsLocale(name string) bool {
+	var elms []string
+	if strings.Contains(name, "-") {
+		elms = strings.Split(name, "-")
+
+	} else if strings.Contains(name, "_") {
+		elms = strings.Split(name, "_")
+
+	} else {
+		elms = []string{name}
+	}
+	for _, locConf := range conf {
+		if locConf.Name == elms[0] {
+			return true
+		}
+	}
+	return false
+}
+
+func (conf LocalesConf) DefaultLocale() string {
+	for _, v := range conf {
+		if v.IsDefault {
+			return v.Name
+		}
+	}
+	return "en"
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
 	ListenAddress          string               `json:"listenAddress"`
@@ -49,7 +85,7 @@ type Conf struct {
 	Redis                  *rdb.Conf            `json:"redis"`
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
-	Language               string               `json:"language"`
+	Locales                LocalesConf          `json:"locales"`
 	TimeZone               string               `json:"timeZone"`
 
 	srcPath string
@@ -106,10 +142,32 @@ func ValidateAndDefaults(conf *Conf) {
 			dfltServerWriteTimeoutSecs,
 		)
 	}
-	if conf.Language == "" {
-		conf.Language = dfltLanguage
-		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
+	// check locales conf.
+	if len(conf.Locales) == 0 {
+		conf.Locales = []LocaleConf{{
+			Name:      dfltLanguage,
+			IsDefault: true,
+		}}
+		log.Warn().Msgf("language not specified, using default: %s", conf.Locales)
+
+	} else if !conf.Locales.SupportsLocale("en") {
+		log.Warn().Msgf("missing `en` locale - adding")
+		conf.Locales = append(conf.Locales, LocaleConf{
+			Name: dfltLanguage,
+		})
 	}
+	var numLocales int
+	for _, v := range conf.Locales {
+		if v.IsDefault {
+			numLocales++
+		}
+	}
+	if numLocales != 1 {
+		log.Fatal().Msg("at least one locale must be set as default")
+		return
+	}
+
+	// corpora conf
 	if err := conf.CorporaSetup.ValidateAndDefaults("corpora"); err != nil {
 		log.Fatal().Err(err).Msg("invalid configuration")
 	}
