@@ -41,7 +41,11 @@ const (
 )
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
+	queryProps := DetermineQueryProps(ctx, a.conf)
+	if queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
+		return
+	}
 	flimit := 1
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
@@ -59,10 +63,10 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	if fcrit == "" {
 		fcrit = defaultFreqCrit
 	}
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 	args, err := json.Marshal(rdb.FreqDistribArgs{
 		CorpusPath: corpusPath,
-		Query:      q,
+		Query:      queryProps.query,
 		Crit:       fcrit,
 		FreqLimit:  flimit,
 	})
@@ -112,11 +116,15 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 }
 
 func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
-	q := ctx.Request.URL.Query().Get("q")
+	queryProps := DetermineQueryProps(ctx, a.conf)
+	if queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
+		return
+	}
 	flimit := 1
 	maxItems := 0
 	within := ""
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -152,8 +160,8 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			return
 		}
 	}
-
-	if ctx.Request.URL.Query().Has("within") {
+	q := queryProps.query
+	if ctx.Request.URL.Query().Has("within") { // TODO - here we have double within! (one from configured subcorpora)
 		within = ctx.Request.URL.Query().Get("within")
 		if within == "" {
 			uniresp.RespondWithErrorJSON(

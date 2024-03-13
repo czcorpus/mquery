@@ -20,22 +20,51 @@ Response:
 
 ```ts
 {
-    corpname:string;
-    size:number; // number of tokens
-    description:string; // a localized description (if available, otherwise the `en` version)
-    srchKeywords:Array<string>; // a list of keywords characterizing the corpus
-    attrList:Array<{
-        name:string;
-        size:number; // number of unique values
-        description?:string; // a description of the attribute
+    corpus: {
+        corpname:string;
+        size:number; // number of tokens
+        description:string; // a localized description (if available, otherwise the `en` version)
+        flags:Array<string>; // a list of keywords characterizing the corpus
+        attrList:Array<{
+            name:string;
+            size:number; // number of unique values
+            description?:string; // a description of the attribute
+        }>;
+        structList:Array<{
+            name:string;
+            size:number; // number of occurences in data
+            description?:string; // a description of the attribute
+        }>;
+        webUrl?:string;
+        citationInfo:unknown; // currently unused
+    };
+    locale:string; // locale of the response (i.e. not related to corpus data)
+}
+```
+
+:orange_circle: `GET /corplist?[args...]`
+
+Shows a list of corpora with their basic properties.
+
+URL arguments:
+
+* `lang` - a  ISO 639-1 code of the language client wants the description in. In case the language is not found or in case the code is omitted, `en` version is returned.
+
+Response:
+
+```ts
+{
+    corpora: Array<{
+        id:string;
+        fullName:string;
+        description:string;
+        flags:Array<string>;
+        subcorpora:Array<{
+            id:string;
+            description:string;
+        }>;
     }>;
-    structList:Array<{
-        name:string;
-        size:number; // number of occurences in data
-        description?:string; // a description of the attribute
-    }>;
-    webUrl?:string;
-    citationInfo:unknown; // currently unused
+    locale:string; // locale of the response
 }
 ```
 
