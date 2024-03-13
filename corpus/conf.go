@@ -215,6 +215,22 @@ func (rscs Resources) Get(name string) *CorpusSetup {
 	return nil
 }
 
+func (rscs Resources) GetAllCorpora() []*CorpusSetup {
+	ans := make([]*CorpusSetup, 0, len(rscs)*3)
+	for _, v := range rscs {
+		if len(v.Variants) > 0 {
+			for _, variant := range v.Variants {
+				item := rscs.Get(variant.ID)
+				ans = append(ans, item)
+			}
+
+		} else {
+			ans = append(ans, v)
+		}
+	}
+	return ans
+}
+
 // CorporaSetup defines mquery application configuration related
 // to a corpus
 type CorporaSetup struct {

@@ -19,6 +19,7 @@ package infoload
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/corpus"
 	"mquery/corpus/baseinfo"
 	"mquery/rdb"
@@ -30,6 +31,7 @@ import (
 type Manatee struct {
 	conf         *corpus.CorporaSetup
 	queryHandler corpus.QueryHandler
+	cache        map[string]*results.CorpusInfo
 }
 
 func mergeConfigInfo(conf *corpus.CorpusSetup, info *results.CorpusInfo, lang string) {
@@ -61,7 +63,16 @@ func mergeConfigInfo(conf *corpus.CorpusSetup, info *results.CorpusInfo, lang st
 	}
 }
 
-func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*baseinfo.Corpus, error) {
+func (kdb *Manatee) makeCacheKey(corpusId string, language string) string {
+	return fmt.Sprintf("%s#%s", corpusId, language)
+}
+
+func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*results.CorpusInfo, error) {
+	val, ok := kdb.cache[kdb.makeCacheKey(corpusId, language)]
+	if ok {
+		return val, nil
+	}
+
 	corpusPath := kdb.conf.GetRegistryPath(corpusId)
 	args, err := json.Marshal(rdb.CorpusInfoArgs{
 		CorpusPath: corpusPath,
@@ -93,7 +104,8 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*baseinfo.
 		return nil, corpusInfo.Err()
 	}
 	mergeConfigInfo(kdb.conf.Resources.Get(corpusId), &corpusInfo, language)
-	return &corpusInfo.Data, nil
+	kdb.cache[kdb.makeCacheKey(corpusId, language)] = &corpusInfo
+	return &corpusInfo, nil
 }
 
 func NewManatee(
@@ -103,5 +115,6 @@ func NewManatee(
 	return &Manatee{
 		queryHandler: queryHandler,
 		conf:         conf,
+		cache:        make(map[string]*results.CorpusInfo),
 	}
 }
