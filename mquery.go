@@ -40,6 +40,7 @@ import (
 	"mquery/general"
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
+	"mquery/openapi"
 	"mquery/rdb"
 	"mquery/worker"
 )
@@ -122,6 +123,8 @@ func runApiServer(
 	engine.GET("/", mkServerInfo(conf))
 
 	engine.GET("/privacy-policy", mkPrivacyPolicy(conf))
+
+	engine.GET("/openapi", openapi.MkHandleRequest(conf, version))
 
 	engine.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)

@@ -20,6 +20,7 @@ package cnf
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
 	"os"
@@ -82,6 +83,7 @@ type PrivacyPolicy struct {
 // Conf is a global configuration of the app
 type Conf struct {
 	ListenAddress          string               `json:"listenAddress"`
+	PublicURL              string               `json:"publicUrl"`
 	ListenPort             int                  `json:"listenPort"`
 	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
@@ -148,13 +150,18 @@ func ValidateAndDefaults(conf *Conf) {
 			dfltServerWriteTimeoutSecs,
 		)
 	}
+	if conf.PublicURL == "" {
+		conf.PublicURL = fmt.Sprintf("http://%s", conf.ListenAddress)
+		log.Warn().Str("address", conf.PublicURL).Msg("publicUrl not set, using listenAddress")
+	}
+
 	// check locales conf.
 	if len(conf.Locales) == 0 {
 		conf.Locales = []LocaleConf{{
 			Name:      dfltLanguage,
 			IsDefault: true,
 		}}
-		log.Warn().Msgf("language not specified, using default: %s", conf.Locales)
+		log.Warn().Msgf("language not specified, using default: %s", conf.Locales.DefaultLocale())
 
 	} else if !conf.Locales.SupportsLocale("en") {
 		log.Warn().Msgf("missing `en` locale - adding")
