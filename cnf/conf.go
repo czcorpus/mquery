@@ -74,6 +74,11 @@ func (conf LocalesConf) DefaultLocale() string {
 	return "en"
 }
 
+type PrivacyPolicy struct {
+	LastUpdate string   `json:"lastUpdate"`
+	Contents   []string `json:"contents"`
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
 	ListenAddress          string               `json:"listenAddress"`
@@ -87,6 +92,7 @@ type Conf struct {
 	LogLevel               logging.LogLevel     `json:"logLevel"`
 	Locales                LocalesConf          `json:"locales"`
 	TimeZone               string               `json:"timeZone"`
+	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
 
 	srcPath string
 }

@@ -97,18 +97,6 @@ func CORSMiddleware(conf *cnf.Conf) gin.HandlerFunc {
 	}
 }
 
-func serverInfo(ctx *gin.Context) {
-	ans := make(map[string]any)
-	ans["name"] = "MQuery"
-	ans["about"] = "An HTTP API server for mining language corpora using Manatee-Open engine."
-	ver := make(map[string]any)
-	ver["version"] = cleanVersionInfo(version)
-	ver["buildDate"] = cleanVersionInfo(buildDate)
-	ver["lastCommit"] = cleanVersionInfo(gitCommit)
-	ans["versionInfo"] = ver
-	uniresp.WriteJSONResponse(ctx.Writer, ans)
-}
-
 func runApiServer(
 	conf *cnf.Conf,
 	syscallChan chan os.Signal,
@@ -131,7 +119,9 @@ func runApiServer(
 	ceActions := corpusActions.NewActions(
 		conf.CorporaSetup, radapter, infoProvider, conf.Locales)
 
-	engine.GET("/", serverInfo)
+	engine.GET("/", mkServerInfo(conf))
+
+	engine.GET("/privacy-policy", mkPrivacyPolicy(conf))
 
 	engine.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)
