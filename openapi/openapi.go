@@ -65,10 +65,10 @@ type Response struct {
 func NewResponse(ver, url string) *Response {
 
 	paths := make(map[string]Methods)
-	paths["/concordance"] = Methods{
+	paths["/concordance/{corpusId}"] = Methods{
 		Get: &Method{
-			Description: "Search in a corpus",
-			OperationID: "SearchInCorpus",
+			Description: "Search in a corpus for concordances",
+			OperationID: "Concordance",
 			Parameters: []Parameter{
 				{
 					Name:        "corpusId",
