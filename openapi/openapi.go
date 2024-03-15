@@ -89,6 +89,15 @@ func NewResponse(ver, url string) *Response {
 			OperationID: "CorpusInfo",
 			Parameters: []Parameter{
 				{
+					Name:        "corpusId",
+					In:          "path",
+					Description: "An ID of a corpus to get info about",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
 					Name:        "locale",
 					In:          "query",
 					Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
