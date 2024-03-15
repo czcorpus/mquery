@@ -63,8 +63,44 @@ type Response struct {
 }
 
 func NewResponse(ver, url string) *Response {
-
 	paths := make(map[string]Methods)
+
+	paths["/corplist"] = Methods{
+		Get: &Method{
+			Description: "Shows a list of available corpora with their basic properties.",
+			OperationID: "Corplist",
+			Parameters: []Parameter{
+				{
+					Name:        "locale",
+					In:          "query",
+					Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+			},
+		},
+	}
+
+	paths["/info/{corpusId}"] = Methods{
+		Get: &Method{
+			Description: "Shows a detailed corpus information, including size in tokens, available positional and structural attributes.",
+			OperationID: "CorpusInfo",
+			Parameters: []Parameter{
+				{
+					Name:        "locale",
+					In:          "query",
+					Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+			},
+		},
+	}
+
 	paths["/concordance/{corpusId}"] = Methods{
 		Get: &Method{
 			Description: "Search in a corpus for concordances",
@@ -101,9 +137,9 @@ func NewResponse(ver, url string) *Response {
 		},
 	}
 
-	paths["/text-types-overview/{corpusId}"] = Methods{
+	paths["/text-types/{corpusId}"] = Methods{
 		Get: &Method{
-			Description: "Show text types of a searched term",
+			Description: "Calculates frequencies of all the values of a requested structural attribute found in structures matching required query (e.g. all the authors found in &lt;doc author=\"...\"&gt;)",
 			OperationID: "TextTypes",
 			Parameters: []Parameter{
 				{
@@ -128,6 +164,51 @@ func NewResponse(ver, url string) *Response {
 					Name:        "subcorpus",
 					In:          "query",
 					Description: "An ID of a subcorpus",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+			},
+		},
+	}
+
+	paths["/text-types-overview/{corpusId}"] = Methods{
+		Get: &Method{
+			Description: "Show text types of a searched term",
+			OperationID: "TTOverview",
+			Parameters: []Parameter{
+				{
+					Name:        "corpusId",
+					In:          "path",
+					Description: "An ID of a corpus to search in",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
+					Name:        "q",
+					In:          "query",
+					Description: "The translated query",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
+					Name:        "subcorpus",
+					In:          "query",
+					Description: "An ID of a subcorpus",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
+					Name:        "attr",
+					In:          "query",
+					Description: "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)",
 					Required:    false,
 					Schema: ParamSchema{
 						Type: "string",
