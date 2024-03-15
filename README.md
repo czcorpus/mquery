@@ -6,7 +6,17 @@ MQuery is an HTTP API server for mining language corpora using Manatee-Open engi
 
 Note: all the responses are in JSON
 
-### Info
+### General information
+
+:orange_circle: `GET /openapi`
+
+Show OpenAPI-compatible specification of the API
+
+:orange_circle: `GET /privacy-policy`
+
+Show privacy policy information (if defined)
+
+### Corpora information
 
 :orange_circle: `GET /info/[corpus ID]?[args...]`
 
