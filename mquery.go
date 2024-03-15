@@ -124,7 +124,7 @@ func runApiServer(
 
 	engine.GET("/privacy-policy", mkPrivacyPolicy(conf))
 
-	engine.GET("/openapi", openapi.MkHandleRequest(conf, version))
+	engine.GET("/openapi", openapi.MkHandleRequest(conf, cleanVersionInfo(version)))
 
 	engine.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)
@@ -223,7 +223,7 @@ func getWorkerID() (workerID string) {
 }
 
 func cleanVersionInfo(v string) string {
-	return strings.Trim(v, "'")
+	return strings.TrimLeft(strings.Trim(v, "'"), "v")
 }
 
 func main() {

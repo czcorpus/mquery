@@ -361,7 +361,7 @@ func NewResponse(ver, url string) *Response {
 	return &Response{
 		OpenAPI: "3.1.0",
 		Info: Info{
-			Title:       "Get corpus data",
+			Title:       "MQuery - query and analyze corpus data",
 			Description: "Retrieves concordances, frequency information and collocations from language corpora",
 			Version:     ver,
 		},
