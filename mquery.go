@@ -69,6 +69,14 @@ func getRequestOrigin(ctx *gin.Context) string {
 	return ""
 }
 
+func additionalLogEvents() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		logging.AddLogEvent(ctx, "userAgent", ctx.Request.UserAgent())
+		logging.AddLogEvent(ctx, "corpusId", ctx.Param("corpusId"))
+		ctx.Next()
+	}
+}
+
 func CORSMiddleware(conf *cnf.Conf) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var allowedOrigin string
@@ -111,6 +119,7 @@ func runApiServer(
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	engine.Use(additionalLogEvents())
 	engine.Use(logging.GinMiddleware())
 	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.Use(CORSMiddleware(conf))
