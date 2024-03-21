@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -106,6 +107,15 @@ func CORSMiddleware(conf *cnf.Conf) gin.HandlerFunc {
 	}
 }
 
+func AuthRequired(conf *cnf.Conf) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if len(conf.AuthHeaderName) > 0 && !collections.SliceContains(conf.AuthTokens, ctx.GetHeader(conf.AuthHeaderName)) {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		}
+		ctx.Next()
+	}
+}
+
 func runApiServer(
 	conf *cnf.Conf,
 	syscallChan chan os.Signal,
@@ -126,6 +136,8 @@ func runApiServer(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
+	protected := engine.Group("/tools").Use(AuthRequired(conf))
+
 	ceActions := corpusActions.NewActions(
 		conf.CorporaSetup, radapter, infoProvider, conf.Locales)
 
@@ -135,10 +147,10 @@ func runApiServer(
 
 	engine.GET("/openapi", openapi.MkHandleRequest(conf, cleanVersionInfo(version)))
 
-	engine.POST(
+	protected.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)
 
-	engine.DELETE(
+	protected.DELETE(
 		"/split/:corpusId", ceActions.DeleteSplit)
 
 	engine.GET(

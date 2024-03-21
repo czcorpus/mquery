@@ -95,6 +95,8 @@ type Conf struct {
 	Locales                LocalesConf          `json:"locales"`
 	TimeZone               string               `json:"timeZone"`
 	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
+	AuthHeaderName         string               `json:"authHeaderName"`
+	AuthTokens             []string             `json:"authTokens"`
 
 	srcPath string
 }
