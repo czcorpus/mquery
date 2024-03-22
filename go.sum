@@ -11,8 +11,8 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583j
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/czcorpus/cnc-gokit v0.9.1 h1:IwjmK8Alf9UEpeoH3Ly8SxTWaFolc/JOURKP8ZAY278=
 github.com/czcorpus/cnc-gokit v0.9.1/go.mod h1:m6/pi38R7LW9Dm598fwI0UTqcCcCuLD60Tx7pidWGcc=
-github.com/czcorpus/mquery-common v0.0.3 h1:h1DEALnQOBGf9VKTFU1C8rQgzvHXW90Z2TU+LxwLDTY=
-github.com/czcorpus/mquery-common v0.0.3/go.mod h1:xAWGWB1e4P43bj0obOWq+Ie5NvutM+ZeSTUB7rEb6po=
+github.com/czcorpus/mquery-common v0.0.4 h1:f25P7IiHXllLQLiQd6g4fUdOXr1pZSQ27yoM5H06TYM=
+github.com/czcorpus/mquery-common v0.0.4/go.mod h1:xAWGWB1e4P43bj0obOWq+Ie5NvutM+ZeSTUB7rEb6po=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

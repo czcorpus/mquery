@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/czcorpus/cnc-gokit v0.9.1
-	github.com/czcorpus/mquery-common v0.0.3
+	github.com/czcorpus/mquery-common v0.0.4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/gomarkdown/markdown v0.0.0-20231115200524-a660076da3fd
 	github.com/google/uuid v1.3.0
