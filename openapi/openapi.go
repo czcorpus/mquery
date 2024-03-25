@@ -30,7 +30,8 @@ type Server struct {
 }
 
 type ParamSchema struct {
-	Type string `json:"type"`
+	Type string   `json:"type"`
+	Enum []string `json:"enum,omitempty"`
 }
 
 type Parameter struct {
@@ -140,6 +141,16 @@ func NewResponse(ver, url string) *Response {
 					Required:    false,
 					Schema: ParamSchema{
 						Type: "string",
+					},
+				},
+				{
+					Name:        "format",
+					In:          "query",
+					Description: "For a concordance formatted in Markdown, `markdown` value can be passed",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+						Enum: []string{"json", "markdown"},
 					},
 				},
 			},

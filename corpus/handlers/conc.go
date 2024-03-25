@@ -20,24 +20,79 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
+	"mquery/results"
 	"net/http"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	dfltMaxContext = 50
+	dfltMaxContext                = 50
+	concFormatJSON     concFormat = "json"
+	concFormatMarkdown concFormat = "markdown"
 )
 
+type concFormat string
+
+func (cf concFormat) Validate() error {
+	if cf == concFormatJSON || cf == concFormatMarkdown {
+		return nil
+	}
+	return fmt.Errorf("unknown concordance format type: %s", cf)
+}
+
 type ConcArgsBuilder func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs
+
+func mkStrongMarkdown(tk *concordance.Token, conf *corpus.CorpusSetup) string {
+	var tmp strings.Builder
+	if tk.Strong {
+		tmp.WriteString(fmt.Sprintf("**%s** *{", tk.Word))
+		var i int
+		for _, v := range conf.PosAttrs {
+			if v.Name == "word" {
+				continue
+			}
+			if i > 0 {
+				tmp.WriteString(", ")
+			}
+			tmp.WriteString(fmt.Sprintf("%s=%s", v.Name, tk.Attrs[v.Name]))
+			i++
+		}
+		tmp.WriteString("}*")
+		return tmp.String()
+	}
+	return tk.Word
+}
+
+func concToMarkdown(data results.Concordance, conf *corpus.CorpusSetup) string {
+	var ans strings.Builder
+	for _, line := range data.Lines {
+		for i, ch := range line.Text {
+
+			if i > 0 {
+				ans.WriteString(" " + mkStrongMarkdown(ch, conf))
+
+			} else {
+				ans.WriteString(mkStrongMarkdown(ch, conf))
+			}
+		}
+		ans.WriteString("\n\n")
+	}
+	return ans.String()
+}
 
 func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
+		concFormatJSON,
 		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 				QueryLemma:        ctx.Query("lemma"),
@@ -54,8 +109,18 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 }
 
 func (a *Actions) Concordance(ctx *gin.Context) {
+	format := concFormat(ctx.DefaultQuery("format", "json"))
+	if err := format.Validate(); err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 	a.anyConcordance(
 		ctx,
+		format,
 		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
@@ -71,7 +136,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 	)
 }
 
-func (a *Actions) anyConcordance(ctx *gin.Context, argsBuilder ConcArgsBuilder) {
+func (a *Actions) anyConcordance(ctx *gin.Context, format concFormat, argsBuilder ConcArgsBuilder) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
@@ -120,5 +185,15 @@ func (a *Actions) anyConcordance(ctx *gin.Context, argsBuilder ConcArgsBuilder) 
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, &result)
+	switch format {
+	case concFormatJSON:
+		uniresp.WriteJSONResponse(ctx.Writer, &result)
+	case concFormatMarkdown:
+		md := concToMarkdown(result, a.conf.Resources.Get(queryProps.corpus))
+		ctx.Header("content-type", "text/markdown; charset=utf-8")
+		ctx.Writer.WriteString(md)
+	default:
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("invalid format: %s", format), http.StatusUnprocessableEntity)
+	}
 }
