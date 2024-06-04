@@ -207,7 +207,7 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 			Attrs:             conf.PosAttrs.GetIDs(),
 			ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 			StartLine:         0, // TODO
-			MaxItems:          conf.MaximumRecords,
+			MaxItems:          1,
 			MaxContext:        dfltMaxContext,
 			ViewContextStruct: conf.ViewContextStruct,
 		}

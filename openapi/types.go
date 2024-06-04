@@ -30,8 +30,9 @@ type Server struct {
 }
 
 type ParamSchema struct {
-	Type string   `json:"type"`
-	Enum []string `json:"enum,omitempty"`
+	Type    string `json:"type"`
+	Enum    []any  `json:"enum,omitempty"`
+	Default any    `json:"default,omitempty"`
 }
 
 type Parameter struct {
@@ -69,7 +70,7 @@ type AdditionalProperty struct {
 
 type ObjectProperty struct {
 	Type                 string             `json:"type"`
-	Enum                 []string           `json:"enum,omitempty"`
+	Enum                 []any              `json:"enum,omitempty"`
 	Properties           ObjectProperties   `json:"properties,omitempty"`
 	Items                *arrayItem         `json:"items,omitempty"`
 	AdditionalProperties AdditionalProperty `json:"additionalProperties,omitempty"`

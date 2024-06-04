@@ -19,7 +19,11 @@
 
 package openapi
 
-import "github.com/czcorpus/cnc-gokit/collections"
+import (
+	"mquery/corpus/handlers"
+
+	"github.com/czcorpus/cnc-gokit/collections"
+)
 
 func NewResponse(ver, url, subscriber string) *APIResponse {
 	paths := make(map[string]Methods)
@@ -33,10 +37,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "locale",
 						In:          "query",
-						Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
+						Description: "An ISO 639-1 locale code of response.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
+							Type:    "string",
+							Default: "en",
 						},
 					},
 				},
@@ -90,10 +95,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "locale",
 						In:          "query",
-						Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
+						Description: "An ISO 639-1 locale code of response.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
+							Type:    "string",
+							Default: "en",
 						},
 					},
 				},
@@ -121,7 +127,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 											},
 										},
 										"result": ObjectProperty{
-											Enum: []string{"corpusInfo"},
+											Enum: []any{"corpusInfo"},
 										},
 										"locale": ObjectProperty{
 											Type: "string",
@@ -176,7 +182,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Required:    false,
 						Schema: ParamSchema{
 							Type: "string",
-							Enum: []string{"json", "markdown"},
+							Enum: []any{"json", "markdown"},
 						},
 					},
 				},
@@ -223,7 +229,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"conc"},
+											Enum: []any{"conc"},
 										},
 									},
 								},
@@ -319,7 +325,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"freqs"},
+											Enum: []any{"freqs"},
 										},
 									},
 								},
@@ -367,6 +373,16 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 							Type: "string",
 						},
 					},
+					{
+						Name:        "flimit",
+						In:          "query",
+						Description: "minimum frequency of result items to be included in the result set",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Default: handlers.DefaultFreqLimit,
+						},
+					},
 				},
 				Responses: MethodResponses{
 					200: MethodResponse{
@@ -380,7 +396,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"multipleFreqs"},
+											Enum: []any{"multipleFreqs"},
 										},
 									},
 								},
@@ -454,7 +470,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"termFrequency"},
+											Enum: []any{"termFrequency"},
 										},
 									},
 								},
@@ -500,12 +516,22 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						},
 					},
 					{
-						Name:        "fcrit",
+						Name:        "attr",
 						In:          "query",
-						Description: "an encoded frequency criterion (e.g. tag 0~0>0); if omitted lemma 0~0>0 is used",
+						Description: "a positional attribute (e.g. `word`, `lemma`, `tag`) the frequency will be calculated on",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
+							Type:    "string",
+							Default: handlers.DefaultFreqAttr,
+						},
+					},
+					{
+						Name:        "matchCase",
+						In:          "query",
+						Description: "",
+						Schema: ParamSchema{
+							Type: "integer",
+							Enum: []any{0, 1},
 						},
 					},
 					{
@@ -521,6 +547,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Name:        "flimit",
 						In:          "query",
 						Description: "minimum frequency of result items to be included in the result set",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Default: handlers.DefaultFreqLimit,
+						},
 					},
 				},
 				Responses: MethodResponses{
@@ -564,7 +595,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"freqs"},
+											Enum: []any{"freqs"},
 										},
 									},
 								},
@@ -616,10 +647,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Required:    false,
 						Schema: ParamSchema{
 							Type: "string",
-							Enum: []string{
+							Enum: []any{
 								"absFreq", "logLikelihood", "logDice", "minSensitivity", "mutualInfo",
 								"mutualInfo3", "mutualInfoLogF", "relFreq", "tScore",
 							},
+							Default: handlers.DefaultCollocationFunc,
 						},
 					},
 					{
@@ -628,7 +660,8 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "left range for candidates searching (0 is KWIC, values < 0 are on the left side of the KWIC, values > 0 are to the right of the KWIC). The argument can be omitted in which case -5 is used",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultSrchLeft,
 						},
 					},
 					{
@@ -637,16 +670,18 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "right range for candidates searching (the meaning of concrete values is the same as in srchLeft). The argument can be omitted in which case -5 is used.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultSrchLeft,
 						},
 					},
 					{
 						Name:        "minCollFreq",
 						In:          "query",
-						Description: " the minimum frequency that a collocate must have in the searched range. The argument is optional with default value of 3",
+						Description: " the minimum frequency that a collocate must have in the searched range.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultMinCollFreq,
 						},
 					},
 					{
@@ -655,7 +690,8 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "maximum number of result items",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultCollMaxItems,
 						},
 					},
 				},
@@ -691,11 +727,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"resultType"},
+											Enum: []any{"resultType"},
 										},
 										"measure": ObjectProperty{
 											Type: "string",
-											Enum: []string{
+											Enum: []any{
 												"absFreq", "logLikelihood", "logDice",
 												"minSensitivity", "mutualInfo", "mutualInfo3",
 												"mutualInfoLogF", "relFreq", "tScore",
