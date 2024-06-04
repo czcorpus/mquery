@@ -148,8 +148,8 @@ URL arguments:
 
 * `q` - a Manatee CQL query
 * `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
-* `fcrit` - a Manatee freq. criterion (e.g. `tag 0~0>0` (see [SketchEngine docs](https://www.sketchengine.eu/documentation/methods-documentation/#freqs))).
-  * if omitted `lemma 0~0>0` is used
+* `attr` - a positional attribute the frequency will be calculated on
+* `matchCase` - if `1`, then words that differ only in upper/lower case will be grouped together (e.g. `Work` will be the same as `work` - presented in lower case).
 * `maxItems` - this sets the maximum number of result items
 * `flimit` - minimum frequency of items to be included in the result set
 * `within` - :exclamation: deprecated - use `subcorpus` instead

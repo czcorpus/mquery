@@ -127,7 +127,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 											},
 										},
 										"result": ObjectProperty{
-											Enum: []string{"corpusInfo"},
+											Enum: []any{"corpusInfo"},
 										},
 										"locale": ObjectProperty{
 											Type: "string",
@@ -182,7 +182,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Required:    false,
 						Schema: ParamSchema{
 							Type: "string",
-							Enum: []string{"json", "markdown"},
+							Enum: []any{"json", "markdown"},
 						},
 					},
 				},
@@ -229,7 +229,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"conc"},
+											Enum: []any{"conc"},
 										},
 									},
 								},
@@ -325,7 +325,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"freqs"},
+											Enum: []any{"freqs"},
 										},
 									},
 								},
@@ -396,7 +396,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"multipleFreqs"},
+											Enum: []any{"multipleFreqs"},
 										},
 									},
 								},
@@ -470,7 +470,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"termFrequency"},
+											Enum: []any{"termFrequency"},
 										},
 									},
 								},
@@ -516,13 +516,22 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						},
 					},
 					{
-						Name:        "fcrit",
+						Name:        "attr",
 						In:          "query",
-						Description: "an encoded frequency criterion (e.g. tag 0~0>0); if omitted lemma 0~0>0 is used",
+						Description: "a positional attribute (e.g. `word`, `lemma`, `tag`) the frequency will be calculated on",
 						Required:    false,
 						Schema: ParamSchema{
 							Type:    "string",
-							Default: handlers.DefaultFreqCrit,
+							Default: handlers.DefaultFreqAttr,
+						},
+					},
+					{
+						Name:        "matchCase",
+						In:          "query",
+						Description: "",
+						Schema: ParamSchema{
+							Type: "integer",
+							Enum: []any{0, 1},
 						},
 					},
 					{
@@ -586,7 +595,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"freqs"},
+											Enum: []any{"freqs"},
 										},
 									},
 								},
@@ -638,7 +647,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Required:    false,
 						Schema: ParamSchema{
 							Type: "string",
-							Enum: []string{
+							Enum: []any{
 								"absFreq", "logLikelihood", "logDice", "minSensitivity", "mutualInfo",
 								"mutualInfo3", "mutualInfoLogF", "relFreq", "tScore",
 							},
@@ -718,11 +727,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 										},
 										"resultType": ObjectProperty{
 											Type: "string",
-											Enum: []string{"resultType"},
+											Enum: []any{"resultType"},
 										},
 										"measure": ObjectProperty{
 											Type: "string",
-											Enum: []string{
+											Enum: []any{
 												"absFreq", "logLikelihood", "logDice",
 												"minSensitivity", "mutualInfo", "mutualInfo3",
 												"mutualInfoLogF", "relFreq", "tScore",
