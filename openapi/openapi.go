@@ -189,13 +189,25 @@ func NewResponse(ver, url string) *Response {
 						Type: "string",
 					},
 				},
+				{
+					Name:        "attr",
+					In:          "query",
+					Description: "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
 			},
 		},
 	}
 
 	paths["/text-types-overview/{corpusId}"] = Methods{
 		Get: &Method{
-			Description: "Show text types of a searched term",
+			Description: "Shows the text types (= values of predefined structural attributes) of a searched term. " +
+				"This endpoint provides a similar result to the endpoint `/text-types/{corpusId}` called multiple times " +
+				"on a fixed set of attributes. It is suitable in case a user wants to get a general overview of the corpus structure " +
+				"as it typically provides information like publication years, authors, text types, media etc.",
 			OperationID: "TTOverview",
 			Parameters: []Parameter{
 				{
@@ -220,15 +232,6 @@ func NewResponse(ver, url string) *Response {
 					Name:        "subcorpus",
 					In:          "query",
 					Description: "An ID of a subcorpus",
-					Required:    false,
-					Schema: ParamSchema{
-						Type: "string",
-					},
-				},
-				{
-					Name:        "attr",
-					In:          "query",
-					Description: "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)",
 					Required:    false,
 					Schema: ParamSchema{
 						Type: "string",
