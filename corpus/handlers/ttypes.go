@@ -47,7 +47,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		)
 		return
 	}
-	flimit := 1
+	flimit := DefaultFreqLimit
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
 		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))

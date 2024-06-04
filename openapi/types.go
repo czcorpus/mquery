@@ -30,8 +30,9 @@ type Server struct {
 }
 
 type ParamSchema struct {
-	Type string   `json:"type"`
-	Enum []string `json:"enum,omitempty"`
+	Type    string   `json:"type"`
+	Enum    []string `json:"enum,omitempty"`
+	Default any      `json:"default,omitempty"`
 }
 
 type Parameter struct {

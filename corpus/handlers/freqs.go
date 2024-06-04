@@ -37,7 +37,8 @@ import (
 )
 
 const (
-	defaultFreqCrit = "lemma/e 0~0>0"
+	DefaultFreqCrit  = "lemma/e 0~0>0"
+	DefaultFreqLimit = 5
 )
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
@@ -46,7 +47,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-	flimit := 1
+	flimit := DefaultFreqLimit
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
 		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
@@ -61,7 +62,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	}
 	fcrit := ctx.Request.URL.Query().Get("fcrit")
 	if fcrit == "" {
-		fcrit = defaultFreqCrit
+		fcrit = DefaultFreqCrit
 	}
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 	args, err := json.Marshal(rdb.FreqDistribArgs{
@@ -198,7 +199,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	result.Freqs = make([]*results.FreqDistribItem, 0)
 	fcrit := ctx.Request.URL.Query().Get("fcrit")
 	if fcrit == "" {
-		fcrit = defaultFreqCrit
+		fcrit = DefaultFreqCrit
 	}
 	for _, subc := range sc.Subcorpora {
 		args, err := json.Marshal(rdb.FreqDistribArgs{

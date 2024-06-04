@@ -30,12 +30,11 @@ import (
 
 const (
 	CollDefaultAttr        = "lemma"
-	defaultNumSubcSamples  = 30
-	defaultSrchLeft        = -5
-	defaultSrchRight       = 5
-	defaultMinCollFreq     = 3
-	defaultCollocationFunc = "logDice"
-	defaultCollMaxItems    = 20
+	DefaultSrchLeft        = -5
+	DefaultSrchRight       = 5
+	DefaultMinCollFreq     = 3
+	DefaultCollocationFunc = "logDice"
+	DefaultCollMaxItems    = 20
 )
 
 func (a *Actions) Collocations(ctx *gin.Context) {
@@ -47,22 +46,22 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 
 	measure := ctx.Request.URL.Query().Get("measure")
 	if measure == "" {
-		measure = defaultCollocationFunc
+		measure = DefaultCollocationFunc
 	}
 
-	srchLeft, ok := unireq.GetURLIntArgOrFail(ctx, "srchLeft", defaultSrchLeft)
+	srchLeft, ok := unireq.GetURLIntArgOrFail(ctx, "srchLeft", DefaultSrchLeft)
 	if !ok {
 		return
 	}
-	srchRight, ok := unireq.GetURLIntArgOrFail(ctx, "srchRight", defaultSrchRight)
+	srchRight, ok := unireq.GetURLIntArgOrFail(ctx, "srchRight", DefaultSrchRight)
 	if !ok {
 		return
 	}
-	minCollFreq, ok := unireq.GetURLIntArgOrFail(ctx, "minCollFreq", defaultMinCollFreq)
+	minCollFreq, ok := unireq.GetURLIntArgOrFail(ctx, "minCollFreq", DefaultMinCollFreq)
 	if !ok {
 		return
 	}
-	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", defaultCollMaxItems)
+	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", DefaultCollMaxItems)
 	if !ok {
 		return
 	}

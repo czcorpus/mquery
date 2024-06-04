@@ -19,7 +19,11 @@
 
 package openapi
 
-import "github.com/czcorpus/cnc-gokit/collections"
+import (
+	"mquery/corpus/handlers"
+
+	"github.com/czcorpus/cnc-gokit/collections"
+)
 
 func NewResponse(ver, url, subscriber string) *APIResponse {
 	paths := make(map[string]Methods)
@@ -33,10 +37,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "locale",
 						In:          "query",
-						Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
+						Description: "An ISO 639-1 locale code of response.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
+							Type:    "string",
+							Default: "en",
 						},
 					},
 				},
@@ -90,10 +95,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "locale",
 						In:          "query",
-						Description: "An ISO 639-1 locale code of response. By default, `en` is used.",
+						Description: "An ISO 639-1 locale code of response.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
+							Type:    "string",
+							Default: "en",
 						},
 					},
 				},
@@ -367,6 +373,16 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 							Type: "string",
 						},
 					},
+					{
+						Name:        "flimit",
+						In:          "query",
+						Description: "minimum frequency of result items to be included in the result set",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Default: handlers.DefaultFreqLimit,
+						},
+					},
 				},
 				Responses: MethodResponses{
 					200: MethodResponse{
@@ -505,7 +521,8 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "an encoded frequency criterion (e.g. tag 0~0>0); if omitted lemma 0~0>0 is used",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
+							Type:    "string",
+							Default: handlers.DefaultFreqCrit,
 						},
 					},
 					{
@@ -521,6 +538,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Name:        "flimit",
 						In:          "query",
 						Description: "minimum frequency of result items to be included in the result set",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Default: handlers.DefaultFreqLimit,
+						},
 					},
 				},
 				Responses: MethodResponses{
@@ -620,6 +642,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 								"absFreq", "logLikelihood", "logDice", "minSensitivity", "mutualInfo",
 								"mutualInfo3", "mutualInfoLogF", "relFreq", "tScore",
 							},
+							Default: handlers.DefaultCollocationFunc,
 						},
 					},
 					{
@@ -628,7 +651,8 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "left range for candidates searching (0 is KWIC, values < 0 are on the left side of the KWIC, values > 0 are to the right of the KWIC). The argument can be omitted in which case -5 is used",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultSrchLeft,
 						},
 					},
 					{
@@ -637,16 +661,18 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "right range for candidates searching (the meaning of concrete values is the same as in srchLeft). The argument can be omitted in which case -5 is used.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultSrchLeft,
 						},
 					},
 					{
 						Name:        "minCollFreq",
 						In:          "query",
-						Description: " the minimum frequency that a collocate must have in the searched range. The argument is optional with default value of 3",
+						Description: " the minimum frequency that a collocate must have in the searched range.",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultMinCollFreq,
 						},
 					},
 					{
@@ -655,7 +681,8 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "maximum number of result items",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "integer",
+							Type:    "integer",
+							Default: handlers.DefaultCollMaxItems,
 						},
 					},
 				},
