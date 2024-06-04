@@ -160,6 +160,9 @@ func runApiServer(
 		"/corplist", ceActions.Corplist)
 
 	engine.GET(
+		"/term-frequency/:corpusId", ceActions.TermFrequency)
+
+	engine.GET(
 		"/freqs/:corpusId", ceActions.FreqDistrib)
 
 	engine.GET(

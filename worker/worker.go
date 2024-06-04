@@ -101,8 +101,8 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		if err := w.publishResult(ans, query.Channel); err != nil {
 			return err
 		}
-	case "concSize":
-		var args rdb.ConcSizeArgs
+	case "termFrequency":
+		var args rdb.TermFrequencyArgs
 		if err := json.Unmarshal(query.Args, &args); err != nil {
 			return err
 		}
@@ -291,7 +291,7 @@ func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) *results.CollFr
 	return &results.CollFreqData{}
 }
 
-func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
+func (w *Worker) concSize(args rdb.TermFrequencyArgs) *results.ConcSize {
 	var ans results.ConcSize
 	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.Query)
 	if err != nil {
@@ -300,6 +300,7 @@ func (w *Worker) concSize(args rdb.ConcSizeArgs) *results.ConcSize {
 	}
 	ans.ConcSize = concSizeInfo.Value
 	ans.CorpusSize = concSizeInfo.CorpusSize
+	ans.ARF = concSizeInfo.ARF
 	return &ans
 }
 

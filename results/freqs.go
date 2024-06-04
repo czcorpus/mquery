@@ -29,7 +29,7 @@ import (
 
 const (
 	ResultTypeConcordance   = "conc"
-	ResultTypeConcSize      = "concSize"
+	ResultTypeConcSize      = "termFrequency"
 	ResultTypeCollocations  = "coll"
 	ResultTypeCollFreqData  = "collFreqData"
 	ResultTypeFreqs         = "freqs"
@@ -170,6 +170,7 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 
 type ConcSize struct {
 	ConcSize   int64
+	ARF        float64
 	CorpusSize int64
 	Error      string
 }
@@ -188,12 +189,16 @@ func (res *ConcSize) Type() ResultType {
 func (res *ConcSize) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
-			ConcSize   int64      `json:"concSize"`
+			Total      int64      `json:"total"`
+			ARF        float64    `json:"arf"`
+			IPM        float64    `json:"ipm"`
 			CorpusSize int64      `json:"corpusSize"`
 			ResultType ResultType `json:"resultType"`
 			Error      string     `json:"error,omitempty"`
 		}{
-			ConcSize:   res.ConcSize,
+			Total:      res.ConcSize,
+			ARF:        NormRound(res.ARF),
+			IPM:        NormRound(float64(res.ConcSize) / float64(res.CorpusSize) * 1000000),
 			CorpusSize: res.CorpusSize,
 			ResultType: res.Type(),
 			Error:      res.Error,

@@ -238,9 +238,52 @@ func NewResponse(ver, url string) *Response {
 		},
 	}
 
+	paths["/term-frequency/{corpusId}"] = Methods{
+		Get: &Method{
+			Description: "This endpoint retrieves the frequency, instances per million (IPM), and " +
+				"Average Reduced Frequency (ARF) of a searched term within a corpus. It provides a concise " +
+				"aggregated frequency overview for a given query, regardless of the number of concrete words " +
+				" (n-grams) it covers. " +
+				"The endpoint is similar to the `/freqs/{corpusId}` endpoint, but with a key difference. " +
+				"While `/freqs/{corpusId}` always groups the matching items by a specified attribute " +
+				"(e.g., the word `work` may be split into NOUN and VERB variants, or the pattern `pro.*` may " +
+				"be split into hundreds of matching words), `/term-frequency/{corpusId}` returns the aggregated " +
+				"frequency information for the entire query.",
+			Parameters: []Parameter{
+				{
+					Name:        "corpusId",
+					In:          "path",
+					Description: "An ID of a corpus to search in",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
+					Name:        "q",
+					In:          "query",
+					Description: "The translated query",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
+					Name:        "subcorpus",
+					In:          "query",
+					Description: "An ID of a subcorpus",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+			},
+		},
+	}
+
 	paths["/freqs/{corpusId}"] = Methods{
 		Get: &Method{
-			Description: "Calculate a frequency distribution for the searched term (KWIC).",
+			Description: "Calculate a frequency distribution for a searched term (KWIC).",
 			OperationID: "Freqs",
 			Parameters: []Parameter{
 				{
