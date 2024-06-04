@@ -18,15 +18,35 @@
 package openapi
 
 import (
+	"fmt"
 	"mquery/cnf"
+	"net/http"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
 
+var (
+	supportedSubscribers = []string{
+		"corpus-linguist",
+		"slovo-v-kostce",
+		"",
+	}
+)
+
 func MkHandleRequest(conf *cnf.Conf, ver string) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		ans := NewResponse(ver, conf.PublicURL)
+		subscr := ctx.Query("subscriber")
+		if !collections.SliceContains(supportedSubscribers, subscr) {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("unknown subscriber"),
+				http.StatusNotFound,
+			)
+			return
+		}
+		ans := NewResponse(ver, conf.PublicURL, ctx.Query("subscriber"))
 		uniresp.WriteJSONResponse(ctx.Writer, &ans)
 	}
 }
