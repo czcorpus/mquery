@@ -298,7 +298,7 @@ func (w *Worker) concSize(args rdb.TermFrequencyArgs) *results.ConcSize {
 		ans.Error = err.Error()
 		return &ans
 	}
-	ans.ConcSize = concSizeInfo.Value
+	ans.Total = concSizeInfo.Value
 	ans.CorpusSize = concSizeInfo.CorpusSize
 	ans.ARF = concSizeInfo.ARF
 	return &ans
