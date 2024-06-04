@@ -69,12 +69,12 @@ type AdditionalProperty struct {
 }
 
 type ObjectProperty struct {
-	Type                 string             `json:"type"`
-	Enum                 []any              `json:"enum,omitempty"`
-	Properties           ObjectProperties   `json:"properties,omitempty"`
-	Items                *arrayItem         `json:"items,omitempty"`
-	AdditionalProperties AdditionalProperty `json:"additionalProperties,omitempty"`
-	Description          string             `json:"description,omitempty"`
+	Type                 string              `json:"type"`
+	Enum                 []any               `json:"enum,omitempty"`
+	Properties           ObjectProperties    `json:"properties,omitempty"`
+	Items                *arrayItem          `json:"items,omitempty"`
+	AdditionalProperties *AdditionalProperty `json:"additionalProperties,omitempty"`
+	Description          string              `json:"description,omitempty"`
 }
 
 type ObjectProperties map[string]ObjectProperty

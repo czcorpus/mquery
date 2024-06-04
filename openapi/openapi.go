@@ -211,7 +211,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 																},
 																"attrs": ObjectProperty{
 																	Type: "object",
-																	AdditionalProperties: AdditionalProperty{
+																	AdditionalProperties: &AdditionalProperty{
 																		Type: "string",
 																	},
 																},
