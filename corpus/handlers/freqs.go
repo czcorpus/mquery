@@ -37,8 +37,10 @@ import (
 )
 
 const (
-	DefaultFreqCrit  = "lemma/e 0~0>0"
-	DefaultFreqLimit = 5
+	defaultFreqCritTpl = "%s/%s 0~0>0"
+	DefaultFreqLimit   = 5
+	DefaultFreqAttr    = "lemma"
+	DefaultFreqCrit    = "lemma/e 0~0>0"
 )
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
@@ -60,10 +62,20 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			return
 		}
 	}
-	fcrit := ctx.Request.URL.Query().Get("fcrit")
-	if fcrit == "" {
-		fcrit = DefaultFreqCrit
+	attr := ctx.Request.URL.Query().Get("attr")
+	if attr == "" {
+		attr = DefaultFreqAttr
 	}
+	matchCase := ctx.Request.URL.Query().Get("matchCase")
+	var ic string
+	if matchCase == "1" {
+		ic = "e"
+
+	} else {
+		ic = "i"
+	}
+	fcrit := fmt.Sprintf(defaultFreqCritTpl, attr, ic)
+
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 	args, err := json.Marshal(rdb.FreqDistribArgs{
 		CorpusPath: corpusPath,
