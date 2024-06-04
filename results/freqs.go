@@ -169,10 +169,10 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 // ----
 
 type ConcSize struct {
-	ConcSize   int64
-	ARF        float64
-	CorpusSize int64
-	Error      string
+	Total      int64   `json:"total"`
+	ARF        float64 `json:"arf"`
+	CorpusSize int64   `json:"corpusSize"`
+	Error      string  `json:"error,omitempty"`
 }
 
 func (res *ConcSize) Err() error {
@@ -196,9 +196,9 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 			ResultType ResultType `json:"resultType"`
 			Error      string     `json:"error,omitempty"`
 		}{
-			Total:      res.ConcSize,
+			Total:      res.Total,
 			ARF:        NormRound(res.ARF),
-			IPM:        NormRound(float64(res.ConcSize) / float64(res.CorpusSize) * 1000000),
+			IPM:        NormRound(float64(res.Total) / float64(res.CorpusSize) * 1000000),
 			CorpusSize: res.CorpusSize,
 			ResultType: res.Type(),
 			Error:      res.Error,

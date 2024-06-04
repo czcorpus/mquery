@@ -238,6 +238,7 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
+
 	result, err := rdb.DeserializeConcSizeResult(rawResult)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
