@@ -197,3 +197,63 @@ func (a *Actions) anyConcordance(ctx *gin.Context, format concFormat, argsBuilde
 			ctx, fmt.Errorf("invalid format: %s", format), http.StatusUnprocessableEntity)
 	}
 }
+
+func (a *Actions) TermFrequency(ctx *gin.Context) {
+	queryProps := DetermineQueryProps(ctx, a.conf)
+	argsBuilder := func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+		return rdb.ConcordanceArgs{
+			CorpusPath:        a.conf.GetRegistryPath(conf.ID),
+			Query:             q,
+			Attrs:             conf.PosAttrs.GetIDs(),
+			ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+			StartLine:         0, // TODO
+			MaxItems:          conf.MaximumRecords,
+			MaxContext:        dfltMaxContext,
+			ViewContextStruct: conf.ViewContextStruct,
+		}
+	}
+	args, err := json.Marshal(argsBuilder(
+		queryProps.corpusConf,
+		queryProps.query,
+	))
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "termFrequency",
+		Args: args,
+	})
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	rawResult := <-wait
+	result, err := rdb.DeserializeConcSizeResult(rawResult)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	if err := result.Err(); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, &result)
+}

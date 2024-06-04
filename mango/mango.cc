@@ -97,6 +97,7 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
             corp, corp->filter_query(eval_cqpquery(query, corp)));
         conc->sync();
         ans.value = conc->size();
+        ans.arf = conc->compute_ARF();
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());

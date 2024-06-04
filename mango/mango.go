@@ -63,6 +63,7 @@ type GoConcordance struct {
 
 type GoConcSize struct {
 	Value      int64
+	ARF        float64
 	CorpusSize int64
 }
 
@@ -99,6 +100,7 @@ func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 	}
 	ret.CorpusSize = int64(ans.corpusSize)
 	ret.Value = int64(ans.value)
+	ret.ARF = float64(ans.arf)
 	return ret, nil
 }
 

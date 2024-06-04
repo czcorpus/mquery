@@ -20,6 +20,7 @@ package results
 
 import (
 	"encoding/json"
+	"math"
 	"time"
 )
 
@@ -41,4 +42,11 @@ func (jl *JobLog) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(ans), nil
+}
+
+// NormRound performs a normalized rounding to
+// the three decimal places so we can provide
+// consistent rounding across all the results
+func NormRound(val float64) float64 {
+	return math.Round(val*1000) / 1000
 }

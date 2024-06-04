@@ -77,7 +77,7 @@ type CollocationsArgs struct {
 	MaxItems   int    `json:"maxItems"`
 }
 
-type ConcSizeArgs struct {
+type TermFrequencyArgs struct {
 	CorpusPath string `json:"corpusPath"`
 	Query      string `json:"query"`
 }
