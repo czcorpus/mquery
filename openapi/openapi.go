@@ -234,6 +234,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 									},
 								},
 							},
+							"text/markdown; charset=utf-8": MethodResponseContent{
+								Schema: MethodResponseSchema{
+									Type: "string",
+								},
+							},
 						},
 					},
 				},
