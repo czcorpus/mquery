@@ -26,3 +26,5 @@ go.work
 # local installation
 config.json
 mquery
+Makefile
+
