@@ -51,24 +51,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"id": ObjectProperty{
-											Type: "string",
-										},
-										"fullName": ObjectProperty{
-											Type: "string",
-										},
-										"description": ObjectProperty{
-											Type: "string",
-										},
-										"flags": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "string",
-											},
-										},
-									},
+									Ref: "#/components/schemas/Corplist",
 								},
 							},
 						},
@@ -109,31 +92,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"data": ObjectProperty{
-											Properties: ObjectProperties{
-												"corpname": ObjectProperty{
-													Type: "string",
-												},
-												"description": ObjectProperty{
-													Type: "string",
-												},
-												"size": ObjectProperty{
-													Type: "number",
-												},
-												"attrList": ObjectProperty{
-													Type: "array", // TODO nested structure
-												},
-											},
-										},
-										"result": ObjectProperty{
-											Enum: []any{"corpusInfo"},
-										},
-										"locale": ObjectProperty{
-											Type: "string",
-										},
-									},
+									Ref: "#/components/schemas/Info",
 								},
 							},
 						},
@@ -205,47 +164,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"lines": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "object",
-												Properties: ObjectProperties{
-													"text": ObjectProperty{
-														Type: "array",
-														Items: &arrayItem{
-															Type: "object",
-															Properties: ObjectProperties{
-																"word": ObjectProperty{
-																	Type: "string",
-																},
-																"strong": ObjectProperty{
-																	Type: "boolean",
-																},
-																"attrs": ObjectProperty{
-																	Type: "object",
-																	AdditionalProperties: &AdditionalProperty{
-																		Type: "string",
-																	},
-																},
-															},
-														},
-													},
-													"ref": ObjectProperty{
-														Type: "string",
-													},
-												},
-											},
-										},
-										"concSize": ObjectProperty{
-											Type: "number",
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"conc"},
-										},
-									},
+									Ref: "#/components/schemas/Concordance",
 								},
 							},
 							"text/markdown; charset=utf-8": MethodResponseContent{
@@ -310,47 +229,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"lines": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "object",
-												Properties: ObjectProperties{
-													"text": ObjectProperty{
-														Type: "array",
-														Items: &arrayItem{
-															Type: "object",
-															Properties: ObjectProperties{
-																"word": ObjectProperty{
-																	Type: "string",
-																},
-																"strong": ObjectProperty{
-																	Type: "boolean",
-																},
-																"attrs": ObjectProperty{
-																	Type: "object",
-																	AdditionalProperties: &AdditionalProperty{
-																		Type: "string",
-																	},
-																},
-															},
-														},
-													},
-													"ref": ObjectProperty{
-														Type: "string",
-													},
-												},
-											},
-										},
-										"concSize": ObjectProperty{
-											Type: "number",
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"conc"},
-										},
-									},
+									Ref: "#/components/schemas/Sentences",
 								},
 							},
 							"text/markdown; charset=utf-8": MethodResponseContent{
@@ -413,45 +292,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"concSize": ObjectProperty{
-											Type: "number",
-										},
-										"corpusSize": ObjectProperty{
-											Type: "number",
-										},
-										"searchSize": ObjectProperty{
-											Type: "number",
-										},
-										"freqs": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "object",
-												Properties: ObjectProperties{
-													"word": ObjectProperty{
-														Type: "string",
-													},
-													"freq": ObjectProperty{
-														Type: "number",
-													},
-													"norm": ObjectProperty{
-														Type: "number",
-													},
-													"ipm": ObjectProperty{
-														Type: "number",
-													},
-												},
-											},
-										},
-										"fcrit": ObjectProperty{
-											Type: "string",
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"freqs"},
-										},
-									},
+									Ref: "#/components/schemas/TextTypes",
 								},
 							},
 						},
@@ -466,8 +307,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 			Get: &Method{
 				Description: "Shows the text types (= values of predefined structural attributes) of a searched term. " +
 					"This endpoint provides a similar result to the endpoint `/text-types/{corpusId}` called multiple times " +
-					"on a fixed set of attributes. It is suitable in case a user wants to get a general overview of the corpus structure " +
-					"as it typically provides information like publication years, authors, text types, media etc.",
+					"on a fixed set of attributes (typically: publication years, authors, text types, media)",
 				OperationID: "TTOverview",
 				Parameters: []Parameter{
 					{
@@ -513,16 +353,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"freqs": ObjectProperty{
-											Type: "object", // TODO describe the object
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"multipleFreqs"},
-										},
-									},
+									Ref: "#/components/schemas/TextTypesOverview",
 								},
 							},
 						},
@@ -578,25 +409,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"total": ObjectProperty{
-											Type: "number",
-										},
-										"arf": ObjectProperty{
-											Type: "number",
-										},
-										"ipm": ObjectProperty{
-											Type: "number",
-										},
-										"corpusSize": ObjectProperty{
-											Type: "number",
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"termFrequency"},
-										},
-									},
+									Ref: "#/components/schemas/TermFrequency",
 								},
 							},
 						},
@@ -683,45 +496,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"concSize": ObjectProperty{
-											Type: "number",
-										},
-										"corpusSize": ObjectProperty{
-											Type: "number",
-										},
-										"searchSize": ObjectProperty{
-											Type: "number",
-										},
-										"freqs": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "object",
-												Properties: ObjectProperties{
-													"word": ObjectProperty{
-														Type: "string",
-													},
-													"freq": ObjectProperty{
-														Type: "number",
-													},
-													"norm": ObjectProperty{
-														Type: "number",
-													},
-													"ipm": ObjectProperty{
-														Type: "number",
-													},
-												},
-											},
-										},
-										"fcrit": ObjectProperty{
-											Type: "string",
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"freqs"},
-										},
-									},
+									Ref: "#/components/schemas/Freqs",
 								},
 							},
 						},
@@ -824,51 +599,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Content: map[string]MethodResponseContent{
 							"application/json": MethodResponseContent{
 								Schema: MethodResponseSchema{
-									Type: "object",
-									Properties: ObjectProperties{
-										"corpusSize": ObjectProperty{
-											Type: "number",
-										},
-										"searchSize": ObjectProperty{
-											Type: "number",
-										},
-										"colls": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "object",
-												Properties: ObjectProperties{
-													"word": ObjectProperty{
-														Type: "string",
-													},
-													"score": ObjectProperty{
-														Type: "number",
-													},
-													"freq": ObjectProperty{
-														Type: "number",
-													},
-												},
-											},
-										},
-										"resultType": ObjectProperty{
-											Type: "string",
-											Enum: []any{"resultType"},
-										},
-										"measure": ObjectProperty{
-											Type: "string",
-											Enum: []any{
-												"absFreq", "logLikelihood", "logDice",
-												"minSensitivity", "mutualInfo", "mutualInfo3",
-												"mutualInfoLogF", "relFreq", "tScore",
-											},
-										},
-										"srchContext": ObjectProperty{
-											Type: "array",
-											Items: &arrayItem{
-												Type: "number",
-											},
-											Description: "always a two-item array with left + right context",
-										},
-									},
+									Ref: "#/components/schemas/Collocations",
 								},
 							},
 						},
@@ -879,7 +610,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 	}
 
 	return &APIResponse{
-		OpenAPI: "3.1.0",
+		OpenAPI: "3.0.0",
 		Info: Info{
 			Title:       "MQuery - query and analyze corpus data",
 			Description: "Retrieves concordances, frequency information and collocations from language corpora",
@@ -889,5 +620,8 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 			{URL: url},
 		},
 		Paths: paths,
+		Components: Components{
+			Schemas: createSchemas(),
+		},
 	}
 }

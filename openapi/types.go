@@ -83,6 +83,7 @@ type MethodResponseSchema struct {
 	Type       string           `json:"type"`
 	Properties ObjectProperties `json:"properties,omitempty"`
 	Format     string           `json:"format,omitempty"`
+	Ref        string           `json:"$ref,omitempty"`
 }
 
 type MethodResponseContent struct {
@@ -96,9 +97,14 @@ type MethodResponse struct {
 
 type MethodResponses map[int]MethodResponse
 
+type Components struct {
+	Schemas ObjectProperties `json:"schemas"`
+}
+
 type APIResponse struct {
-	OpenAPI string             `json:"openapi"`
-	Info    Info               `json:"info"`
-	Servers []Server           `json:"servers"`
-	Paths   map[string]Methods `json:"paths"`
+	OpenAPI    string             `json:"openapi"`
+	Info       Info               `json:"info"`
+	Servers    []Server           `json:"servers"`
+	Paths      map[string]Methods `json:"paths"`
+	Components Components         `json:"components"`
 }
