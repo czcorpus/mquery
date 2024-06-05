@@ -25,6 +25,7 @@ import (
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -33,9 +34,11 @@ import (
 )
 
 const (
-	dfltMaxContext                = 50
-	concFormatJSON     concFormat = "json"
-	concFormatMarkdown concFormat = "markdown"
+	ConcordanceMaxWidth                = 50
+	ConcordanceDefaultWidth            = 10
+	termFreqContext                    = 5
+	concFormatJSON          concFormat = "json"
+	concFormatMarkdown      concFormat = "markdown"
 )
 
 type concFormat string
@@ -101,7 +104,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
-				MaxContext:        dfltMaxContext,
+				MaxContext:        ConcordanceMaxWidth,
 				ViewContextStruct: conf.ViewContextStruct,
 			}
 		},
@@ -114,7 +117,29 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(
 			ctx,
 			err,
-			http.StatusUnprocessableEntity,
+			http.StatusBadRequest,
+		)
+		return
+	}
+	contextWidth := ConcordanceDefaultWidth
+	sContextWidth := ctx.Query("contextWidth")
+	if sContextWidth != "" {
+		var err error
+		contextWidth, err = strconv.Atoi(sContextWidth)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				err,
+				http.StatusBadRequest,
+			)
+			return
+		}
+	}
+	if contextWidth > ConcordanceMaxWidth {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid contextWidth - max value is %d", ConcordanceMaxWidth),
+			http.StatusBadRequest,
 		)
 		return
 	}
@@ -129,7 +154,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
-				MaxContext:        dfltMaxContext,
+				MaxContext:        contextWidth,
 				ViewContextStruct: conf.ViewContextStruct,
 			}
 		},
@@ -208,7 +233,7 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 			ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 			StartLine:         0, // TODO
 			MaxItems:          1,
-			MaxContext:        dfltMaxContext,
+			MaxContext:        termFreqContext,
 			ViewContextStruct: conf.ViewContextStruct,
 		}
 	}

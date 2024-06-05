@@ -20,6 +20,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"mquery/rdb"
 	"net/http"
 
@@ -30,7 +31,7 @@ import (
 
 const (
 	CollDefaultAttr        = "lemma"
-	DefaultSrchLeft        = -5
+	DefaultSrchLeft        = 5
 	DefaultSrchRight       = 5
 	DefaultMinCollFreq     = 3
 	DefaultCollocationFunc = "logDice"
@@ -53,8 +54,24 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if srchLeft < 1 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid srchLeft: %d, value must be greater or equal to 1", srchLeft),
+			http.StatusBadRequest,
+		)
+		return
+	}
 	srchRight, ok := unireq.GetURLIntArgOrFail(ctx, "srchRight", DefaultSrchRight)
 	if !ok {
+		return
+	}
+	if srchRight < 1 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid srchRight: %d, value must be greater or equal to 1", srchRight),
+			http.StatusBadRequest,
+		)
 		return
 	}
 	minCollFreq, ok := unireq.GetURLIntArgOrFail(ctx, "minCollFreq", DefaultMinCollFreq)
@@ -73,9 +90,12 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		Query:      queryProps.query,
 		Attr:       CollDefaultAttr,
 		Measure:    measure,
-		SrchRange:  [2]int{srchLeft, srchRight},
-		MinFreq:    int64(minCollFreq),
-		MaxItems:   maxItems,
+		// Note: see the range below and note that the left context
+		// is published differently (as a positive number) in contrast
+		// with the "internals" where a negative number is required
+		SrchRange: [2]int{-srchLeft, srchRight},
+		MinFreq:   int64(minCollFreq),
+		MaxItems:  maxItems,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -115,6 +135,7 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		)
 		return
 	}
+	result.SrchRange[0] = -1 * result.SrchRange[0] // note: HTTP and internal API are different
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		&result,

@@ -20,6 +20,7 @@
 package openapi
 
 import (
+	"fmt"
 	"mquery/corpus/handlers"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -181,8 +182,21 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						Description: "For a concordance formatted in Markdown, `markdown` value can be passed",
 						Required:    false,
 						Schema: ParamSchema{
-							Type: "string",
-							Enum: []any{"json", "markdown"},
+							Type:    "string",
+							Enum:    []any{"json", "markdown"},
+							Default: "json",
+						},
+					},
+					{
+						Name: "contextWidth",
+						In:   "query",
+						Description: "Defines number of tokens around KWIC. For a value K, the left context is " +
+							"floor(K / 2) and for the right context, it is ceil(K / 2). The maximum value is " +
+							fmt.Sprintf("%d", handlers.ConcordanceMaxWidth),
+						Required: false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Default: handlers.ConcordanceDefaultWidth,
 						},
 					},
 				},
@@ -662,7 +676,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "srchLeft",
 						In:          "query",
-						Description: "left range for candidates searching (0 is KWIC, values < 0 are on the left side of the KWIC, values > 0 are to the right of the KWIC). The argument can be omitted in which case -5 is used",
+						Description: "left range for candidates searching; values must be greater or equal to 1 (1 stands for words right before the searched term)",
 						Required:    false,
 						Schema: ParamSchema{
 							Type:    "integer",
@@ -672,11 +686,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "srchRight",
 						In:          "query",
-						Description: "right range for candidates searching (the meaning of concrete values is the same as in srchLeft). The argument can be omitted in which case -5 is used.",
+						Description: "right range for candidates searching; values must be greater or equal to 1 (1 stands for words right after the searched term)",
 						Required:    false,
 						Schema: ParamSchema{
 							Type:    "integer",
-							Default: handlers.DefaultSrchLeft,
+							Default: handlers.DefaultSrchRight,
 						},
 					},
 					{
@@ -742,7 +756,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 												"mutualInfoLogF", "relFreq", "tScore",
 											},
 										},
-										"srchRange": ObjectProperty{
+										"srchContext": ObjectProperty{
 											Type: "array",
 											Items: &arrayItem{
 												Type: "number",

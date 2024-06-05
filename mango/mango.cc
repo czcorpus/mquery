@@ -29,6 +29,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <cmath>
 #include <map>
 
 using namespace std;
@@ -261,11 +262,14 @@ KWICRowsRetval conc_examples(
         }
         conc->shuffle();
         PosInt concSize = conc->size();
+        std::string cppContextStruct(viewContextStruct);
+        std::string halfLeft = "-" + std::to_string(int(std::floor(maxContext / 2.0)));
+        std::string halfRight = std::to_string(int(std::ceil(maxContext / 2.0)));
         KWICLines* kl = new KWICLines(
             corp,
             conc->RS(true, fromLine, fromLine+limit),
-            ("-1:"+std::string(viewContextStruct)).c_str(),
-            ("1:"+std::string(viewContextStruct)).c_str(),
+            cppContextStruct.empty() ? halfLeft.c_str() : ("-1:"+cppContextStruct).c_str(),
+            cppContextStruct.empty() ? halfRight.c_str() : ("1:"+cppContextStruct).c_str(),
             attrs,
             attrs,
             "",
