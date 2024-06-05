@@ -52,6 +52,8 @@ func (cf concFormat) Validate() error {
 
 type ConcArgsBuilder func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs
 
+type ConcArgsValidator func(args *rdb.ConcordanceArgs) error
+
 func mkStrongMarkdown(tk *concordance.Token, conf *corpus.CorpusSetup) string {
 	var tmp strings.Builder
 	if tk.Strong {
@@ -108,6 +110,12 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 				ViewContextStruct: conf.ViewContextStruct,
 			}
 		},
+		func(args *rdb.ConcordanceArgs) error {
+			if args.ViewContextStruct == "" {
+				return fmt.Errorf("sentence structure is not defined for the corpus")
+			}
+			return nil
+		},
 	)
 }
 
@@ -155,23 +163,68 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
 				MaxContext:        contextWidth,
+				ViewContextStruct: "",
+			}
+		},
+		func(args *rdb.ConcordanceArgs) error { return nil },
+	)
+}
+
+func (a *Actions) Sentences(ctx *gin.Context) {
+	format := concFormat(ctx.DefaultQuery("format", "json"))
+	if err := format.Validate(); err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
+			http.StatusBadRequest,
+		)
+		return
+	}
+	a.anyConcordance(
+		ctx,
+		format,
+		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+			return rdb.ConcordanceArgs{
+				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
+				Query:             q,
+				Attrs:             conf.PosAttrs.GetIDs(),
+				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				StartLine:         0, // TODO
+				MaxItems:          conf.MaximumRecords,
+				MaxContext:        ConcordanceMaxWidth,
 				ViewContextStruct: conf.ViewContextStruct,
 			}
+		},
+		func(args *rdb.ConcordanceArgs) error {
+			if args.ViewContextStruct == "" {
+				return fmt.Errorf("sentence structure is not defined for the corpus")
+			}
+			return nil
 		},
 	)
 }
 
-func (a *Actions) anyConcordance(ctx *gin.Context, format concFormat, argsBuilder ConcArgsBuilder) {
+func (a *Actions) anyConcordance(
+	ctx *gin.Context,
+	format concFormat,
+	argsBuilder ConcArgsBuilder,
+	validator ConcArgsValidator,
+
+) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-
-	args, err := json.Marshal(argsBuilder(
+	tmpArgs := argsBuilder(
 		queryProps.corpusConf,
 		queryProps.query,
-	))
+	)
+	if err := validator(&tmpArgs); err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
+		return
+	}
+	args, err := json.Marshal(tmpArgs)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

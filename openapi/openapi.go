@@ -261,6 +261,111 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 	}
 
 	if collections.SliceContains([]string{"corpus-linguist", ""}, subscriber) {
+		paths["/sentences/{corpusId}"] = Methods{
+			Get: &Method{
+				Description: "Search in a corpus for matching sentences. This is an alternative to the /concordance/{corpusId} endpoint.",
+				OperationID: "Sentences",
+				Parameters: []Parameter{
+					{
+						Name:        "corpusId",
+						In:          "path",
+						Description: "An ID of a corpus to search in",
+						Required:    true,
+						Schema: ParamSchema{
+							Type: "string",
+						},
+					},
+					{
+						Name:        "q",
+						In:          "query",
+						Description: "The translated query",
+						Required:    true,
+						Schema: ParamSchema{
+							Type: "string",
+						},
+					},
+					{
+						Name:        "subcorpus",
+						In:          "query",
+						Description: "An ID of a subcorpus",
+						Required:    false,
+						Schema: ParamSchema{
+							Type: "string",
+						},
+					},
+					{
+						Name:        "format",
+						In:          "query",
+						Description: "For sentences formatted in Markdown, `markdown` value can be passed",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "string",
+							Enum:    []any{"json", "markdown"},
+							Default: "json",
+						},
+					},
+				},
+				Responses: MethodResponses{
+					200: MethodResponse{
+						Content: map[string]MethodResponseContent{
+							"application/json": MethodResponseContent{
+								Schema: MethodResponseSchema{
+									Type: "object",
+									Properties: ObjectProperties{
+										"lines": ObjectProperty{
+											Type: "array",
+											Items: &arrayItem{
+												Type: "object",
+												Properties: ObjectProperties{
+													"text": ObjectProperty{
+														Type: "array",
+														Items: &arrayItem{
+															Type: "object",
+															Properties: ObjectProperties{
+																"word": ObjectProperty{
+																	Type: "string",
+																},
+																"strong": ObjectProperty{
+																	Type: "boolean",
+																},
+																"attrs": ObjectProperty{
+																	Type: "object",
+																	AdditionalProperties: &AdditionalProperty{
+																		Type: "string",
+																	},
+																},
+															},
+														},
+													},
+													"ref": ObjectProperty{
+														Type: "string",
+													},
+												},
+											},
+										},
+										"concSize": ObjectProperty{
+											Type: "number",
+										},
+										"resultType": ObjectProperty{
+											Type: "string",
+											Enum: []any{"conc"},
+										},
+									},
+								},
+							},
+							"text/markdown; charset=utf-8": MethodResponseContent{
+								Schema: MethodResponseSchema{
+									Type: "string",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	if collections.SliceContains([]string{"corpus-linguist", ""}, subscriber) {
 		paths["/text-types/{corpusId}"] = Methods{
 			Get: &Method{
 				Description: "Calculates frequencies of all the values of a requested structural attribute found in structures matching required query (e.g. all the authors found in &lt;doc author=\"...\"&gt;)",

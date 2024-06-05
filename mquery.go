@@ -198,6 +198,9 @@ func runApiServer(
 	engine.GET(
 		"/concordance/:corpusId", ceActions.Concordance)
 
+	engine.GET(
+		"/sentences/:corpusId", ceActions.Sentences)
+
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
 	monitoringActions := monitoringActions.NewActions(logger, conf.TimezoneLocation())
