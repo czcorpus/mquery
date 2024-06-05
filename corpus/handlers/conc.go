@@ -54,7 +54,7 @@ type ConcArgsBuilder func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArg
 
 type ConcArgsValidator func(args *rdb.ConcordanceArgs) error
 
-func mkStrongMarkdown(tk *concordance.Token, conf *corpus.CorpusSetup) string {
+func expandKWIC(tk *concordance.Token, conf *corpus.CorpusSetup) string {
 	var tmp strings.Builder
 	if tk.Strong {
 		tmp.WriteString(fmt.Sprintf("**%s** *{", tk.Word))
@@ -75,20 +75,66 @@ func mkStrongMarkdown(tk *concordance.Token, conf *corpus.CorpusSetup) string {
 	return tk.Word
 }
 
+func getAttrs(tk *concordance.Token, conf *corpus.CorpusSetup) string {
+	ans := make([]string, 0, len(conf.PosAttrs)-1)
+	for _, v := range conf.PosAttrs {
+		if v.Name != "word" {
+			ans = append(ans, fmt.Sprintf("*%s*=%s", v.Name, tk.Attrs[v.Name]))
+		}
+	}
+	return strings.Join(ans, ", ")
+}
+
+func exportToken(tk *concordance.Token) string {
+	if tk.Strong {
+		return fmt.Sprintf("**%s**", tk.Word)
+	}
+	return tk.Word
+}
+
 func concToMarkdown(data results.Concordance, conf *corpus.CorpusSetup) string {
 	var ans strings.Builder
 	for _, line := range data.Lines {
 		for i, ch := range line.Text {
 
 			if i > 0 {
-				ans.WriteString(" " + mkStrongMarkdown(ch, conf))
+				ans.WriteString(" " + expandKWIC(ch, conf))
 
 			} else {
-				ans.WriteString(mkStrongMarkdown(ch, conf))
+				ans.WriteString(expandKWIC(ch, conf))
 			}
 		}
 		ans.WriteString("\n\n")
 	}
+	return ans.String()
+}
+
+func concToMarkdown2(data results.Concordance, conf *corpus.CorpusSetup) string {
+	var ans strings.Builder
+	ans.WriteString("|left context | KWIC | right context |\n")
+	ans.WriteString("|-------:|:----:|:-------|\n")
+	for _, line := range data.Lines {
+		var state int
+		ans.WriteString("| ")
+		metadataBuff := make([]string, 0, 5)
+		for _, ch := range line.Text {
+			if state == 0 && ch.Strong {
+				state = 1
+				ans.WriteString(" | ")
+
+			} else if !ch.Strong && state == 1 {
+				ans.WriteString("<br />(" + strings.Join(metadataBuff, " \u2016 ") + ")")
+				ans.WriteString(" | ")
+				state = 2
+			}
+			if ch.Strong {
+				metadataBuff = append(metadataBuff, getAttrs(ch, conf))
+			}
+			ans.WriteString(" " + exportToken(ch))
+		}
+		ans.WriteString("|\n")
+	}
+	ans.WriteString("\n\n")
 	return ans.String()
 }
 
@@ -267,7 +313,7 @@ func (a *Actions) anyConcordance(
 	case concFormatJSON:
 		uniresp.WriteJSONResponse(ctx.Writer, &result)
 	case concFormatMarkdown:
-		md := concToMarkdown(result, a.conf.Resources.Get(queryProps.corpus))
+		md := concToMarkdown2(result, a.conf.Resources.Get(queryProps.corpus))
 		ctx.Header("content-type", "text/markdown; charset=utf-8")
 		ctx.Writer.WriteString(md)
 	default:
