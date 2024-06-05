@@ -366,15 +366,11 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 	if collections.SliceContains([]string{"corpus-linguist", ""}, subscriber) {
 		paths["/term-frequency/{corpusId}"] = Methods{
 			Get: &Method{
+				OperationID: "TermFrequency",
 				Description: "This endpoint retrieves the frequency, instances per million (IPM), and " +
 					"Average Reduced Frequency (ARF) of a searched term within a corpus. It provides a concise " +
 					"aggregated frequency overview for a given query, regardless of the number of concrete words " +
-					" (n-grams) it covers. " +
-					"The endpoint is similar to the `/freqs/{corpusId}` endpoint, but with a key difference. " +
-					"While `/freqs/{corpusId}` always groups the matching items by a specified attribute " +
-					"(e.g., the word `work` may be split into NOUN and VERB variants, or the pattern `pro.*` may " +
-					"be split into hundreds of matching words), `/term-frequency/{corpusId}` returns the aggregated " +
-					"frequency information for the entire query.",
+					" (n-grams) it covers. ",
 				Parameters: []Parameter{
 					{
 						Name:        "corpusId",
@@ -610,7 +606,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 	}
 
 	return &APIResponse{
-		OpenAPI: "3.0.0",
+		OpenAPI: "3.1.0",
 		Info: Info{
 			Title:       "MQuery - query and analyze corpus data",
 			Description: "Retrieves concordances, frequency information and collocations from language corpora",
