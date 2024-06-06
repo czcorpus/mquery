@@ -79,10 +79,10 @@ func getAttrs(tk *concordance.Token, conf *corpus.CorpusSetup) string {
 	ans := make([]string, 0, len(conf.PosAttrs)-1)
 	for _, v := range conf.PosAttrs {
 		if v.Name != "word" {
-			ans = append(ans, fmt.Sprintf("*%s*=%s", v.Name, tk.Attrs[v.Name]))
+			ans = append(ans, fmt.Sprintf("*%s*=&quot;%s&quot;", v.Name, tk.Attrs[v.Name]))
 		}
 	}
-	return strings.Join(ans, ", ")
+	return strings.Join(ans, " &amp; ")
 }
 
 func exportToken(tk *concordance.Token) string {
@@ -123,15 +123,18 @@ func concToMarkdown2(data results.Concordance, conf *corpus.CorpusSetup) string 
 				ans.WriteString(" | ")
 
 			} else if !ch.Strong && state == 1 {
-				ans.WriteString("<br>(" + strings.Join(metadataBuff, " \u2016 ") + ") |")
+				ans.WriteString(" |")
 				state = 2
 			}
 			if ch.Strong {
-				metadataBuff = append(metadataBuff, getAttrs(ch, conf))
+				metadataBuff = append(metadataBuff, "["+getAttrs(ch, conf)+"]")
 			}
 			ans.WriteString(" " + exportToken(ch))
 		}
 		ans.WriteString("|\n")
+		if len(metadataBuff) > 0 {
+			ans.WriteString("|| " + strings.Join(metadataBuff, " ") + " ||\n")
+		}
 	}
 	ans.WriteString("\n\n")
 	return ans.String()
