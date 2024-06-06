@@ -54,10 +54,10 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	if srchLeft < 1 {
+	if srchLeft < 0 {
 		uniresp.RespondWithErrorJSON(
 			ctx,
-			fmt.Errorf("invalid srchLeft: %d, value must be greater or equal to 1", srchLeft),
+			fmt.Errorf("invalid srchLeft: %d, value must be greater or equal to 0", srchLeft),
 			http.StatusBadRequest,
 		)
 		return
@@ -66,14 +66,24 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	if srchRight < 1 {
+	if srchRight < 0 {
 		uniresp.RespondWithErrorJSON(
 			ctx,
-			fmt.Errorf("invalid srchRight: %d, value must be greater or equal to 1", srchRight),
+			fmt.Errorf("invalid srchRight: %d, value must be greater or equal to 0", srchRight),
 			http.StatusBadRequest,
 		)
 		return
 	}
+
+	if srchLeft == 0 && srchRight == 0 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("at least one of srchRight and srchLeft must be greater than 0"),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
 	minCollFreq, ok := unireq.GetURLIntArgOrFail(ctx, "minCollFreq", DefaultMinCollFreq)
 	if !ok {
 		return
