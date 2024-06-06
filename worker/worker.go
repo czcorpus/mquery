@@ -41,7 +41,7 @@ import (
 
 const (
 	DefaultTickerInterval = 2 * time.Second
-	MaxFreqResultItems    = 100
+	MaxFreqResultItems    = 20
 )
 
 type jobLogger interface {
