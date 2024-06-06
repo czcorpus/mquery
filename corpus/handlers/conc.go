@@ -115,7 +115,7 @@ func concToMarkdown2(data results.Concordance, conf *corpus.CorpusSetup) string 
 	ans.WriteString("|-------:|:----:|:-------|\n")
 	for _, line := range data.Lines {
 		var state int
-		ans.WriteString("| ")
+		ans.WriteString("| \u2026 ")
 		metadataBuff := make([]string, 0, 5)
 		for _, ch := range line.Text {
 			if state == 0 && ch.Strong {
@@ -131,7 +131,7 @@ func concToMarkdown2(data results.Concordance, conf *corpus.CorpusSetup) string 
 			}
 			ans.WriteString(" " + exportToken(ch))
 		}
-		ans.WriteString("|\n")
+		ans.WriteString(" \u2026 |\n")
 		if len(metadataBuff) > 0 {
 			ans.WriteString("|| " + strings.Join(metadataBuff, " ") + " ||\n")
 		}
