@@ -2,267 +2,34 @@
 
 MQuery is an HTTP API server for mining language corpora using Manatee-Open engine.
 
+## Requirements
+
+* a working Linux server with installed [Manatee-open](https://nlp.fi.muni.cz/trac/noske) library
+* [Redis](https://redis.io/) database
+* [Go](https://go.dev/)  language compiler and tools
+* (optional) an HTTP proxy server (Nginx, Apache, ...)
+
+
+## How to install
+
+1. Install `Go` language environment, either via a package manager or manually from Go [download page](https://go.dev/dl/)
+   1. make sure `/usr/local/go/bin` and `~/go/bin` are in your `$PATH` so you can run any installed Go tools without specifying a full path
+2. Install Manatee-open from the [download page](https://nlp.fi.muni.cz/trac/noske). No specific language bindings are required.
+   1. `configure --with-pcre --disable-python && make && sudo make install && sudo ldconfig`
+3. Get MQuery sources (`git clone --depth 1 https://github.com/czcorpus/mquery.git`)
+4. Run `./configure`
+5. Run `make`
+6. Run `make install`
+      * the application will be installed in `/opt/mquery`
+      * for data and registry, `/var/opt/corpora/data` and `/var/opt/corpora/registry` directories will be created
+      * systemd services `mquery-server.service` and `mquery-worker-all.target` will be created
+8. Copy at least one corpus and its configuration (registry) into respective directories (`/var/opt/corpora/data`, `/var/opt/corpora/registry`)
+9. Update corpora entries in `/opt/mquery/conf.json` file to match your installed corpora
+10. start the service:
+      * `systemctl start mquery-server`
+      * `systemctl start mquery-worker-all.target`
+
+
 ## API
 
-Note: all the responses are in JSON
-
-### General information
-
-:orange_circle: `GET /openapi`
-
-Show OpenAPI-compatible specification of the API
-
-:orange_circle: `GET /privacy-policy`
-
-Show privacy policy information (if defined)
-
-### Corpora information
-
-:orange_circle: `GET /info/[corpus ID]?[args...]`
-
-Show a corpus information.
-
-URL arguments:
-
-* `lang` - a  ISO 639-1 code of the language client wants the description in. In case the language is not found or in case the code is omitted, `en` version is returned.
-
-Response:
-
-```ts
-{
-    corpus: {
-        corpname:string;
-        size:number; // number of tokens
-        description:string; // a localized description (if available, otherwise the `en` version)
-        flags:Array<string>; // a list of keywords characterizing the corpus
-        attrList:Array<{
-            name:string;
-            size:number; // number of unique values
-            description?:string; // a description of the attribute
-        }>;
-        structList:Array<{
-            name:string;
-            size:number; // number of occurences in data
-            description?:string; // a description of the attribute
-        }>;
-        webUrl?:string;
-        citationInfo:unknown; // currently unused
-    };
-    locale:string; // locale of the response (i.e. not related to corpus data)
-}
-```
-
-:orange_circle: `GET /corplist?[args...]`
-
-Shows a list of corpora with their basic properties.
-
-URL arguments:
-
-* `lang` - a  ISO 639-1 code of the language client wants the description in. In case the language is not found or in case the code is omitted, `en` version is returned.
-
-Response:
-
-```ts
-{
-    corpora: Array<{
-        id:string;
-        fullName:string;
-        description:string;
-        flags:Array<string>;
-        subcorpora:Array<{
-            id:string;
-            description:string;
-        }>;
-    }>;
-    locale:string; // locale of the response
-}
-```
-
-### Concordance
-
-:orange_circle: `GET /concordance/[corpus ID]?[args...]`
-
-Show a concordance in a "sentence" mode based on provided query. Positional attributes
-in the output depend on corpus configuration.
-
-URL arguments:
-
-* `q` - a Manatee CQL query
-* `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
-
-Response:
-
-```ts
-{
-    lines:Array<{
-        text:{
-            word: string; // the `word` value (main text attribute)
-            attrs: {[key:string]:string}; // positional attributes and their respective values
-            strong: boolean; // emphasis flag
-        },
-        ref:string; // a KWIC token ID
-    }>;
-    concSize:number;
-    resultType:'conc';
-    error?:string; // if empty, the key is not present
-}
-```
-
-### Frequency information
-
-:orange_circle: `GET /text-types-overview/[corpus ID]?[args...]`
-
-Provide basic overview of frequencies of a searched expression based on different text types.
-
-URL arguments:
-
-* `q` - a Manatee CQL query
-* `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
-
-Response:
-
-```ts
-{
-    concSize:number;
-    corpusSize:number;
-    searchSize:number; // TODO unfinished, please do not use
-    freqs:{
-        [attr:string]:Array<{
-            word:string;
-            freq:number;
-            norm:number;
-            ipm:nmber;
-        }>
-    };
-    examplesQueryTpl?:string;
-    resultType:'freqTT';
-}
-
-```
-
-:orange_circle: `GET /freqs/[corpus ID]?[args...]`
-
-Calculate a frequency distribution for the searched term (KWIC).
-
-URL arguments:
-
-* `q` - a Manatee CQL query
-* `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
-* `attr` - a positional attribute the frequency will be calculated on
-* `matchCase` - if `1`, then words that differ only in upper/lower case will be grouped together (e.g. `Work` will be the same as `work` - presented in lower case).
-* `maxItems` - this sets the maximum number of result items
-* `flimit` - minimum frequency of items to be included in the result set
-* `within` - :exclamation: deprecated - use `subcorpus` instead
-
-Response:
-
-```ts
-{
-    concSize:number;
-    corpusSize:number;
-    searchSize:number; // TODO unfinished, please do not use
-    fcrit:string; // applied Manatee freq. criterion
-    freqs:Array<{
-        word:string;
-        freq:number; // absolute freq.
-        norm:number; // a text size we calculate relative freqs. against (typically, a corpus size)
-
-    }>;
-    resultType:'freqs';
-}
-```
-
-
-:orange_circle: `GET /freqs2/[corpus ID]`
-
-This is a parallel variant of `freqs2` which calculates frequencies on smaller chunks and merges
-them together. It is most suitable for larger corpora.
-
-
-:orange_circle: `GET /text-types/[corpus ID]?[args...]`
-
-Calculate frequencies of all the values of a requested structural attribute found in structures
-matching required query (e.g. all the authors found in `&lt;doc author="..."&gt;`)
-
-URL arguments:
-
-* `q` - a Manatee CQL query
-* `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
-* `attr` - a structural attribute (e.g. `doc.pubyear`, `text.author`,...)
-
-
-Response:
-
-```ts
-{
-    concSize:number;
-    corpusSize:number;
-    searchSize:number; // actual searched data size - applies for subc., TODO unfinished, please do not use
-    fcrit:string; // applied Manatee freq. criterion
-    freqs:Array<{
-        word:string;
-        freq:number; // absolute freq.
-        norm:number; // a text size we calculate relative freqs. against (typically, a corpus size)
-
-    }>;
-    resultType:'freqs';
-}
-```
-
-
-:orange_circle: `GET /text-types2/[corpus ID]?[args...]`
-
-This is a parallel variant of `text-types2` which calculates frequencies on smaller chunks and merges
-them together. It is most suitable for larger corpora.
-
-
-### Collocation profile
-
-:orange_circle: `GET /collocations/[corpus ID]?[args...]`
-
-
-Calculate a defined collocation profile of a searched expression. Values are sorted in descending order
-by their coll. score.
-
-URL arguments:
-
-* `q` - a Manatee CQL query
-* `subcorpus` - an ID of a subcorpus (which is defined in MQuery configuration)
-* `measure`  - a collocation measure. If omitted, `logDice` is used. The available values are:
-  * `absFreq`
-  * `logLikelihood`
-  * `logDice`
-  * `minSensitivity`
-  * `mutualInfo`
-  * `mutualInfo3`
-  * `mutualInfoLogF`
-  * `relFreq`
-  * `tScore`
-* `srchLeft` - left range for candidates searching (`0` is KWIC, values `< 0` are on the left side of the KWIC, values `> 0` are to the right of the KWIC). The argument can be omitted in which case `-5` is used
-* `srchRight` - right range for candidates searching (the meaning of concrete values is the same as in `srchLeft`). The argument can be omitted in which case `-5` is used.
-* `minCollFreq` - the minimum frequency that a collocate must have in the searched range. The argument is optional with default value of `3`
-* `maxItems`- maximum number of result items. The argument is optional with default value of `20`
-
-example req:
-
-```
-/collocations/intercorp_v13ud_cs?q=[lemma=%22podoba%22]&subcorpus=core&measure=mutualInfo&srchLeft=3&maxItems=5
-```
-
-Response:
-
-```ts
-{
-    corpusSize:number;
-    searchSize:number; // actual searched data size - applies for subc., TODO unfinished, please do not use
-    concSize:number;
-    measure:string; // applied measure
-    resultType:'coll';
-    srchRange:[number, number];
-    colls:Array<{
-        word:string;
-        score:number;
-        freq:number;
-    }>;
-}
-```
+For the most recent API Docs, please see https://korpus.cz/mquery-test/docs/
