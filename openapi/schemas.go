@@ -340,5 +340,10 @@ func createSchemas() ObjectProperties {
 		},
 	}
 
+	ans["TranslatedQuery"] = ObjectProperty{
+		Type:        "string",
+		Description: "a CQL variant of the entered query",
+	}
+
 	return ans
 }
