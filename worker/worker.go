@@ -75,6 +75,12 @@ func (w *Worker) publishResult(res results.SerializableResult, channel string) e
 	return w.radapter.PublishResult(channel, ans)
 }
 
+func (w *Worker) sendPublishingErr(query rdb.Query, err error) {
+	if err := w.publishResult(&results.ErrorResult{Func: query.Func, Error: err.Error()}, query.Channel); err != nil {
+		log.Error().Err(err).Msg("failed to publish general publishing error")
+	}
+}
+
 func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -90,6 +96,7 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		}
 		ans := w.corpusInfo(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
+			w.sendPublishingErr(query, err)
 			return err
 		}
 	case "freqDistrib":
@@ -99,6 +106,7 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		}
 		ans := w.freqDistrib(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
+			w.sendPublishingErr(query, err)
 			return err
 		}
 	case "termFrequency":
@@ -108,6 +116,7 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		}
 		ans := w.concSize(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
+			w.sendPublishingErr(query, err)
 			return err
 		}
 	case "concordance":
@@ -117,6 +126,7 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		}
 		ans := w.concordance(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
+			w.sendPublishingErr(query, err)
 			return err
 		}
 	case "collocations":
@@ -126,6 +136,7 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		}
 		ans := w.collocations(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
+			w.sendPublishingErr(query, err)
 			return err
 		}
 	case "calcCollFreqData":
@@ -135,6 +146,7 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 		}
 		ans := w.calcCollFreqData(args)
 		if err := w.publishResult(ans, query.Channel); err != nil {
+			w.sendPublishingErr(query, err)
 			return err
 		}
 	default:

@@ -128,11 +128,20 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		return
 	}
 	if err := result.Err(); err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+		if result.HasUserError() {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusBadRequest,
+			)
+
+		} else {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+		}
 		return
 	}
 	result.SrchRange[0] = -1 * result.SrchRange[0] // note: HTTP and internal API are different

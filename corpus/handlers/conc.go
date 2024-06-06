@@ -304,11 +304,20 @@ func (a *Actions) anyConcordance(
 		return
 	}
 	if err := result.Err(); err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+		if result.HasUserError() {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusBadRequest,
+			)
+
+		} else {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+		}
 		return
 	}
 	switch format {
@@ -375,11 +384,20 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 		return
 	}
 	if err := result.Err(); err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+		if result.HasUserError() {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusBadRequest,
+			)
+
+		} else {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+		}
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, &result)

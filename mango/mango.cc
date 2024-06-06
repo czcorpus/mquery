@@ -89,6 +89,8 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
     ConcSizeRetVal ans;
     ans.err = nullptr;
     ans.value = 0;
+    ans.corpusSize = 0;
+    ans.arf = 0.0;
     Corpus* corp = nullptr;
     Concordance* conc = nullptr;
     try {

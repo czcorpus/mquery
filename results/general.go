@@ -21,6 +21,7 @@ package results
 import (
 	"encoding/json"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -49,4 +50,8 @@ func (jl *JobLog) ToJSON() (string, error) {
 // consistent rounding across all the results
 func NormRound(val float64) float64 {
 	return math.Round(val*1000) / 1000
+}
+
+func isUserErrorMsg(msg string) bool {
+	return strings.HasPrefix(strings.ToLower(msg), "syntax error")
 }

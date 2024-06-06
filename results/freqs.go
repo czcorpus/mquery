@@ -114,6 +114,10 @@ func (res *FreqDistrib) Err() error {
 	return nil
 }
 
+func (res *FreqDistrib) HasUserError() bool {
+	return isUserErrorMsg(res.Error)
+}
+
 func (res *FreqDistrib) Type() ResultType {
 	return ResultTypeFreqs
 }
@@ -182,11 +186,19 @@ func (res *ConcSize) Err() error {
 	return nil
 }
 
+func (res *ConcSize) HasUserError() bool {
+	return isUserErrorMsg(res.Error)
+}
+
 func (res *ConcSize) Type() ResultType {
 	return ResultTypeConcSize
 }
 
 func (res *ConcSize) MarshalJSON() ([]byte, error) {
+	var ipm float64
+	if res.CorpusSize > 0 {
+		ipm = float64(res.Total) / float64(res.CorpusSize) * 1000000
+	}
 	return json.Marshal(
 		struct {
 			Total      int64      `json:"total"`
@@ -198,7 +210,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 		}{
 			Total:      res.Total,
 			ARF:        NormRound(res.ARF),
-			IPM:        NormRound(float64(res.Total) / float64(res.CorpusSize) * 1000000),
+			IPM:        NormRound(ipm),
 			CorpusSize: res.CorpusSize,
 			ResultType: res.Type(),
 			Error:      res.Error,
@@ -223,6 +235,10 @@ func (res *Collocations) Err() error {
 		return errors.New(res.Error)
 	}
 	return nil
+}
+
+func (res *Collocations) HasUserError() bool {
+	return isUserErrorMsg(res.Error)
 }
 
 func (res *Collocations) Type() ResultType {
@@ -264,6 +280,10 @@ func (res *CollFreqData) Err() error {
 	return nil
 }
 
+func (res *CollFreqData) HasUserError() bool {
+	return isUserErrorMsg(res.Error)
+}
+
 func (res *CollFreqData) Type() ResultType {
 	return ResultTypeCollFreqData
 }
@@ -281,6 +301,10 @@ func (res *Concordance) Err() error {
 		return errors.New(res.Error)
 	}
 	return nil
+}
+
+func (res *Concordance) HasUserError() bool {
+	return isUserErrorMsg(res.Error)
 }
 
 func (res *Concordance) Type() ResultType {
@@ -315,6 +339,10 @@ func (res *CorpusInfo) Err() error {
 		return errors.New(res.Error)
 	}
 	return nil
+}
+
+func (res *CorpusInfo) HasUserError() bool {
+	return false
 }
 
 func (res *CorpusInfo) Type() ResultType {
