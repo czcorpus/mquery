@@ -80,29 +80,35 @@ func additionalLogEvents() gin.HandlerFunc {
 
 func CORSMiddleware(conf *cnf.Conf) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var allowedOrigin string
-		currOrigin := getRequestOrigin(ctx)
-		for _, origin := range conf.CorsAllowedOrigins {
-			if currOrigin == origin {
-				allowedOrigin = origin
-				break
+		if strings.HasSuffix(ctx.Request.URL.Path, "/openapi") {
+			ctx.Header("Access-Control-Allow-Origin", "*")
+			ctx.Header("Access-Control-Allow-Methods", "GET")
+			ctx.Header("Access-Control-Allow-Headers", "Content-Type")
+
+		} else {
+			var allowedOrigin string
+			currOrigin := getRequestOrigin(ctx)
+			for _, origin := range conf.CorsAllowedOrigins {
+				if currOrigin == origin {
+					allowedOrigin = origin
+					break
+				}
+			}
+			if allowedOrigin != "" {
+				ctx.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+				ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+				ctx.Writer.Header().Set(
+					"Access-Control-Allow-Headers",
+					"Content-Type, Content-Length, Accept-Encoding, Authorization, Accept, Origin, Cache-Control, X-Requested-With",
+				)
+				ctx.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+			}
+
+			if ctx.Request.Method == "OPTIONS" {
+				ctx.AbortWithStatus(204)
+				return
 			}
 		}
-		if allowedOrigin != "" {
-			ctx.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-			ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-			ctx.Writer.Header().Set(
-				"Access-Control-Allow-Headers",
-				"Content-Type, Content-Length, Accept-Encoding, Authorization, Accept, Origin, Cache-Control, X-Requested-With",
-			)
-			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-		}
-
-		if ctx.Request.Method == "OPTIONS" {
-			ctx.AbortWithStatus(204)
-			return
-		}
-
 		ctx.Next()
 	}
 }
