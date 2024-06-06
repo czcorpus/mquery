@@ -29,7 +29,12 @@ import (
 )
 
 func (a *Actions) RemoteQueryTranslator(ctx *gin.Context) {
-	req, err := http.NewRequest("GET", "https://hypertext.cz/translate", nil)
+	if a.queryTranslateUrl == "" {
+		ctx.Header("content-type", "text/plain; charset=utf-8")
+		ctx.Writer.WriteString(ctx.Query("q"))
+		return
+	}
+	req, err := http.NewRequest("GET", a.queryTranslateUrl, nil)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return

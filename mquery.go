@@ -207,6 +207,9 @@ func runApiServer(
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
 
+	if conf.QueryTranslatorURL == "" {
+		log.Warn().Msg("queryTranslatorUrl not specified, will use identity function replacement")
+	}
 	engine.GET(
 		"/translate", ceActions.RemoteQueryTranslator)
 

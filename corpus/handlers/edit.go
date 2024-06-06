@@ -45,15 +45,12 @@ func (variant corpusStructVariant) Validate() bool {
 	return variant == SplitCorpus
 }
 
-type multiSubcCorpus interface {
-	GetSubcorpora() []string
-}
-
 type Actions struct {
-	conf         *corpus.CorporaSetup
-	radapter     *rdb.Adapter
-	infoProvider *infoload.Manatee
-	locales      cnf.LocalesConf
+	conf              *corpus.CorporaSetup
+	radapter          *rdb.Adapter
+	infoProvider      *infoload.Manatee
+	locales           cnf.LocalesConf
+	queryTranslateUrl string
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {

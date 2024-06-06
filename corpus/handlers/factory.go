@@ -30,11 +30,13 @@ func NewActions(
 	radapter *rdb.Adapter,
 	infoProvider *infoload.Manatee,
 	locales cnf.LocalesConf,
+	queryTranslateUrl string,
 ) *Actions {
 	return &Actions{
-		conf:         conf,
-		radapter:     radapter,
-		infoProvider: infoProvider,
-		locales:      locales,
+		conf:              conf,
+		radapter:          radapter,
+		infoProvider:      infoProvider,
+		locales:           locales,
+		queryTranslateUrl: queryTranslateUrl,
 	}
 }

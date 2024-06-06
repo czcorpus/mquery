@@ -97,6 +97,7 @@ type Conf struct {
 	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
 	AuthHeaderName         string               `json:"authHeaderName"`
 	AuthTokens             []string             `json:"authTokens"`
+	QueryTranslatorURL     string               `json:"queryTranslatorUrl"`
 
 	srcPath string
 }
