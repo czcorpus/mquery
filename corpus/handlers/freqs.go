@@ -38,7 +38,7 @@ import (
 
 const (
 	defaultFreqCritTpl = "%s/%s 0~0>0"
-	DefaultFreqLimit   = 5
+	DefaultFreqLimit   = 1
 	DefaultFreqAttr    = "lemma"
 	DefaultFreqCrit    = "lemma/e 0~0>0"
 )
@@ -276,7 +276,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	)
 	cut := maxItems
 	if maxItems == 0 {
-		cut = 100 // TODO !!! (configured on worker, cannot import here)
+		cut = 20 // TODO !!! (configured on worker, cannot import here)
 	}
 	result.Freqs = result.Freqs.Cut(cut)
 	uniresp.WriteJSONResponse(ctx.Writer, result)
