@@ -123,8 +123,7 @@ func concToMarkdown2(data results.Concordance, conf *corpus.CorpusSetup) string 
 				ans.WriteString(" | ")
 
 			} else if !ch.Strong && state == 1 {
-				ans.WriteString("<br />(" + strings.Join(metadataBuff, " \u2016 ") + ")")
-				ans.WriteString(" | ")
+				ans.WriteString("<br>(" + strings.Join(metadataBuff, " \u2016 ") + ") |")
 				state = 2
 			}
 			if ch.Strong {
