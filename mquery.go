@@ -207,6 +207,9 @@ func runApiServer(
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
 
+	engine.GET(
+		"/translate", ceActions.RemoteQueryTranslator)
+
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()
 	monitoringActions := monitoringActions.NewActions(logger, conf.TimezoneLocation())

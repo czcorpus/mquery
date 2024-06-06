@@ -90,7 +90,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/Info",
 								},
@@ -162,12 +162,12 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/Concordance",
 								},
 							},
-							"text/markdown; charset=utf-8": MethodResponseContent{
+							"text/markdown; charset=utf-8": {
 								Schema: MethodResponseSchema{
 									Type: "string",
 								},
@@ -227,12 +227,12 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/Sentences",
 								},
 							},
-							"text/markdown; charset=utf-8": MethodResponseContent{
+							"text/markdown; charset=utf-8": {
 								Schema: MethodResponseSchema{
 									Type: "string",
 								},
@@ -290,7 +290,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/TextTypes",
 								},
@@ -351,7 +351,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/TextTypesOverview",
 								},
@@ -403,7 +403,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/TermFrequency",
 								},
@@ -490,7 +490,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/Freqs",
 								},
@@ -593,9 +593,50 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 				Responses: MethodResponses{
 					200: MethodResponse{
 						Content: map[string]MethodResponseContent{
-							"application/json": MethodResponseContent{
+							"application/json": {
 								Schema: MethodResponseSchema{
 									Ref: "#/components/schemas/Collocations",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	if collections.SliceContains([]string{"corpus-linguist"}, subscriber) {
+		paths["/translate"] = Methods{
+			Get: &Method{
+				Description: "Translate a query to CQL",
+				OperationID: "Translate",
+				Parameters: []Parameter{
+					{
+						Name:        "q",
+						In:          "query",
+						Description: "the raw query",
+						Required:    true,
+						Schema: ParamSchema{
+							Type: "string",
+						},
+					},
+					{
+						Name:        "lang",
+						In:          "query",
+						Description: "language in which the raw query is (eng or ces)",
+						Required:    true,
+						Schema: ParamSchema{
+							Type: "string",
+							Enum: []any{"ces", "eng"},
+						},
+					},
+				},
+				Responses: MethodResponses{
+					200: MethodResponse{
+						Content: map[string]MethodResponseContent{
+							"text/plain": {
+								Schema: MethodResponseSchema{
+									Ref: "#/components/schemas/TranslatedQuery",
 								},
 							},
 						},
