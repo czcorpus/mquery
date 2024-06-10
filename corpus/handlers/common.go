@@ -22,8 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"mquery/corpus"
+	"mquery/corpus/baseinfo"
 	"net/http"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -73,4 +75,46 @@ func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProp
 	}
 	ans.query = userQuery + ttCQL
 	return ans
+}
+
+func (a *Actions) DecodeTextTypeAttrOrFail(
+	ctx *gin.Context,
+	corpusID string,
+) (string, bool) {
+	corp := ctx.Param("corpusId")
+	attr := baseinfo.TextProperty(ctx.Query("attr"))
+	tProp := ctx.Query("textProperty")
+	if attr != "" && tProp != "" {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("cannot use attr and textProperty at the same time"),
+			http.StatusBadRequest,
+		)
+		return "", false
+	}
+	if attr != "" {
+		return attr.String(), true
+	}
+	if tProp != "" {
+		corpConf := a.conf.Resources.Get(corp)
+		if corpConf == nil {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("unknown corpus"),
+				http.StatusNotFound,
+			)
+			return "", false
+		}
+		tp, ok := corpConf.TextProperties[baseinfo.TextProperty(tProp)]
+		if !ok {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("unknown text property"),
+				http.StatusUnprocessableEntity,
+			)
+			return "", false
+		}
+		return tp.Name, true
+	}
+	return "", true
 }

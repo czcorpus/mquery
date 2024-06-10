@@ -42,12 +42,13 @@ type Tagset struct {
 }
 
 type Corpus struct {
-	Corpname     string    `json:"corpname"`
-	Description  string    `json:"description"`
-	Size         int64     `json:"size"`
-	AttrList     []Item    `json:"attrList"`
-	StructList   []Item    `json:"structList"`
-	WebUrl       string    `json:"webUrl"`
-	CitationInfo *Citation `json:"citationInfo"`
-	SrchKeywords []string  `json:"srchKeywords"`
+	Corpname       string         `json:"corpname"`
+	Description    string         `json:"description"`
+	Size           int64          `json:"size"`
+	AttrList       []Item         `json:"attrList"`
+	StructList     []Item         `json:"structList"`
+	TextProperties []TextProperty `json:"textProperties"`
+	WebUrl         string         `json:"webUrl"`
+	CitationInfo   *Citation      `json:"citationInfo"`
+	SrchKeywords   []string       `json:"srchKeywords"`
 }

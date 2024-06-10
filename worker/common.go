@@ -56,10 +56,10 @@ func CompileFreqResult(
 			norm = corpSize
 		}
 		ans[i] = &results.FreqDistribItem{
-			Freq: freqs.Freqs[i],
-			Norm: norm,
-			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
-			Word: freqs.Words[i],
+			Freq:  freqs.Freqs[i],
+			Base:  norm,
+			IPM:   float32(freqs.Freqs[i]) / float32(norm) * 1e6,
+			Value: freqs.Words[i],
 		}
 	}
 	sort.Slice(ans, func(i, j int) bool { return ans[i].Freq > ans[j].Freq })

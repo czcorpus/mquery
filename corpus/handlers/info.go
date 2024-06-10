@@ -21,6 +21,7 @@ package handlers
 import (
 	"fmt"
 	"mquery/corpus"
+	"mquery/corpus/baseinfo"
 	"mquery/results"
 	"net/http"
 
@@ -69,7 +70,8 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		)
 		return
 	}
-	info, err := a.infoProvider.LoadCorpusInfo(ctx.Param("corpusId"), lang)
+	corpusID := ctx.Param("corpusId")
+	info, err := a.infoProvider.LoadCorpusInfo(corpusID, lang)
 	if err == corpus.ErrNotFound {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
@@ -79,6 +81,21 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
+	}
+	corpusConf := a.conf.Resources.Get(corpusID)
+	if corpusConf == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("corpus not configured"),
+			http.StatusNotFound,
+		)
+		return
+	}
+	info.Data.TextProperties = make([]baseinfo.TextProperty, len(corpusConf.TextProperties))
+	var i int
+	for prop := range corpusConf.TextProperties {
+		info.Data.TextProperties[i] = prop
+		i++
 	}
 	ans := &corpusInfoResponse{
 		Locale: lang,

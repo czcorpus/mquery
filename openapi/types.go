@@ -41,6 +41,8 @@ type Parameter struct {
 	Description string      `json:"description"`
 	Required    bool        `json:"required"`
 	Schema      ParamSchema `json:"schema"`
+	Style       string      `json:"style"`
+	Explode     bool        `json:"explode"`
 }
 
 type Method struct {

@@ -20,6 +20,7 @@ package corpus
 
 import (
 	"fmt"
+	"mquery/corpus/baseinfo"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -104,6 +105,51 @@ type CorpusVariant struct {
 	Description map[string]string `json:"description"`
 }
 
+type TTPropertyConf struct {
+	Name         string `json:"name"`
+	IsInOverview bool   `json:"isInOverview"`
+}
+
+// TextTypeProperties maps between generalized text properties
+// and specific corpus structural attributes.
+type TextTypeProperties map[baseinfo.TextProperty]TTPropertyConf
+
+// Prop returns a generalized property based on provided struct. attribute
+// If nothing is found, empty TextProperty is returned
+func (ttp TextTypeProperties) Prop(attr string) baseinfo.TextProperty {
+	for k, v := range ttp {
+		if v.Name == attr {
+			return k
+		}
+	}
+	return ""
+}
+
+func (ttp TextTypeProperties) List() []baseinfo.TextProperty {
+	ans := make([]baseinfo.TextProperty, len(ttp))
+	var i int
+	for k := range ttp {
+		ans[i] = k
+	}
+	return ans
+}
+
+func (ttp TextTypeProperties) ListOverviewProps() []baseinfo.TextProperty {
+	ans := make([]baseinfo.TextProperty, 0, len(ttp))
+	for _, v := range ttp {
+		if v.IsInOverview {
+			ans = append(ans, baseinfo.TextProperty(v.Name))
+		}
+	}
+	return ans
+}
+
+// Attr returns a struct. attribute name based on generalized property.
+// If nothing is found, empty string is returned.
+func (ttp TextTypeProperties) Attr(prop baseinfo.TextProperty) string {
+	return ttp[prop].Name
+}
+
 type CorpusSetup struct {
 	ID                string               `json:"id"`
 	FullName          map[string]string    `json:"fullName"`
@@ -112,7 +158,6 @@ type CorpusSetup struct {
 	PosAttrs          PosAttrList          `json:"posAttrs"`
 	StructAttrs       []StructAttr         `json:"structAttrs"`
 	MaximumRecords    int                  `json:"maximumRecords"`
-	TTOverviewAttrs   []string             `json:"ttOverviewAttrs"`
 	Subcorpora        map[string]Subcorpus `json:"subcorpora"`
 	// ViewContextStruct is a structure used to specify "units"
 	// for KWIC left and right context. Typically, this is
@@ -121,6 +166,7 @@ type CorpusSetup struct {
 	Variants          map[string]CorpusVariant `json:"variants"`
 	SrchKeywords      []string                 `json:"srchKeywords"`
 	WebURL            string                   `json:"webUrl"`
+	TextProperties    TextTypeProperties       `json:"textProperties"`
 }
 
 func (cs *CorpusSetup) LocaleDescription(lang string) string {
@@ -175,9 +221,14 @@ func (cs *CorpusSetup) ValidateAndDefaults() error {
 			Int("value", cs.MaximumRecords).
 			Msg("missing or zero `maximumRecords`, using default")
 	}
-	if len(cs.TTOverviewAttrs) == 0 {
+	if len(cs.TextProperties.ListOverviewProps()) == 0 {
 		log.Warn().
 			Msg("no `ttOverviewAttrs` defined, some freq. function will be disabled")
+	}
+	for prop := range cs.TextProperties {
+		if !prop.Validate() {
+			return fmt.Errorf("invalid text property %s", prop)
+		}
 	}
 	return nil
 }
