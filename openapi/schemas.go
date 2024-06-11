@@ -182,31 +182,37 @@ func createSchemas() ObjectProperties {
 			"corpusSize": ObjectProperty{
 				Type: "number",
 			},
-			"searchSize": ObjectProperty{
-				Type: "number",
+			"subcSize": ObjectProperty{
+				Type:        "number",
+				Description: "In case a subcorpus is involved, the `corpusSize` refers to the parent corpus so this presents the actual searched data size.",
 			},
 			"freqs": ObjectProperty{
 				Type: "array",
 				Items: &arrayItem{
 					Type: "object",
 					Properties: ObjectProperties{
-						"word": ObjectProperty{
-							Type: "string",
+						"value": ObjectProperty{
+							Type:        "string",
+							Description: "an analyzed term",
 						},
 						"freq": ObjectProperty{
-							Type: "number",
+							Type:        "number",
+							Description: "absolute frequency",
 						},
-						"norm": ObjectProperty{
-							Type: "number",
+						"base": ObjectProperty{
+							Type:        "number",
+							Description: "A base corpus size the ipm was calculated against. Here it means all the texts with the analyzed value of the required textProperty",
 						},
 						"ipm": ObjectProperty{
-							Type: "number",
+							Type:        "number",
+							Description: "Instances Per Million (relativized frequency according to the `base`)",
 						},
 					},
 				},
 			},
 			"fcrit": ObjectProperty{
-				Type: "string",
+				Type:        "string",
+				Description: "An internal translation of the required frequency properties into the appropriate corpus search engine format. This is mainly for backlinking purposes.",
 			},
 			"resultType": ObjectProperty{
 				Type: "string",
@@ -259,31 +265,37 @@ func createSchemas() ObjectProperties {
 			"corpusSize": ObjectProperty{
 				Type: "number",
 			},
-			"searchSize": ObjectProperty{
-				Type: "number",
+			"subcSize": ObjectProperty{
+				Type:        "number",
+				Description: "In case a subcorpus is involved, the `corpusSize` refers to the parent corpus so this presents the actual searched data size.",
 			},
 			"freqs": ObjectProperty{
 				Type: "array",
 				Items: &arrayItem{
 					Type: "object",
 					Properties: ObjectProperties{
-						"word": ObjectProperty{
-							Type: "string",
+						"value": ObjectProperty{
+							Type:        "string",
+							Description: "an analyzed term",
 						},
 						"freq": ObjectProperty{
-							Type: "number",
+							Type:        "number",
+							Description: "absolute frequency",
 						},
-						"norm": ObjectProperty{
-							Type: "number",
+						"base": ObjectProperty{
+							Type:        "number",
+							Description: "a base corpus size the ipm was calculated against",
 						},
 						"ipm": ObjectProperty{
-							Type: "number",
+							Type:        "number",
+							Description: "Instances Per Million (relativized frequency according to the `base`)",
 						},
 					},
 				},
 			},
 			"fcrit": ObjectProperty{
-				Type: "string",
+				Type:        "string",
+				Description: "An internal translation of the required frequency properties into the appropriate corpus search engine format. This is mainly for backlinking purposes.",
 			},
 			"resultType": ObjectProperty{
 				Type: "string",
@@ -298,8 +310,9 @@ func createSchemas() ObjectProperties {
 			"corpusSize": ObjectProperty{
 				Type: "number",
 			},
-			"searchSize": ObjectProperty{
-				Type: "number",
+			"subcSize": ObjectProperty{
+				Type:        "number",
+				Description: "In case a subcorpus is involved, the `corpusSize` refers to the parent corpus so this presents the actual searched data size.",
 			},
 			"colls": ObjectProperty{
 				Type: "array",

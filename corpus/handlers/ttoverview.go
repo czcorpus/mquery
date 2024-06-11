@@ -22,6 +22,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"mquery/corpus/baseinfo"
 	"mquery/rdb"
 	"mquery/results"
 	"net/http"
@@ -38,8 +39,8 @@ type ttOverviewResult struct {
 	error string
 }
 
-func (tto *ttOverviewResult) set(attr string, v results.FreqDistrib) {
-	tto.freqs[attr] = v
+func (tto *ttOverviewResult) set(attr baseinfo.TextProperty, v results.FreqDistrib) {
+	tto.freqs[attr.String()] = v
 }
 
 func (tto *ttOverviewResult) findError() string {
@@ -83,7 +84,7 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-
+	cConf := a.conf.Resources.Get(queryProps.corpus)
 	flimit := 1
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
@@ -100,18 +101,20 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 
 	mergedFreqLock := sync.Mutex{}
-	result := newTtOverviewResult()
-	errs := make([]error, 0, len(queryProps.corpusConf.TTOverviewAttrs))
+	auxResult := newTtOverviewResult()
+	textProps := queryProps.corpusConf.TextProperties.ListOverviewProps()
+	errs := make([]error, 0, len(textProps))
 	wg := sync.WaitGroup{}
-	wg.Add(len(queryProps.corpusConf.TTOverviewAttrs))
+	wg.Add(len(textProps))
 
-	for _, attr := range queryProps.corpusConf.TTOverviewAttrs {
+	for _, attr := range textProps {
 		freqArgs := rdb.FreqDistribArgs{
 			CorpusPath:  corpusPath,
 			Query:       queryProps.query,
 			Crit:        fmt.Sprintf("%s 0", attr),
 			IsTextTypes: true,
 			FreqLimit:   flimit,
+			MaxResults:  textTypesInternalMaxResults,
 		}
 
 		args, err := json.Marshal(freqArgs)
@@ -135,7 +138,7 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 			wg.Done()
 
 		} else {
-			go func(attrx string) {
+			go func(attrx baseinfo.TextProperty) {
 				defer wg.Done()
 				tmp := <-wait
 				resultNext, err := rdb.DeserializeTextTypesResult(tmp)
@@ -144,13 +147,18 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
 				mergedFreqLock.Lock()
-				result.set(attrx, resultNext)
+				auxResult.set(attrx, resultNext)
 				mergedFreqLock.Unlock()
 			}(attr)
 		}
 	}
 
 	wg.Wait()
+
+	result := make(map[string]results.FreqDistrib)
+	for k, v := range auxResult.freqs {
+		result[cConf.TextProperties.Prop(k).String()] = v
+	}
 
 	if len(errs) > 0 {
 		uniresp.WriteJSONErrorResponse(

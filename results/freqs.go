@@ -51,6 +51,8 @@ type LemmaItem struct {
 
 type FreqDistribItemList []*FreqDistribItem
 
+// Cut makes the list at most maxItems long (i.e. in case
+// the list is shorter, no error is triggered)
 func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 	if len(flist) > maxItems {
 		return flist[:maxItems]
@@ -59,10 +61,10 @@ func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 }
 
 type FreqDistribItem struct {
-	Word string  `json:"word"`
-	Freq int64   `json:"freq"`
-	Norm int64   `json:"norm"`
-	IPM  float32 `json:"ipm"`
+	Value string  `json:"value"`
+	Freq  int64   `json:"freq"`
+	Base  int64   `json:"base"`
+	IPM   float32 `json:"ipm"`
 }
 
 type WordFormsItem struct {
@@ -81,30 +83,29 @@ type SerializableResult interface {
 type FreqDistrib struct {
 
 	// ConcSize represents number of matching concordance rows
-	ConcSize int64
+	ConcSize int64 `json:"concSize"`
 
 	// CorpusSize is always equal to the whole corpus size
 	// (even if we work with a subcorpus)
-	CorpusSize int64
+	CorpusSize int64 `json:"corpusSize"`
 
-	// SearchSize is either equal to `CorpusSize` (in case
-	// no subcorpus is involved) or equal to a respective
-	// subcorpus size
-	SearchSize int64
+	// SubcSize shows a subcorpus size in case a subcorpus
+	// is involved
+	SubcSize int64 `json:"subcSize,omitempty"`
 
-	Freqs FreqDistribItemList
+	Freqs FreqDistribItemList `json:"freqs"`
 
 	// Fcrit a Manatee-encoded freq. criterion used with
 	// this result. This is mostly useful (as an info for
 	// a client) in case a default criterion is applied.
-	Fcrit string
+	Fcrit string `json:"fcrit"`
 
 	// ExamplesQueryTpl provides a (CQL) query template
 	// for obtaining examples matching words from the `Freqs`
 	// atribute (one by one).
-	ExamplesQueryTpl string
+	ExamplesQueryTpl string `json:"examplesQueryTpl,omitempty"`
 
-	Error string
+	Error string `json:"error,omitempty"`
 }
 
 func (res *FreqDistrib) Err() error {
@@ -126,7 +127,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ConcSize         int64               `json:"concSize"`
 		CorpusSize       int64               `json:"corpusSize"`
-		SearchSize       int64               `json:"searchSize"`
+		SubcSize         int64               `json:"subcSize,omitempty"`
 		Freqs            FreqDistribItemList `json:"freqs"`
 		Fcrit            string              `json:"fcrit"`
 		ExamplesQueryTpl string              `json:"examplesQueryTpl,omitempty"`
@@ -135,7 +136,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 	}{
 		ConcSize:         res.ConcSize,
 		CorpusSize:       res.CorpusSize,
-		SearchSize:       res.SearchSize,
+		SubcSize:         res.SubcSize,
 		Freqs:            res.Freqs,
 		Fcrit:            res.Fcrit,
 		ExamplesQueryTpl: res.ExamplesQueryTpl,
@@ -146,7 +147,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 
 func (res *FreqDistrib) FindItem(w string) *FreqDistribItem {
 	for _, v := range res.Freqs {
-		if v.Word == w {
+		if v.Value == w {
 			return v
 		}
 	}
@@ -158,10 +159,10 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 	res.CorpusSize = other.CorpusSize // always the same value but to resolve possible initial 0
 	res.ExamplesQueryTpl = ""         // we cannot merge two CQL queries so we remove it
 	for _, v2 := range other.Freqs {
-		v1 := res.FindItem(v2.Word)
+		v1 := res.FindItem(v2.Value)
 		if v1 != nil {
 			v1.Freq += v2.Freq
-			v1.IPM = float32(v1.Freq) / float32(v1.Norm) * 1e6
+			v1.IPM = float32(v1.Freq) / float32(v1.Base) * 1e6
 
 		} else {
 			// orig IPM should be OK for the first item so no need to set it here
@@ -223,7 +224,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 type Collocations struct {
 	ConcSize   int64
 	CorpusSize int64
-	SearchSize int64
+	SubcSize   int64
 	Colls      []*mango.GoCollItem
 	Measure    string
 	SrchRange  [2]int
@@ -249,7 +250,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
 			CorpusSize int64               `json:"corpusSize"`
-			SearchSize int64               `json:"searchSize"`
+			SubcSize   int64               `json:"subcSize,omitempty"`
 			Colls      []*mango.GoCollItem `json:"colls"`
 			ResultType ResultType          `json:"resultType"`
 			Measure    string              `json:"measure"`
@@ -257,7 +258,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 			Error      string              `json:"error,omitempty"`
 		}{
 			CorpusSize: res.CorpusSize,
-			SearchSize: res.SearchSize,
+			SubcSize:   res.SubcSize,
 			Colls:      res.Colls,
 			ResultType: res.Type(),
 			Measure:    res.Measure,

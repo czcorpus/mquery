@@ -62,7 +62,7 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*resul
 
 	ans := make([]*results.LemmaItem, len(freqs.Freqs))
 	for i, freq := range freqs.Freqs {
-		wordSplit := strings.Split(freq.Word, " ")
+		wordSplit := strings.Split(freq.Value, " ")
 		// this presumes only single word queries
 		ans[i] = &results.LemmaItem{
 			Lemma: wordSplit[0],

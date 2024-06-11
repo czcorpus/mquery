@@ -21,7 +21,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"mquery/rdb"
 	"net/http"
@@ -31,6 +30,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	textTypesInternalMaxResults = 20
+)
+
 func (a *Actions) TextTypes(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {
@@ -38,13 +41,8 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		return
 	}
 
-	attr := ctx.Request.URL.Query().Get("attr")
-	if attr == "" {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			errors.New("missing attribute `attr`"),
-			http.StatusBadRequest,
-		)
+	attr, ok := a.DecodeTextTypeAttrOrFail(ctx, queryProps.corpus)
+	if !ok {
 		return
 	}
 	flimit := DefaultFreqLimit
@@ -60,6 +58,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 			return
 		}
 	}
+
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	freqArgs := rdb.FreqDistribArgs{
 		CorpusPath:  corpusPath,
@@ -67,6 +66,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		Crit:        fmt.Sprintf("%s 0", attr),
 		IsTextTypes: true,
 		FreqLimit:   flimit,
+		MaxResults:  textTypesInternalMaxResults,
 	}
 
 	// TODO this probably needs some work

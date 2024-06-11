@@ -79,8 +79,8 @@ func mockFreqCalculation() chan StreamData {
 			}
 			for i := 0; i < 1+rand.Intn(5); i++ {
 				ans.Freqs = append(ans.Freqs, &results.FreqDistribItem{
-					Word: values[rand.Intn(len(values))],
-					Freq: int64(10 + rand.Intn(10000)),
+					Value: values[rand.Intn(len(values))],
+					Freq:  int64(10 + rand.Intn(10000)),
 				})
 				for _, v := range ans.Freqs {
 					ans.ConcSize += v.Freq
@@ -122,7 +122,7 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 			item.Entries.Freqs = collections.SliceFilter(
 				item.Entries.Freqs,
 				func(v *results.FreqDistribItem, i int) bool {
-					year, err := strconv.Atoi(v.Word)
+					year, err := strconv.Atoi(v.Value)
 					if err != nil {
 						return false
 					}

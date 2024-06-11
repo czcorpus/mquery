@@ -244,62 +244,88 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 		}
 	}
 
-	if collections.SliceContains([]string{"corpus-linguist", ""}, subscriber) {
-		paths["/text-types/{corpusId}"] = Methods{
-			Get: &Method{
-				Description: "Calculates frequencies of all the values of a requested structural attribute found in structures matching required query (e.g. all the authors found in &lt;doc author=\"...\"&gt;)",
-				OperationID: "TextTypes",
-				Parameters: []Parameter{
-					{
-						Name:        "corpusId",
-						In:          "path",
-						Description: "An ID of a corpus to search in",
-						Required:    true,
-						Schema: ParamSchema{
-							Type: "string",
-						},
-					},
-					{
-						Name:        "q",
-						In:          "query",
-						Description: "The translated query",
-						Required:    true,
-						Schema: ParamSchema{
-							Type: "string",
-						},
-					},
-					{
-						Name:        "subcorpus",
-						In:          "query",
-						Description: "An ID of a subcorpus",
-						Required:    false,
-						Schema: ParamSchema{
-							Type: "string",
-						},
-					},
-					{
-						Name:        "attr",
-						In:          "query",
-						Description: "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)",
-						Required:    false,
-						Schema: ParamSchema{
-							Type: "string",
-						},
+	paths["/text-types/{corpusId}"] = Methods{
+		Get: &Method{
+			Description: "Calculates frequencies of all the values of a requested structural attribute found in structures matching required query (e.g. all the authors found in &lt;doc author=\"...\"&gt;)",
+			OperationID: "TextTypes",
+			Parameters: []Parameter{
+				{
+					Name:        "corpusId",
+					In:          "path",
+					Description: "An ID of a corpus to search in",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
 					},
 				},
-				Responses: MethodResponses{
-					200: MethodResponse{
-						Content: map[string]MethodResponseContent{
-							"application/json": {
-								Schema: MethodResponseSchema{
-									Ref: "#/components/schemas/TextTypes",
-								},
+				{
+					Name:        "q",
+					In:          "query",
+					Description: "The translated query",
+					Required:    true,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+				{
+					Name:        "subcorpus",
+					In:          "query",
+					Description: "An ID of a subcorpus",
+					Required:    false,
+					Schema: ParamSchema{
+						Type: "string",
+					},
+				},
+			},
+			Responses: MethodResponses{
+				200: MethodResponse{
+					Content: map[string]MethodResponseContent{
+						"application/json": {
+							Schema: MethodResponseSchema{
+								Ref: "#/components/schemas/TextTypes",
 							},
 						},
 					},
 				},
 			},
-		}
+		},
+	}
+
+	if subscriber == "corpus-linguist" {
+		paths["/text-types/{corpusId}"].Get.Parameters = append(
+			paths["/text-types/{corpusId}"].Get.Parameters,
+			Parameter{
+				Name:        "textProperty",
+				In:          "query",
+				Description: "A value specifying the text property for which the frequency is to be calculated",
+				Required:    false,
+				Schema: ParamSchema{
+					Type: "string",
+					Enum: []any{
+						"author",
+						"title",
+						"publication-year",
+						"translator",
+						"original-language",
+						"text-type",
+					},
+				},
+			},
+		)
+
+	} else {
+		paths["/text-types/{corpusId}"].Get.Parameters = append(
+			paths["/text-types/{corpusId}"].Get.Parameters,
+			Parameter{
+				Name:        "attr",
+				In:          "query",
+				Description: "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)",
+				Required:    false,
+				Schema: ParamSchema{
+					Type: "string",
+				},
+			},
+		)
 	}
 
 	if collections.SliceContains([]string{"corpus-linguist", ""}, subscriber) {
@@ -538,7 +564,7 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 					{
 						Name:        "measure",
 						In:          "query",
-						Description: "a collocation measure. If omitted, logDice is used.",
+						Description: "a collocation measure",
 						Required:    false,
 						Schema: ParamSchema{
 							Type: "string",

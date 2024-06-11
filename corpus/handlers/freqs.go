@@ -41,6 +41,7 @@ const (
 	DefaultFreqLimit   = 1
 	DefaultFreqAttr    = "lemma"
 	DefaultFreqCrit    = "lemma/e 0~0>0"
+	MaxFreqResultItems = 20
 )
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
@@ -143,9 +144,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-	flimit := 1
-	maxItems := 0
-	within := ""
+
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
@@ -157,6 +156,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		return
 	}
 
+	flimit := 1
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error
 		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
@@ -170,6 +170,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		}
 	}
 
+	maxItems := MaxFreqResultItems
 	if ctx.Request.URL.Query().Has("maxItems") {
 		var err error
 		maxItems, err = strconv.Atoi(ctx.Request.URL.Query().Get("maxItems"))
@@ -182,6 +183,8 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			return
 		}
 	}
+
+	within := ""
 	q := queryProps.query
 	if ctx.Request.URL.Query().Has("within") { // TODO - here we have double within! (one from configured subcorpora)
 		within = ctx.Request.URL.Query().Get("within")
@@ -268,6 +271,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		}
 	}
 	wg.Wait()
+	// TODO: no need to sort here (already sorted on worker)
 	sort.SliceStable(
 		result.Freqs,
 		func(i, j int) bool {
@@ -276,7 +280,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 	)
 	cut := maxItems
 	if maxItems == 0 {
-		cut = 20 // TODO !!! (configured on worker, cannot import here)
+		cut = MaxFreqResultItems
 	}
 	result.Freqs = result.Freqs.Cut(cut)
 	uniresp.WriteJSONResponse(ctx.Writer, result)

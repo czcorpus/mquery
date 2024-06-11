@@ -51,7 +51,7 @@ type Freqs struct {
 	Norms      []int64
 	ConcSize   int64
 	CorpusSize int64
-	SearchSize int64
+	SubcSize   int64
 }
 
 // ---
@@ -77,7 +77,7 @@ type GoColls struct {
 	Colls      []*GoCollItem
 	ConcSize   int64
 	CorpusSize int64
-	SearchSize int64
+	SubcSize   int64
 }
 
 func GetCorpusSize(corpusPath string) (int64, error) {
@@ -169,7 +169,7 @@ func CalcFreqDist(corpusID, subcID, query, fcrit string, flimit int) (*Freqs, er
 	ret.Words = StrVectorToSlice(GoVector{ans.words})
 	ret.ConcSize = int64(ans.concSize)
 	ret.CorpusSize = int64(ans.corpusSize)
-	ret.SearchSize = int64(ans.searchSize)
+	ret.SubcSize = int64(ans.searchSize)
 	return &ret, nil
 }
 
@@ -244,7 +244,7 @@ func GetCollcations(
 		Colls:      items,
 		ConcSize:   int64(colls.concSize),
 		CorpusSize: int64(colls.corpusSize),
-		SearchSize: int64(colls.searchSize),
+		SubcSize:   int64(colls.searchSize),
 	}, nil
 }
 
@@ -252,7 +252,12 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 	ans := make(map[string]int64)
 	attrSplit := strings.Split(attr, ".")
 	if len(attrSplit) != 2 {
-		panic("invalid attribute format (must be `struct.attr`)")
+		panic(
+			fmt.Sprintf(
+				"invalid attribute format in `%s` (must be `struct.attr`)",
+				attr,
+			),
+		)
 	}
 	norms := C.get_attr_values_sizes(
 		C.CString(corpusPath), C.CString(attrSplit[0]), C.CString(attrSplit[1]))
