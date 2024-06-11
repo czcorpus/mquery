@@ -73,9 +73,29 @@ func createSchemas() ObjectProperties {
 							},
 						},
 					},
+					"textProperties": ObjectProperty{
+						Type: "array",
+						Items: &arrayItem{
+							Type: "string",
+						},
+					},
+					"structList": ObjectProperty{
+						Type: "array",
+						Items: &arrayItem{
+							Type: "object",
+							Properties: ObjectProperties{
+								"name": ObjectProperty{
+									Type: "string",
+								},
+								"size": ObjectProperty{
+									Type: "integer",
+								},
+							},
+						},
+					},
 				},
 			},
-			"result": ObjectProperty{
+			"resultType": ObjectProperty{
 				Type: "string",
 				Enum: []any{"corpusInfo"},
 			},
