@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package handlers
+package proxied
 
 import (
 	"io"
@@ -28,8 +28,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Actions struct {
+	translatorURL       string
+	idleConnTimeoutSecs int
+	requestTimeoutSecs  int
+}
+
 func (a *Actions) RemoteQueryTranslator(ctx *gin.Context) {
-	req, err := http.NewRequest("GET", "https://hypertext.cz/translate", nil)
+	req, err := http.NewRequest("GET", a.translatorURL, nil)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
@@ -43,12 +49,12 @@ func (a *Actions) RemoteQueryTranslator(ctx *gin.Context) {
 	transport.MaxIdleConns = httpclient.TransportMaxIdleConns
 	transport.MaxConnsPerHost = httpclient.TransportMaxConnsPerHost
 	transport.MaxIdleConnsPerHost = httpclient.TransportMaxIdleConnsPerHost
-	transport.IdleConnTimeout = time.Duration(15) * time.Second
+	transport.IdleConnTimeout = time.Duration(a.idleConnTimeoutSecs) * time.Second
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-		Timeout:   time.Duration(15) * time.Second,
+		Timeout:   time.Duration(a.requestTimeoutSecs) * time.Second,
 		Transport: transport,
 	}
 	resp, err := client.Do(req)
@@ -64,4 +70,12 @@ func (a *Actions) RemoteQueryTranslator(ctx *gin.Context) {
 	}
 	ctx.Header("content-type", "text/plain; charset=utf-8")
 	ctx.Writer.Write(body)
+}
+
+func NewActions(translatorURL string) *Actions {
+	return &Actions{
+		translatorURL:       translatorURL,
+		idleConnTimeoutSecs: 60,
+		requestTimeoutSecs:  10,
+	}
 }

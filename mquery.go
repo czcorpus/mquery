@@ -42,6 +42,7 @@ import (
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
 	"mquery/openapi"
+	"mquery/proxied"
 	"mquery/rdb"
 	"mquery/worker"
 )
@@ -207,8 +208,14 @@ func runApiServer(
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
 
-	engine.GET(
-		"/translate", ceActions.RemoteQueryTranslator)
+	if conf.CQLTranslatorURL != "" {
+		ctActions := proxied.NewActions(conf.CQLTranslatorURL)
+		engine.GET("/translate", ctActions.RemoteQueryTranslator)
+		log.Info().Str("url", conf.CQLTranslatorURL).Msg("enabling CQL translator proxy")
+
+	} else {
+		log.Info().Msg("CQL translator proxy not specified - /translate endpoint will be disabled")
+	}
 
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
 	logger.GoRunTimelineWriter()

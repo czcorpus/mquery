@@ -89,6 +89,7 @@ type Conf struct {
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
 	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
 	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
+	CQLTranslatorURL       string               `json:"cqlTranslatorURL"`
 	Redis                  *rdb.Conf            `json:"redis"`
 	LogFile                string               `json:"logFile"`
 	LogLevel               logging.LogLevel     `json:"logLevel"`
