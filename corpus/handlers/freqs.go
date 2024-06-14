@@ -31,6 +31,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -77,12 +78,18 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	}
 	fcrit := fmt.Sprintf(defaultFreqCritTpl, attr, ic)
 
+	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", MaxFreqResultItems)
+	if !ok {
+		return
+	}
+
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 	args, err := json.Marshal(rdb.FreqDistribArgs{
 		CorpusPath: corpusPath,
 		Query:      queryProps.query,
 		Crit:       fcrit,
 		FreqLimit:  flimit,
+		MaxResults: maxItems,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
