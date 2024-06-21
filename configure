@@ -1,10 +1,19 @@
 #!/bin/bash
 
 echo "installing required tools..."
+go install github.com/mna/pigeon
 if [ $? -ne 0 ]; then
   echo "...error"
 fi
 go install github.com/czcorpus/manabuild@latest
+if [ $? -eq 0 ]; then
+  echo "...done"
+else
+  echo "...error"
+fi
+
+echo "generating parser code..."
+go generate ./mquery.go
 if [ $? -eq 0 ]; then
   echo "...done"
 else
@@ -38,7 +47,12 @@ test-and-build:
 
 tools:
 	@echo "installing local dependencies"
+	@go install github.com/mna/pigeon
 	@go install github.com/czcorpus/manabuild@latest
+
+generate:
+	@echo "generating query parser code"
+	@go generate ./mquery.go
 
 manatee-src:
 	manabuild -no-build

@@ -1,5 +1,5 @@
-// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2023 Institute of the Czech National Corpus,
+// Copyright 2024 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2024 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
 //
@@ -16,12 +16,29 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-//go:build tools
-
-package tools
+package cql
 
 import (
-	_ "github.com/czcorpus/manabuild"
-	_ "github.com/davecgh/go-spew"
-	_ "github.com/mna/pigeon"
+	"fmt"
+	"net/http"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
+
+type Actions struct {
+}
+
+func (a *Actions) AnalyzeQuery(ctx *gin.Context) {
+	q := ctx.Query("q")
+	parsed, err := ParseCQL("#", q)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("failed to parse query: %w", err),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, parsed)
+}

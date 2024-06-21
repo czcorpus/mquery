@@ -27,4 +27,5 @@ go.work
 config.json
 mquery
 Makefile
+cql/grammar.go
 

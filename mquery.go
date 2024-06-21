@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate pigeon -o ./cql/grammar.go ./cql/grammar.peg
+
 package main
 
 import (
@@ -38,6 +40,7 @@ import (
 	"mquery/cnf"
 	corpusActions "mquery/corpus/handlers"
 	"mquery/corpus/infoload"
+	"mquery/cql"
 	"mquery/general"
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
@@ -207,6 +210,11 @@ func runApiServer(
 
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
+
+	cqlActions := cql.Actions{}
+
+	engine.GET(
+		"/cql/analyze", cqlActions.AnalyzeQuery)
 
 	if conf.CQLTranslatorURL != "" {
 		ctActions := proxied.NewActions(conf.CQLTranslatorURL)
