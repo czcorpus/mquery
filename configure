@@ -1,10 +1,12 @@
 #!/bin/bash
 
 echo "installing required tools..."
+go get github.com/mna/pigeon
 go install github.com/mna/pigeon
 if [ $? -ne 0 ]; then
   echo "...error"
 fi
+go get github.com/czcorpus/manabuild@latest
 go install github.com/czcorpus/manabuild@latest
 if [ $? -eq 0 ]; then
   echo "...done"
