@@ -37,13 +37,9 @@ func CompileFreqResult(
 	maxItems int,
 	norms map[string]int64,
 ) ([]*results.FreqDistribItem, error) {
-	lenLimit := len(freqs.Freqs)
-	if maxItems < lenLimit {
-		lenLimit = maxItems
-	}
-	ans := make([]*results.FreqDistribItem, len(freqs.Freqs))
+	ans := make([]*results.FreqDistribItem, 0, len(freqs.Freqs))
 	isTT := len(norms) > 0
-	for i, _ := range ans {
+	for i := range freqs.Freqs {
 		var norm int64
 		if isTT {
 			var ok bool
@@ -55,12 +51,21 @@ func CompileFreqResult(
 		} else {
 			norm = corpSize
 		}
-		ans[i] = &results.FreqDistribItem{
-			Freq:  freqs.Freqs[i],
-			Base:  norm,
-			IPM:   float32(freqs.Freqs[i]) / float32(norm) * 1e6,
-			Value: freqs.Words[i],
+		if norm > 0 {
+			ans = append(
+				ans,
+				&results.FreqDistribItem{
+					Freq:  freqs.Freqs[i],
+					Base:  norm,
+					IPM:   float32(freqs.Freqs[i]) / float32(norm) * 1e6,
+					Value: freqs.Words[i],
+				},
+			)
 		}
+	}
+	lenLimit := len(ans)
+	if maxItems < lenLimit {
+		lenLimit = maxItems
 	}
 	sort.Slice(ans, func(i, j int) bool { return ans[i].Freq > ans[j].Freq })
 	return ans[:lenLimit], nil
