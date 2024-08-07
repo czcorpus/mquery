@@ -102,6 +102,15 @@ type Conf struct {
 	srcPath string
 }
 
+func (conf *Conf) LoadSubconfigs() error {
+	if conf.CorporaSetup.ConfFilesDir != "" {
+		if err := conf.CorporaSetup.Resources.Load(conf.CorporaSetup.ConfFilesDir); err != nil {
+			return fmt.Errorf("failed to load subconfig for `corpora`: %w", err)
+		}
+	}
+	return nil
+}
+
 func (conf *Conf) IsDebugMode() bool {
 	return conf.LogLevel == "debug"
 }
