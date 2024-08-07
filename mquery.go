@@ -307,6 +307,12 @@ func main() {
 	} else {
 		logging.SetupLogging(conf.LogFile, conf.LogLevel)
 	}
+
+	if err := conf.LoadSubconfigs(); err != nil {
+		log.Fatal().Err(err).Msg("Failed to load subconfig(s)")
+		return
+	}
+
 	log.Info().Msg("Starting MQUERY")
 	cnf.ValidateAndDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
