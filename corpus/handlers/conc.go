@@ -19,11 +19,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
 	"strconv"
 	"strings"
@@ -109,7 +108,7 @@ func concToMarkdown(data results.Concordance, conf *corpus.CorpusSetup) string {
 	return ans.String()
 }
 
-func concToMarkdown2(data results.Concordance, conf *corpus.CorpusSetup) string {
+func concToMarkdown2(data *results.Concordance, conf *corpus.CorpusSetup) string {
 	var ans strings.Builder
 	ans.WriteString("|left context | KWIC | right context |\n")
 	ans.WriteString("|-------:|:----:|:-------|\n")
@@ -264,21 +263,12 @@ func (a *Actions) anyConcordance(
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-	tmpArgs := argsBuilder(
+	args := argsBuilder(
 		queryProps.corpusConf,
 		queryProps.query,
 	)
-	if err := validator(&tmpArgs); err != nil {
+	if err := validator(&args); err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
-		return
-	}
-	args, err := json.Marshal(tmpArgs)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
 		return
 	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
@@ -294,37 +284,18 @@ func (a *Actions) anyConcordance(
 		return
 	}
 	rawResult := <-wait
-	result, err := rdb.DeserializeConcordanceResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if ok := HandleWorkerError(ctx, rawResult); !ok {
 		return
 	}
-	if err := result.Err(); err != nil {
-		if result.HasUserError() {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusBadRequest,
-			)
-
-		} else {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-		}
+	result, ok := TypedOrRespondError[results.Concordance](ctx, rawResult)
+	if !ok {
 		return
 	}
 	switch format {
 	case concFormatJSON:
 		uniresp.WriteJSONResponse(ctx.Writer, &result)
 	case concFormatMarkdown:
-		md := concToMarkdown2(result, a.conf.Resources.Get(queryProps.corpus))
+		md := concToMarkdown2(&result, a.conf.Resources.Get(queryProps.corpus))
 		ctx.Header("content-type", "text/markdown; charset=utf-8")
 		ctx.Writer.WriteString(md)
 	default:
@@ -335,8 +306,8 @@ func (a *Actions) anyConcordance(
 
 func (a *Actions) TermFrequency(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
-	argsBuilder := func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
-		return rdb.ConcordanceArgs{
+	argsBuilder := func(conf *corpus.CorpusSetup, q string) rdb.TermFrequencyArgs {
+		return rdb.TermFrequencyArgs{
 			CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 			Query:             q,
 			Attrs:             conf.PosAttrs.GetIDs(),
@@ -347,18 +318,10 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 			ViewContextStruct: conf.ViewContextStruct,
 		}
 	}
-	args, err := json.Marshal(argsBuilder(
+	args := argsBuilder(
 		queryProps.corpusConf,
 		queryProps.query,
-	))
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
+	)
 
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "termFrequency",
@@ -373,31 +336,11 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-
-	result, err := rdb.DeserializeConcSizeResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if ok := HandleWorkerError(ctx, rawResult); !ok {
 		return
 	}
-	if err := result.Err(); err != nil {
-		if result.HasUserError() {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusBadRequest,
-			)
-
-		} else {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-		}
+	result, ok := TypedOrRespondError[results.ConcSize](ctx, rawResult)
+	if !ok {
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, &result)

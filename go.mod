@@ -3,6 +3,7 @@ module mquery
 go 1.20
 
 require (
+	github.com/bytedance/sonic v1.11.3
 	github.com/czcorpus/cnc-gokit v0.9.2
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/mquery-common v0.0.4
@@ -12,9 +13,10 @@ require (
 	github.com/rs/zerolog v1.32.0
 )
 
+// replace github.com/czcorpus/mquery-common => /home/tomas/work/korpus/tools/mquery-common
+
 require (
 	github.com/briandowns/spinner v1.23.0 // indirect
-	github.com/bytedance/sonic v1.11.3 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.0 // indirect

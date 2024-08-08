@@ -60,5 +60,5 @@ func OpenSplitCorpus(subcBaseDir, corpPath string) (*SplitCorpus, error) {
 }
 
 type QueryHandler interface {
-	PublishQuery(query rdb.Query) (<-chan *rdb.WorkerResult, error)
+	PublishQuery(query rdb.Query) (<-chan rdb.WorkerResult, error)
 }

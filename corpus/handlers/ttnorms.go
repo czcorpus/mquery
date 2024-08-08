@@ -19,7 +19,8 @@
 package handlers
 
 import (
-	"mquery/mango"
+	"mquery/rdb"
+	"mquery/rdb/results"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -28,7 +29,13 @@ import (
 
 func (a *Actions) TextTypesNorms(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	ans, err := mango.GetTextTypesNorms(corpusPath, ctx.Request.URL.Query().Get("attr"))
+	wait, err := a.radapter.PublishQuery(rdb.Query{
+		Func: "textTypeNorms",
+		Args: rdb.TextTypeNormsArgs{
+			CorpusPath: corpusPath,
+			StructAttr: ctx.Query("attr"),
+		},
+	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -37,5 +44,13 @@ func (a *Actions) TextTypesNorms(ctx *gin.Context) {
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, ans)
+	rawResult := <-wait
+	if ok := HandleWorkerError(ctx, rawResult); !ok {
+		return
+	}
+	result, ok := TypedOrRespondError[results.TextTypeNorms](ctx, rawResult)
+	if !ok {
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, result)
 }

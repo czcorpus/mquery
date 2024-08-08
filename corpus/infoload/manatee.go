@@ -18,12 +18,11 @@
 package infoload
 
 import (
-	"encoding/json"
 	"fmt"
 	"mquery/corpus"
 	"mquery/corpus/baseinfo"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 )
@@ -74,13 +73,6 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*results.C
 	}
 
 	corpusPath := kdb.conf.GetRegistryPath(corpusId)
-	args, err := json.Marshal(rdb.CorpusInfoArgs{
-		CorpusPath: corpusPath,
-		Language:   language,
-	})
-	if err != nil {
-		return nil, err
-	}
 	registryExists, err := fs.IsFile(corpusPath)
 	if err != nil {
 		return nil, err
@@ -90,15 +82,18 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*results.C
 	}
 	wait, err := kdb.queryHandler.PublishQuery(rdb.Query{
 		Func: "corpusInfo",
-		Args: args,
+		Args: rdb.CorpusInfoArgs{
+			CorpusPath: corpusPath,
+			Language:   language,
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 	rawResult := <-wait
-	corpusInfo, err := rdb.DeserializeCorpusInfoDataResult(rawResult)
-	if err != nil {
-		return nil, err
+	corpusInfo, ok := rawResult.Value.(results.CorpusInfo)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for CorpusInfo")
 	}
 	if corpusInfo.Err() != nil {
 		return nil, corpusInfo.Err()

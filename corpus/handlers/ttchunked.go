@@ -24,7 +24,7 @@ import (
 	"math/rand"
 	"mquery/corpus"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,7 +45,7 @@ type StreamData struct {
 
 	Total int `json:"totalChunks"`
 
-	Error string `json:"error,omitempty"`
+	Error error `json:"error,omitempty"`
 }
 
 type streamedFreqsBaseArgs struct {
@@ -159,52 +159,42 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 		for chunkIdx, subc := range sc.Subcorpora {
 			go func(chIdx int, subcx string) {
 				defer wg.Done()
-				args, err := json.Marshal(rdb.FreqDistribArgs{
-					CorpusPath:  corpusPath,
-					SubcPath:    subcx,
-					Query:       query,
-					Crit:        fmt.Sprintf("%s 0", attr),
-					IsTextTypes: true,
-					FreqLimit:   flimit,
-					MaxResults:  maxItems,
-				})
-				if err != nil {
-					messageChannel <- StreamData{
-						ChunkNum: chunkIdx + 1,
-						Total:    len(sc.Subcorpora),
-						Error:    err.Error(),
-					}
-					return
-				}
-
 				wait, err := a.radapter.PublishQuery(rdb.Query{
 					Func: "freqDistrib",
-					Args: args,
+					Args: rdb.FreqDistribArgs{
+						CorpusPath:  corpusPath,
+						SubcPath:    subcx,
+						Query:       query,
+						Crit:        fmt.Sprintf("%s 0", attr),
+						IsTextTypes: true,
+						FreqLimit:   flimit,
+						MaxResults:  maxItems,
+					},
 				})
 				if err != nil {
 					messageChannel <- StreamData{
 						ChunkNum: chunkIdx + 1,
 						Total:    len(sc.Subcorpora),
-						Error:    err.Error(),
+						Error:    err,
 					}
 					return
 
 				} else {
 					tmp := <-wait
-					resultNext, err := rdb.DeserializeTextTypesResult(tmp)
-					if err != nil {
+					if err := tmp.Value.Err(); err != nil {
 						messageChannel <- StreamData{
 							ChunkNum: chIdx + 1,
 							Total:    len(sc.Subcorpora),
-							Error:    err.Error(),
+							Error:    err,
 						}
 						return
 					}
-					if err := resultNext.Err(); err != nil {
+					resultNext, ok := tmp.Value.(results.FreqDistrib)
+					if !ok {
 						messageChannel <- StreamData{
 							ChunkNum: chIdx + 1,
 							Total:    len(sc.Subcorpora),
-							Error:    err.Error(),
+							Error:    fmt.Errorf("invalid type for FreqDistrib"),
 						}
 						return
 					}

@@ -19,9 +19,9 @@
 package handlers
 
 import (
-	"encoding/json"
+	"fmt"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
 	"strings"
 
@@ -29,42 +29,47 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*results.LemmaItem, error) {
+const (
+	MaxWordFormResultItems = 50
+)
+
+type lemmaItem struct {
+	Lemma string `json:"lemma"`
+	POS   string `json:"pos"`
+}
+
+func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*lemmaItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
-	args, err := json.Marshal(rdb.FreqDistribArgs{
-		CorpusPath: corpusPath,
-		Query:      "[" + q + "]",
-		Crit:       "lemma 0~0>0 pos 0~0>0",
-		FreqLimit:  1,
-	})
-	if err != nil {
-		return nil, err
-	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: args,
+		Args: rdb.FreqDistribArgs{
+			CorpusPath: corpusPath,
+			Query:      "[" + q + "]",
+			Crit:       "lemma 0~0>0 pos 0~0>0",
+			FreqLimit:  1,
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 	rawResult := <-wait
-	freqs, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		return nil, err
+	freqs, ok := rawResult.Value.(results.FreqDistrib)
+	if !ok {
+		return nil, fmt.Errorf("invalid type for FreqDistrib")
 	}
 	if err := freqs.Err(); err != nil {
 		return nil, err
 	}
 
-	ans := make([]*results.LemmaItem, len(freqs.Freqs))
+	ans := make([]*lemmaItem, len(freqs.Freqs))
 	for i, freq := range freqs.Freqs {
 		wordSplit := strings.Split(freq.Value, " ")
 		// this presumes only single word queries
-		ans[i] = &results.LemmaItem{
+		ans[i] = &lemmaItem{
 			Lemma: wordSplit[0],
 			POS:   wordSplit[1],
 		}
@@ -78,31 +83,27 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 		q += " & pos=\"" + pos + "\"" // TODO hardcoded `pos`
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
-	args, err := json.Marshal(rdb.FreqDistribArgs{
-		CorpusPath: corpusPath,
-		Query:      "[" + q + "]",
-		Crit:       "word/i 0~0>0", // TODO hardcoded `word`
-		FreqLimit:  1,
-	})
-	if err != nil {
-		return nil, err
-	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: args,
+		Args: rdb.FreqDistribArgs{
+			CorpusPath: corpusPath,
+			Query:      "[" + q + "]",
+			Crit:       "word/i 0~0>0", // TODO hardcoded `word`
+			FreqLimit:  1,
+			MaxResults: MaxWordFormResultItems,
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 	rawResult := <-wait
-	freqs, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		return nil, err
+	if rawResult.Value.Err() != nil {
+		return nil, fmt.Errorf("failed to find word forms: %w", rawResult.Value.Err())
 	}
-	if err := freqs.Err(); err != nil {
-		return nil, err
+	freqs, ok := rawResult.Value.(results.FreqDistrib)
+	if !ok {
+		return nil, fmt.Errorf("failed to find word forms: invalid type for FreqDistrib")
 	}
-
 	ans := &results.WordFormsItem{
 		Lemma: lemma,
 		POS:   pos,

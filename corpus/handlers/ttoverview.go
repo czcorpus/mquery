@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"mquery/corpus/baseinfo"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
+	"reflect"
 	"strconv"
 	"sync"
 
@@ -45,8 +46,8 @@ func (tto *ttOverviewResult) set(attr baseinfo.TextProperty, v results.FreqDistr
 
 func (tto *ttOverviewResult) findError() string {
 	for _, v := range tto.freqs {
-		if v.Error != "" {
-			return v.Error
+		if v.Error != nil {
+			return v.Error.Error()
 		}
 	}
 	return ""
@@ -57,7 +58,7 @@ func (tto *ttOverviewResult) MarshalJSON() ([]byte, error) {
 		struct {
 			Freqs      map[string]results.FreqDistrib `json:"freqs"`
 			Error      string                         `json:"error,omitempty"`
-			ResultType results.ResultType             `json:"resultType"`
+			ResultType rdb.ResultType                 `json:"resultType"`
 		}{
 			Freqs:      tto.freqs,
 			ResultType: tto.Type(),
@@ -66,8 +67,8 @@ func (tto *ttOverviewResult) MarshalJSON() ([]byte, error) {
 	)
 }
 
-func (tto *ttOverviewResult) Type() results.ResultType {
-	return results.ResultTypeMultipleFreqs
+func (tto *ttOverviewResult) Type() rdb.ResultType {
+	return rdb.ResultTypeMultipleFreqs
 }
 
 func newTtOverviewResult() *ttOverviewResult {
@@ -104,32 +105,21 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	auxResult := newTtOverviewResult()
 	textProps := queryProps.corpusConf.TextProperties.ListOverviewProps()
 	errs := make([]error, 0, len(textProps))
+	var hasUserErrors bool
 	wg := sync.WaitGroup{}
 	wg.Add(len(textProps))
 
 	for _, attr := range textProps {
-		freqArgs := rdb.FreqDistribArgs{
-			CorpusPath:  corpusPath,
-			Query:       queryProps.query,
-			Crit:        fmt.Sprintf("%s 0", attr),
-			IsTextTypes: true,
-			FreqLimit:   flimit,
-			MaxResults:  textTypesInternalMaxResults,
-		}
-
-		args, err := json.Marshal(freqArgs)
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-
 		wait, err := a.radapter.PublishQuery(rdb.Query{
 			Func: "freqDistrib",
-			Args: args,
+			Args: rdb.FreqDistribArgs{
+				CorpusPath:  corpusPath,
+				Query:       queryProps.query,
+				Crit:        fmt.Sprintf("%s 0", attr),
+				IsTextTypes: true,
+				FreqLimit:   flimit,
+				MaxResults:  textTypesInternalMaxResults,
+			},
 		})
 
 		if err != nil {
@@ -141,14 +131,24 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 			go func(attrx baseinfo.TextProperty) {
 				defer wg.Done()
 				tmp := <-wait
-				resultNext, err := rdb.DeserializeTextTypesResult(tmp)
-				if err != nil {
-					errs = append(errs, err)
-					log.Error().Err(err).Msg("failed to deserialize query")
+				if tmp.Value.Err() != nil {
+					if tmp.HasUserError {
+						hasUserErrors = true
+					}
+					errs = append(errs, tmp.Value.Err())
+					log.Error().Err(tmp.Value.Err()).Msg("failed to perform freqDistribQuery")
+
+				} else {
+					resultNext, ok := tmp.Value.(results.FreqDistrib)
+					if !ok {
+						err := fmt.Errorf("invalid type for FreqDistrib: %s", reflect.TypeOf(tmp.Value))
+						errs = append(errs, err)
+						log.Error().Err(err).Msg("failed to deserialize query")
+					}
+					mergedFreqLock.Lock()
+					auxResult.set(attrx, resultNext)
+					mergedFreqLock.Unlock()
 				}
-				mergedFreqLock.Lock()
-				auxResult.set(attrx, resultNext)
-				mergedFreqLock.Unlock()
 			}(attr)
 		}
 	}
@@ -161,8 +161,14 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	}
 
 	if len(errs) > 0 {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(errs[0]), http.StatusInternalServerError)
+		if hasUserErrors {
+			uniresp.RespondWithErrorJSON(
+				ctx, errs[0], http.StatusBadRequest)
+
+		} else {
+			uniresp.RespondWithErrorJSON(
+				ctx, errs[0], http.StatusInternalServerError)
+		}
 		return
 	}
 

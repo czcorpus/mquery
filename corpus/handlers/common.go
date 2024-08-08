@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"mquery/corpus"
 	"mquery/corpus/baseinfo"
+	"mquery/rdb"
 	"net/http"
+	"reflect"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -117,4 +119,46 @@ func (a *Actions) DecodeTextTypeAttrOrFail(
 		return tp.Name, true
 	}
 	return "", true
+}
+
+func TypedOrRespondError[T any](ctx *gin.Context, w rdb.WorkerResult) (T, bool) {
+	if w.Value == nil {
+		var ans T
+		return ans, false
+	}
+	vt, ok := w.Value.(T)
+	if !ok {
+		var n T
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf(
+				"unexpected type for %s: %s",
+				reflect.TypeOf(n), reflect.TypeOf(w.Value)),
+			http.StatusInternalServerError,
+		)
+		return n, false
+	}
+	return vt, true
+}
+
+func HandleWorkerError(ctx *gin.Context, result rdb.WorkerResult) bool {
+	if err := result.Value.Err(); err != nil {
+		if result.HasUserError {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusBadRequest,
+			)
+			return false
+
+		} else {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+		}
+		return false
+	}
+	return true
 }

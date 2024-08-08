@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"mquery/corpus"
 	"mquery/corpus/baseinfo"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"

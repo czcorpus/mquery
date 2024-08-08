@@ -274,7 +274,7 @@ KWICRowsRetval conc_examples(
             cppContextStruct.empty() ? halfRight.c_str() : ("1:"+cppContextStruct).c_str(),
             attrs,
             attrs,
-            "",
+            "", // "s.id,hi,lb,g",
             "#",
             maxContext,
             false

@@ -23,55 +23,58 @@ import (
 	"mquery/corpus/baseinfo"
 	"mquery/corpus/infoload"
 	"mquery/mango"
+	"mquery/merror"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"path/filepath"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/mquery-common/concordance"
 )
 
-func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) *results.CorpusInfo {
+func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) results.CorpusInfo {
 	var ans results.CorpusInfo
 	ans.Data = baseinfo.Corpus{Corpname: filepath.Base(args.CorpusPath)}
 	t, err := fs.IsFile(args.CorpusPath)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	if !t {
-		ans.Error = fmt.Sprintf("Invalid corpus path: %s", args.CorpusPath)
-		return &ans
+		ans.Error = merror.InputError{
+			Msg: fmt.Sprintf("Invalid corpus path: %s", args.CorpusPath)}
+		return ans
 	}
 	err = infoload.FillStructAndAttrs(args.CorpusPath, &ans.Data)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	ans.Data.Size, err = mango.GetCorpusSize(args.CorpusPath)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	ans.Data.Description, err = mango.GetCorpusConf(args.CorpusPath, "INFO")
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
-	return &ans
+	return ans
 }
 
-func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
+func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) results.FreqDistrib {
 	var ans results.FreqDistrib
 	if args.MaxResults <= 0 {
-		ans.Error = "MaxResults must be a positive number"
-		return &ans
+		ans.Error = merror.InputError{
+			Msg: "MaxResults must be a positive number"}
+		return ans
 	}
 	freqs, err := mango.CalcFreqDist(
 		args.CorpusPath, args.SubcPath, args.Query, args.Crit, args.FreqLimit)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 
 	var norms map[string]int64
@@ -80,7 +83,7 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 		norms, err = mango.GetTextTypesNorms(args.CorpusPath, attr)
 
 		if err != nil {
-			ans.Error = err.Error()
+			ans.Error = err
 		}
 	}
 	mergedFreqs, err := CompileFreqResult(
@@ -89,15 +92,15 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) *results.FreqDistrib {
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize
 	ans.Fcrit = args.Crit
-	return &ans
+	return ans
 }
 
-func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
+func (w *Worker) collocations(args rdb.CollocationsArgs) results.Collocations {
 	var ans results.Collocations
 	msr, err := mango.ImportCollMeasure(args.Measure)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	colls, err := mango.GetCollcations(
 		args.CorpusPath,
@@ -110,8 +113,8 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 		args.MaxItems,
 	)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	ans.Colls = colls.Colls
 	ans.ConcSize = colls.ConcSize
@@ -119,49 +122,65 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) *results.Collocations {
 	ans.SubcSize = colls.SubcSize
 	ans.Measure = args.Measure
 	ans.SrchRange = args.SrchRange
-	return &ans
+	return ans
 }
 
-func (w *Worker) concSize(args rdb.TermFrequencyArgs) *results.ConcSize {
+func (w *Worker) concSize(args rdb.ConcordanceArgs) results.ConcSize {
 	var ans results.ConcSize
 	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.Query)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	ans.Total = concSizeInfo.Value
 	ans.CorpusSize = concSizeInfo.CorpusSize
 	ans.ARF = concSizeInfo.ARF
-	return &ans
+	return ans
 }
 
-func (w *Worker) concordance(args rdb.ConcordanceArgs) *results.Concordance {
+func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	var ans results.Concordance
+	if len(args.Attrs) == 0 {
+		ans.Error = merror.InputError{Msg: "No positional attributes selected for the concordance"}
+		return ans
+	}
 	concEx, err := mango.GetConcordance(
 		args.CorpusPath, args.Query, args.Attrs, args.StartLine, args.MaxItems,
 		args.MaxContext, args.ViewContextStruct)
 	if err != nil {
-		ans.Error = err.Error()
-		return &ans
+		ans.Error = err
+		return ans
 	}
 	parser := concordance.NewLineParser(args.Attrs)
 	ans.Lines = parser.Parse(concEx.Lines)
 	ans.ConcSize = concEx.ConcSize
-	return &ans
+	return ans
 }
 
-func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) *results.CollFreqData {
+func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) results.CollFreqData {
 	for _, attr := range args.Attrs {
 		err := mango.CompileSubcFreqs(args.CorpusPath, args.SubcPath, attr)
 		if err != nil {
-			return &results.CollFreqData{Error: err.Error()}
+			return results.CollFreqData{Error: err}
 		}
 	}
 	for _, strct := range args.Structs {
 		err := w.tokenCoverage(args.MktokencovPath, args.SubcPath, args.CorpusPath, strct)
 		if err != nil {
-			return &results.CollFreqData{Error: err.Error()}
+			return results.CollFreqData{Error: err}
 		}
 	}
-	return &results.CollFreqData{}
+	return results.CollFreqData{}
+}
+
+func (w *Worker) textTypeNorms(args rdb.TextTypeNormsArgs) results.TextTypeNorms {
+	var ans results.TextTypeNorms
+	norms, err := mango.GetTextTypesNorms(args.CorpusPath, args.StructAttr)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.Sizes = norms
+	return ans
+
 }

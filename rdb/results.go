@@ -18,94 +18,33 @@
 
 package rdb
 
-import (
-	"encoding/json"
-	"fmt"
-	"mquery/results"
+const (
+	ResultTypeConcordance   ResultType = "conc"
+	ResultTypeConcSize      ResultType = "termFrequency"
+	ResultTypeCollocations  ResultType = "coll"
+	ResultTypeCollFreqData  ResultType = "collFreqData"
+	ResultTypeFreqs         ResultType = "freqs"
+	ResultTypeMultipleFreqs ResultType = "multipleFreqs"
+	ResultTypeCorpusInfo    ResultType = "corpusInfo"
+	ResultTypeTextTypeNorms ResultType = "textTypeNorms"
+	ResultTypeError         ResultType = "error"
 )
 
+type ResultType string
+
+func (rt ResultType) String() string {
+	return string(rt)
+}
+
+// ----------------
+
+type FuncResult interface {
+	Err() error
+	Type() ResultType
+}
+
 type WorkerResult struct {
-	ID         string             `json:"id"`
-	ResultType results.ResultType `json:"resultType"`
-	Value      json.RawMessage    `json:"value"`
-}
-
-func (wr *WorkerResult) AttachValue(value results.SerializableResult) error {
-	rawValue, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	wr.Value = rawValue
-	return nil
-}
-
-func CreateWorkerResult(value results.SerializableResult) (*WorkerResult, error) {
-	rawValue, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	return &WorkerResult{Value: rawValue, ResultType: value.Type()}, nil
-}
-
-func DeserializeFreqDistribResult(w *WorkerResult) (results.FreqDistrib, error) {
-	var ans results.FreqDistrib
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize FreqDistrib: %w", err)
-	}
-	return ans, nil
-}
-
-func DeserializeTextTypesResult(w *WorkerResult) (results.FreqDistrib, error) {
-	var ans results.FreqDistrib
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize FreqDistrib: %w", err)
-	}
-	return ans, nil
-}
-
-func DeserializeConcSizeResult(w *WorkerResult) (results.ConcSize, error) {
-	var ans results.ConcSize
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize ConcSize: %w", err)
-	}
-	return ans, nil
-}
-
-func DeserializeConcordanceResult(w *WorkerResult) (results.Concordance, error) {
-	var ans results.Concordance
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize Concordance: %w", err)
-	}
-	return ans, nil
-}
-
-func DeserializeCollocationsResult(w *WorkerResult) (results.Collocations, error) {
-	var ans results.Collocations
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize Collocations: %w", err)
-	}
-	return ans, nil
-}
-
-func DeserializeCollFreqDataResult(w *WorkerResult) (results.CollFreqData, error) {
-	var ans results.CollFreqData
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize CollFreqData: %w", err)
-	}
-	return ans, nil
-}
-
-func DeserializeCorpusInfoDataResult(w *WorkerResult) (results.CorpusInfo, error) {
-	var ans results.CorpusInfo
-	err := json.Unmarshal(w.Value, &ans)
-	if err != nil {
-		return ans, fmt.Errorf("failed to deserialize CorpusInfo: %w", err)
-	}
-	return ans, nil
+	ID           string
+	Value        FuncResult
+	HasUserError bool
 }

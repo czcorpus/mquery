@@ -16,19 +16,17 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package results
-
-import "errors"
+package rdb
 
 type ErrorResult struct {
 	Func  string `json:"func"`
-	Error string `json:"error"`
+	Error error  `json:"error"`
 }
 
-func (res *ErrorResult) Err() error {
-	return errors.New(res.Error)
+func (res ErrorResult) Err() error {
+	return res.Error
 }
 
-func (res *ErrorResult) Type() ResultType {
+func (res ErrorResult) Type() ResultType {
 	return ResultTypeError
 }
