@@ -19,9 +19,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"mquery/rdb"
+	"mquery/rdb/results"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -95,30 +95,20 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
 
-	args, err := json.Marshal(rdb.CollocationsArgs{
-		CorpusPath: corpusPath,
-		Query:      queryProps.query,
-		Attr:       CollDefaultAttr,
-		Measure:    measure,
-		// Note: see the range below and note that the left context
-		// is published differently (as a positive number) in contrast
-		// with the "internals" where a negative number is required
-		SrchRange: [2]int{-srchLeft, srchRight},
-		MinFreq:   int64(minCollFreq),
-		MaxItems:  maxItems,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "collocations",
-		Args: args,
-	})
+		Args: rdb.CollocationsArgs{
+			CorpusPath: corpusPath,
+			Query:      queryProps.query,
+			Attr:       CollDefaultAttr,
+			Measure:    measure,
+			// Note: see the range below and note that the left context
+			// is published differently (as a positive number) in contrast
+			// with the "internals" where a negative number is required
+			SrchRange: [2]int{-srchLeft, srchRight},
+			MinFreq:   int64(minCollFreq),
+			MaxItems:  maxItems,
+		}})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -128,30 +118,11 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-	result, err := rdb.DeserializeCollocationsResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if ok := HandleWorkerError(ctx, rawResult); !ok {
 		return
 	}
-	if err := result.Err(); err != nil {
-		if result.HasUserError() {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusBadRequest,
-			)
-
-		} else {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-		}
+	result, ok := TypedOrRespondError[results.Collocations](ctx, rawResult)
+	if !ok {
 		return
 	}
 	result.SrchRange[0] = -1 * result.SrchRange[0] // note: HTTP and internal API are different

@@ -19,11 +19,12 @@
 package rdb
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/gob"
 	"errors"
 	"fmt"
-	"mquery/results"
+	"mquery/merror"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,78 +47,93 @@ var (
 )
 
 type Query struct {
-	Channel string          `json:"channel"`
-	Func    string          `json:"func"`
-	Args    json.RawMessage `json:"args"`
+	Channel string
+	Func    string
+	Args    any
 }
+
+// ----------------------
 
 type CorpusInfoArgs struct {
-	CorpusPath string `json:"corpusPath"`
-	Language   string `json:"language"`
+	CorpusPath string
+	Language   string
 }
+
+// --------------
 
 type FreqDistribArgs struct {
-	CorpusPath  string `json:"corpusPath"`
-	SubcPath    string `json:"subcPath"`
-	Query       string `json:"query"`
-	Crit        string `json:"crit"`
-	IsTextTypes bool   `json:"isTextTypes"`
-	FreqLimit   int    `json:"freqLimit"`
-	MaxResults  int    `json:"maxResults"`
+	CorpusPath  string
+	SubcPath    string
+	Query       string
+	Crit        string
+	IsTextTypes bool
+	FreqLimit   int
+	MaxResults  int
 }
+
+// --------------
 
 type CollocationsArgs struct {
-	CorpusPath string `json:"corpusPath"`
-	SubcPath   string `json:"subcPath"`
-	Query      string `json:"query"`
-	Attr       string `json:"attr"`
-	Measure    string `json:"measure"`
-	SrchRange  [2]int `json:"srchRange"`
-	MinFreq    int64  `json:"minFreq"`
-	MaxItems   int    `json:"maxItems"`
+	CorpusPath string
+	SubcPath   string
+	Query      string
+	Attr       string
+	Measure    string
+	SrchRange  [2]int
+	MinFreq    int64
+	MaxItems   int
 }
 
-type TermFrequencyArgs struct {
-	CorpusPath string `json:"corpusPath"`
-	Query      string `json:"query"`
-}
+// --------------
+
+type TermFrequencyArgs ConcordanceArgs
+
+// --------------
 
 type ConcordanceArgs struct {
-	CorpusPath        string   `json:"corpusPath"`
-	Query             string   `json:"query"`
-	QueryLemma        string   `json:"queryLemma"`
-	Attrs             []string `json:"attrs"`
-	MaxItems          int      `json:"maxItems"`
-	StartLine         int      `json:"startLine"`
-	MaxContext        int      `json:"maxContext"`
-	ViewContextStruct string   `json:"viewContextStruct"`
-	ParentIdxAttr     string   `json:"parentIdxAttr"`
+	CorpusPath        string
+	Query             string
+	QueryLemma        string
+	Attrs             []string
+	MaxItems          int
+	StartLine         int
+	MaxContext        int
+	ViewContextStruct string
+	ParentIdxAttr     string
 }
 
+// --------------
+
 type CalcCollFreqDataArgs struct {
-	CorpusPath string   `json:"corpusPath"`
-	SubcPath   string   `json:"subcPath"`
-	Attrs      []string `json:"attrs"`
+	CorpusPath string
+	SubcPath   string
+	Attrs      []string
 
 	// Structs any structure involved in possible text type
 	// freq. distribution must be here so we can prepare
 	// intermediate data
-	Structs        []string `json:"structs"`
-	MktokencovPath string   `json:"mktokencovPath"`
+	Structs        []string
+	MktokencovPath string
 }
 
-func (q Query) ToJSON() (string, error) {
-	ans, err := json.Marshal(q)
-	if err != nil {
-		return "", err
-	}
-	return string(ans), nil
+// --------------
+
+type TextTypeNormsArgs struct {
+	CorpusPath string
+	StructAttr string
 }
+
+// --------------
 
 func DecodeQuery(q string) (Query, error) {
 	var ans Query
-	err := json.Unmarshal([]byte(q), &ans)
-	return ans, err
+	var buf bytes.Buffer
+	buf.WriteString(q)
+	dec := gob.NewDecoder(&buf)
+	if err := dec.Decode(&ans); err != nil {
+		return Query{}, err
+	}
+	return ans, nil
 }
 
 // Adapter provides functions for query producers and consumers
@@ -166,12 +182,12 @@ func (a *Adapter) TestConnection(timeout time.Duration, cancel chan bool) error 
 // SomeoneListens tests if there is a listener for a channel
 // specified in the provided `query`. If false, then there
 // is nobody interested in the query anymore.
-func (a *Adapter) SomeoneListens(query Query) (bool, error) {
-	cmd := a.redis.PubSubNumSub(a.ctx, query.Channel)
+func (a *Adapter) SomeoneListens(channel string) (bool, error) {
+	cmd := a.redis.PubSubNumSub(a.ctx, channel)
 	if cmd.Err() != nil {
 		return false, fmt.Errorf("failed to check channel listeners: %w", cmd.Err())
 	}
-	return cmd.Val()[query.Channel] > 0, nil
+	return cmd.Val()[channel] > 0, nil
 }
 
 // PublishQuery publishes a new query and returns a channel
@@ -179,7 +195,7 @@ func (a *Adapter) SomeoneListens(query Query) (bool, error) {
 // process fails during the calculation, a respective error
 // is packed into the WorkerResult value. The error returned
 // by this method means that the publishing itself failed.
-func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
+func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 	query.Channel = fmt.Sprintf("%s:%s", a.channelResultPrefix, uuid.New().String())
 	log.Debug().
 		Str("channel", query.Channel).
@@ -187,16 +203,17 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 		Any("args", query.Args).
 		Msg("publishing query")
 
-	msg, err := query.ToJSON()
+	var msg bytes.Buffer
+	enc := gob.NewEncoder(&msg)
+	err := enc.Encode(query)
 	if err != nil {
 		return nil, err
 	}
 	sub := a.redis.Subscribe(a.ctx, query.Channel)
-
-	if err := a.redis.LPush(a.ctx, DefaultQueueKey, msg).Err(); err != nil {
+	if err := a.redis.LPush(a.ctx, DefaultQueueKey, msg.Bytes()).Err(); err != nil {
 		return nil, err
 	}
-	ans := make(chan *WorkerResult)
+	ans := make(chan WorkerResult)
 
 	// now we wait for response and send result via `ans`
 	go func() {
@@ -205,7 +222,6 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 			close(ans)
 		}()
 
-		result := new(WorkerResult)
 		tmr := time.NewTimer(a.queryAnswerTimeout)
 
 		for {
@@ -217,27 +233,43 @@ func (a *Adapter) PublishQuery(query Query) (<-chan *WorkerResult, error) {
 					Msg("received result")
 				cmd := a.redis.Get(a.ctx, item.Payload)
 				if cmd.Err() != nil {
-					result.AttachValue(
-						&results.ErrorResult{
+					ans <- WorkerResult{
+						Value: ErrorResult{
 							Func:  query.Func,
-							Error: cmd.Err().Error(),
+							Error: cmd.Err(),
 						},
-					)
+					}
+					tmr.Stop()
 
 				} else {
-					err := json.Unmarshal([]byte(cmd.Val()), &result)
+					var buff bytes.Buffer
+					buff.WriteString(cmd.Val())
+					dec := gob.NewDecoder(&buff)
+					var wr WorkerResult
+					err := dec.Decode(&wr)
 					if err != nil {
-						result.AttachValue(&results.ErrorResult{Error: err.Error()})
+						ans <- WorkerResult{
+							Value: ErrorResult{
+								Func:  query.Func,
+								Error: err,
+							},
+						}
+
+					} else {
+						ans <- wr
 					}
+					tmr.Stop()
 				}
-				ans <- result
-				tmr.Stop()
 				return
 			case <-tmr.C:
-				result.AttachValue(&results.ErrorResult{
-					Error: fmt.Sprintf("worker result timeouted (%v)", DefaultQueryAnswerTimeout),
-				})
-				ans <- result
+				ans <- WorkerResult{
+					Value: ErrorResult{
+						Func: query.Func,
+						Error: merror.TimeoutError{
+							Msg: fmt.Sprintf("worker result timeouted (%v)", DefaultQueryAnswerTimeout),
+						},
+					},
+				}
 				return
 			}
 		}
@@ -268,17 +300,28 @@ func (a *Adapter) DequeueQuery() (Query, error) {
 // PublishResult sends notification via Redis PUBSUB mechanism
 // and also stores the result so a notified listener can retrieve
 // it.
-func (a *Adapter) PublishResult(channelName string, value *WorkerResult) error {
+func (a *Adapter) PublishResult(channelName string, value WorkerResult) error {
 	log.Debug().
 		Str("channel", channelName).
-		Str("resultType", value.ResultType.String()).
+		Str("resultType", string(value.Value.Type())).
 		Msg("publishing result")
-	data, err := json.Marshal(value)
+	if value.Value.Err() != nil && IsUserErrorMsg(value.Value.Err().Error()) {
+		value.HasUserError = true
+	}
+	var msg bytes.Buffer
+	enc := gob.NewEncoder(&msg)
+	err := enc.Encode(value)
 	if err != nil {
 		return fmt.Errorf("failed to serialize result: %w", err)
 	}
-	a.redis.Set(a.ctx, channelName, string(data), DefaultResultExpiration)
-	return a.redis.Publish(a.ctx, channelName, channelName).Err()
+	cmd := a.redis.Set(a.ctx, channelName, msg.Bytes(), DefaultResultExpiration)
+	if cmd.Err() != nil {
+		return fmt.Errorf("failed to set result to Redis: %w", cmd.Err())
+	}
+	if err := a.redis.Publish(a.ctx, channelName, channelName).Err(); err != nil {
+		return fmt.Errorf("failed to publish on Redis channel: %w", err)
+	}
+	return nil
 }
 
 // Subscribe subscribes to query queue.

@@ -19,12 +19,11 @@
 package worker
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
+	"mquery/merror"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"os"
 	"os/exec"
 	"time"
@@ -38,114 +37,127 @@ const (
 )
 
 type jobLogger interface {
-	Log(rec results.JobLog)
-}
-
-type recoveredError struct {
-	error
+	Log(rec rdb.JobLog)
 }
 
 type Worker struct {
-	ID         string
-	messages   <-chan *redis.Message
-	radapter   *rdb.Adapter
-	exitEvent  chan os.Signal
-	ticker     time.Ticker
-	jobLogger  jobLogger
-	currJobLog *results.JobLog
+	ID        string
+	messages  <-chan *redis.Message
+	radapter  *rdb.Adapter
+	exitEvent chan os.Signal
+	ticker    time.Ticker
+	jobLogger jobLogger
 }
 
-func (w *Worker) publishResult(res results.SerializableResult, channel string) error {
-	ans, err := rdb.CreateWorkerResult(res)
-	if err != nil {
-		return err
-	}
-
-	w.currJobLog.End = time.Now()
-	w.currJobLog.Err = res.Err()
-	w.jobLogger.Log(*w.currJobLog)
-	w.currJobLog = nil
-	return w.radapter.PublishResult(channel, ans)
+func (w *Worker) publishResult(
+	res rdb.FuncResult,
+	query rdb.Query,
+	t0 time.Time,
+) error {
+	w.jobLogger.Log(rdb.JobLog{
+		WorkerID: w.ID,
+		Func:     query.Func,
+		Begin:    t0,
+		End:      time.Now(),
+		Err:      res.Err(),
+	})
+	return w.radapter.PublishResult(
+		query.Channel,
+		rdb.WorkerResult{
+			ID:    w.ID,
+			Value: res,
+		})
 }
 
-func (w *Worker) sendPublishingErr(query rdb.Query, err error) {
-	if err := w.publishResult(&results.ErrorResult{Func: query.Func, Error: err.Error()}, query.Channel); err != nil {
-		log.Error().Err(err).Msg("failed to publish general publishing error")
-	}
-}
-
+// runQueryProtected runs required function (query)
+// and publishes result.
+// During normal operations (which includes common errors
+// returned from called functions), the function never returns
+// the errors as they are returned to the calling client.
+// Returned error means a serious problem has been encountered.
+// This may happen in the following cases:
+// 1) the called backend function panics
+// 2) the function is unable to publish its result or error
 func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 	defer func() {
 		if r := recover(); r != nil {
-			ansErr = recoveredError{fmt.Errorf(fmt.Sprintf("recovered error: %v", r))}
+			ansErr = merror.RecoveredError{Msg: fmt.Sprintf("recovered error: %v", r)}
 			return
 		}
 	}()
-	switch query.Func {
-	case "corpusInfo":
-		var args rdb.CorpusInfoArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	t0 := time.Now()
+	switch tArgs := query.Args.(type) {
+	case rdb.CorpusInfoArgs:
+		ans := w.corpusInfo(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
 		}
-		ans := w.corpusInfo(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			w.sendPublishingErr(query, err)
-			return err
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.CorpusInfo{Error: err}, query, t0)
+			return
 		}
-	case "freqDistrib":
-		var args rdb.FreqDistribArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	case rdb.FreqDistribArgs:
+		ans := w.freqDistrib(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
 		}
-		ans := w.freqDistrib(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			w.sendPublishingErr(query, err)
-			return err
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.FreqDistrib{Error: err}, query, t0)
+			return
 		}
-	case "termFrequency":
-		var args rdb.TermFrequencyArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	case rdb.TermFrequencyArgs:
+		ans := w.concSize(rdb.ConcordanceArgs(tArgs))
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
 		}
-		ans := w.concSize(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			w.sendPublishingErr(query, err)
-			return err
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.ConcSize{Error: err}, query, t0)
+			return
 		}
-	case "concordance":
-		var args rdb.ConcordanceArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	case rdb.ConcordanceArgs:
+		ans := w.concordance(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
 		}
-		ans := w.concordance(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			w.sendPublishingErr(query, err)
-			return err
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.Concordance{Error: err}, query, t0)
+			return
 		}
-	case "collocations":
-		var args rdb.CollocationsArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	case rdb.CollocationsArgs:
+		ans := w.collocations(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
 		}
-		ans := w.collocations(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			w.sendPublishingErr(query, err)
-			return err
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.Collocations{Error: err}, query, t0)
+			return
 		}
-	case "calcCollFreqData":
-		var args rdb.CalcCollFreqDataArgs
-		if err := json.Unmarshal(query.Args, &args); err != nil {
-			return err
+	case rdb.CalcCollFreqDataArgs:
+		ans := w.calcCollFreqData(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
 		}
-		ans := w.calcCollFreqData(args)
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			w.sendPublishingErr(query, err)
-			return err
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.CollFreqData{Error: err}, query, t0)
+			return
+		}
+	case rdb.TextTypeNormsArgs:
+		ans := w.textTypeNorms(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
+		}
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.TextTypeNorms{Error: err}, query, t0)
+			return
 		}
 	default:
-		ans := &results.ErrorResult{Error: fmt.Sprintf("unknown query function: %s", query.Func)}
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
+		ans := rdb.ErrorResult{
+			Error: merror.InternalError{
+				Msg: fmt.Sprintf("unknown query function: %s", query.Func),
+			},
+		}
+		if ansErr = w.publishResult(ans, query, t0); ansErr != nil {
+			return
 		}
 	}
 	return nil
@@ -164,10 +176,10 @@ func (w *Worker) tryNextQuery() error {
 	log.Debug().
 		Str("channel", query.Channel).
 		Str("func", query.Func).
-		Any("args", query.Args).
+		// Any("args", query.Args). TODO
 		Msg("received query")
 
-	isActive, err := w.radapter.SomeoneListens(query)
+	isActive, err := w.radapter.SomeoneListens(query.Channel)
 	if err != nil {
 		return err
 	}
@@ -175,26 +187,24 @@ func (w *Worker) tryNextQuery() error {
 		log.Warn().
 			Str("func", query.Func).
 			Str("channel", query.Channel).
-			Any("args", query.Args).
+			// Any("args", query.Args). TODO
 			Msg("worker found an inactive query")
 		return nil
 	}
 
-	w.currJobLog = &results.JobLog{
-		WorkerID: w.ID,
-		Func:     query.Func,
-		Begin:    time.Now(),
-	}
-
-	err = w.runQueryProtected(query)
-	var rcvErr recoveredError
-	if errors.As(err, &rcvErr) {
-		ans := &results.ErrorResult{
-			Error: fmt.Sprintf("worker panicked: %s", rcvErr.Error()),
-			Func:  query.Func,
-		}
-		if err := w.publishResult(ans, query.Channel); err != nil {
-			return err
+	if err := w.runQueryProtected(query); err != nil {
+		// if we're here, a more serious error likely occured,
+		// but we still try to publish the result (even if the
+		// publishing might have been the cause of the problem)
+		if err2 := w.publishResult(
+			rdb.ErrorResult{
+				Error: err,
+				Func:  query.Func,
+			},
+			query,
+			time.Now(),
+		); err2 != nil {
+			return err2
 		}
 	}
 	return nil

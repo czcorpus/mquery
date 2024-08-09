@@ -19,12 +19,13 @@
 package handlers
 
 import (
-	"encoding/json"
+	"fmt"
 	"mquery/cnf"
 	"mquery/corpus"
 	"mquery/corpus/edit"
 	"mquery/corpus/infoload"
 	"mquery/rdb"
+	"mquery/rdb/results"
 	"net/http"
 	"sync"
 
@@ -110,35 +111,38 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	wg.Add(len(corp.Subcorpora))
 	errs := make([]error, 0, len(corp.Subcorpora))
 	for _, subc := range corp.Subcorpora {
-		args, err := json.Marshal(rdb.CalcCollFreqDataArgs{
-			CorpusPath:     corpPath,
-			SubcPath:       subc,
-			Attrs:          []string{"word", "lemma"}, // TODO this should not be hardcoded
-			Structs:        []string{"doc"},
-			MktokencovPath: a.conf.MktokencovPath,
-		})
-		if err != nil {
-			wg.Done()
-			log.Error().Err(err).Msg("failed to publish task")
-			errs = append(errs, err)
-			continue
-		}
 		wait, err := a.radapter.PublishQuery(rdb.Query{
 			Func: "calcCollFreqData",
-			Args: args,
+			Args: rdb.CalcCollFreqDataArgs{
+				CorpusPath:     corpPath,
+				SubcPath:       subc,
+				Attrs:          []string{"word", "lemma"}, // TODO this should not be hardcoded
+				Structs:        []string{"doc"},
+				MktokencovPath: a.conf.MktokencovPath,
+			},
 		})
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+			return
+		}
 		go func() {
 			defer wg.Done()
 			ans := <-wait
-			resp, err := rdb.DeserializeCollFreqDataResult(ans)
-			if err != nil {
+			if err := ans.Value.Err(); err != nil {
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
-			if err := resp.Err(); err != nil {
+			_, ok := ans.Value.(results.CollFreqData)
+			if !ok {
+				err := fmt.Errorf("invalid type for CollFreqData")
 				errs = append(errs, err)
 				log.Error().Err(err).Msg("failed to execute action calcCollFreqData")
 			}
+
 		}()
 	}
 	wg.Wait()

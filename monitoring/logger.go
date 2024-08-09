@@ -21,7 +21,7 @@ package monitoring
 
 import (
 	"database/sql"
-	"mquery/results"
+	"mquery/rdb"
 	"time"
 )
 
@@ -32,7 +32,7 @@ type WorkerJobLogger struct {
 	location *time.Location
 }
 
-func (w *WorkerJobLogger) Log(rec results.JobLog) {
+func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
 	// TODO
 }
 

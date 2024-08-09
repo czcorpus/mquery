@@ -20,11 +20,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
 	"sort"
 	"sync"
@@ -65,27 +64,17 @@ func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 	result.Freqs = make([]*results.FreqDistribItem, 0)
 	errs := make([]error, 0, len(sc.Subcorpora))
 	for _, subc := range sc.Subcorpora {
-		args, err := json.Marshal(rdb.FreqDistribArgs{
-			CorpusPath:  corpusPath,
-			SubcPath:    subc,
-			Query:       q,
-			Crit:        fmt.Sprintf("%s 0", attr),
-			IsTextTypes: true,
-			FreqLimit:   flimit,
-			MaxResults:  maxItems,
-		})
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-
 		wait, err := a.radapter.PublishQuery(rdb.Query{
 			Func: "freqDistrib",
-			Args: args,
+			Args: rdb.FreqDistribArgs{
+				CorpusPath:  corpusPath,
+				SubcPath:    subc,
+				Query:       q,
+				Crit:        fmt.Sprintf("%s 0", attr),
+				IsTextTypes: true,
+				FreqLimit:   flimit,
+				MaxResults:  maxItems,
+			},
 		})
 		if err != nil {
 			errs = append(errs, err)
@@ -96,12 +85,13 @@ func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 			go func() {
 				defer wg.Done()
 				tmp := <-wait
-				resultNext, err := rdb.DeserializeTextTypesResult(tmp)
-				if err != nil {
+				if err := tmp.Value.Err(); err != nil {
 					errs = append(errs, err)
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
-				if err := result.Err(); err != nil {
+				resultNext, ok := tmp.Value.(results.FreqDistrib)
+				if !ok {
+					err := fmt.Errorf("invalid type for FreqDistrib")
 					errs = append(errs, err)
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}

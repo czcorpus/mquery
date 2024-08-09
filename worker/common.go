@@ -21,7 +21,8 @@ package worker
 import (
 	"fmt"
 	"mquery/mango"
-	"mquery/results"
+	"mquery/merror"
+	"mquery/rdb/results"
 	"sort"
 	"strings"
 )
@@ -74,4 +75,13 @@ func CompileFreqResult(
 func extractAttrFromTTCrit(crit string) string {
 	tmp := strings.Split(crit, " ")
 	return tmp[0]
+}
+
+func wrapError(err error) error {
+	switch err.(type) {
+	case merror.InputError, merror.RecoveredError, merror.TimeoutError, *merror.InternalError:
+		return err
+	default:
+		return merror.InternalError{Msg: err.Error()}
+	}
 }

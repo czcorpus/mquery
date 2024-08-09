@@ -26,6 +26,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"mquery/merror"
 	"strings"
 	"unicode"
 	"unsafe"
@@ -145,7 +146,7 @@ func GetConcordance(
 		// we must test str len as our c++ wrapper may return it
 		// e.g. in case our offset is higher than actual num of lines
 		if len(str) > 0 {
-			ret.Lines = append(ret.Lines, C.GoString(tmp[i]))
+			ret.Lines = append(ret.Lines, str)
 		}
 	}
 	return ret, nil
@@ -252,12 +253,13 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 	ans := make(map[string]int64)
 	attrSplit := strings.Split(attr, ".")
 	if len(attrSplit) != 2 {
-		panic(
-			fmt.Sprintf(
-				"invalid attribute format in `%s` (must be `struct.attr`)",
-				attr,
-			),
-		)
+		return ans,
+			merror.InputError{
+				Msg: fmt.Sprintf(
+					"invalid attribute format in `%s` (must be `struct.attr`)",
+					attr,
+				),
+			}
 	}
 	norms := C.get_attr_values_sizes(
 		C.CString(corpusPath), C.CString(attrSplit[0]), C.CString(attrSplit[1]))

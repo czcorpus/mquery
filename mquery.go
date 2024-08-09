@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"net/http"
@@ -39,11 +40,13 @@ import (
 	corpusActions "mquery/corpus/handlers"
 	"mquery/corpus/infoload"
 	"mquery/general"
+	"mquery/merror"
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
 	"mquery/openapi"
 	"mquery/proxied"
 	"mquery/rdb"
+	"mquery/rdb/results"
 	"mquery/worker"
 )
 
@@ -52,6 +55,28 @@ var (
 	buildDate string
 	gitCommit string
 )
+
+func init() {
+	gob.Register(rdb.CorpusInfoArgs{})
+	gob.Register(rdb.FreqDistribArgs{})
+	gob.Register(rdb.CollocationsArgs{})
+	gob.Register(rdb.TermFrequencyArgs{})
+	gob.Register(rdb.ConcordanceArgs{})
+	gob.Register(rdb.CalcCollFreqDataArgs{})
+	gob.Register(rdb.TextTypeNormsArgs{})
+	gob.Register(results.CollFreqData{})
+	gob.Register(results.Collocations{})
+	gob.Register(results.ConcSize{})
+	gob.Register(results.Concordance{})
+	gob.Register(results.CorpusInfo{})
+	gob.Register(results.FreqDistrib{})
+	gob.Register(results.TextTypeNorms{})
+	gob.Register(merror.InputError{})
+	gob.Register(merror.InternalError{})
+	gob.Register(merror.RecoveredError{})
+	gob.Register(merror.TimeoutError{})
+	gob.Register(rdb.ErrorResult{})
+}
 
 func getEnv(name string) string {
 	for _, p := range os.Environ() {

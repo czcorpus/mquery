@@ -20,33 +20,18 @@ package results
 
 import (
 	"encoding/json"
-	"errors"
 	"mquery/corpus/baseinfo"
 	"mquery/mango"
+	"mquery/rdb"
 
 	"github.com/czcorpus/mquery-common/concordance"
 )
 
-const (
-	ResultTypeConcordance   = "conc"
-	ResultTypeConcSize      = "termFrequency"
-	ResultTypeCollocations  = "coll"
-	ResultTypeCollFreqData  = "collFreqData"
-	ResultTypeFreqs         = "freqs"
-	ResultTypeMultipleFreqs = "multipleFreqs"
-	ResultTypeCorpusInfo    = "corpusInfo"
-	ResultTypeError         = "error"
-)
-
-type ResultType string
-
-func (rt ResultType) String() string {
-	return string(rt)
-}
-
-type LemmaItem struct {
-	Lemma string `json:"lemma"`
-	POS   string `json:"pos"`
+func errToStr(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 type FreqDistribItemList []*FreqDistribItem
@@ -71,11 +56,6 @@ type WordFormsItem struct {
 	Lemma string              `json:"lemma"`
 	POS   string              `json:"pos"`
 	Forms FreqDistribItemList `json:"forms"`
-}
-
-type SerializableResult interface {
-	Type() ResultType
-	Err() error
 }
 
 // ----
@@ -105,22 +85,15 @@ type FreqDistrib struct {
 	// atribute (one by one).
 	ExamplesQueryTpl string `json:"examplesQueryTpl,omitempty"`
 
-	Error string `json:"error,omitempty"`
+	Error error `json:"error,omitempty"`
 }
 
-func (res *FreqDistrib) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
+func (res FreqDistrib) Err() error {
+	return res.Error
 }
 
-func (res *FreqDistrib) HasUserError() bool {
-	return isUserErrorMsg(res.Error)
-}
-
-func (res *FreqDistrib) Type() ResultType {
-	return ResultTypeFreqs
+func (res FreqDistrib) Type() rdb.ResultType {
+	return rdb.ResultTypeFreqs
 }
 
 func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
@@ -131,7 +104,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 		Freqs            FreqDistribItemList `json:"freqs"`
 		Fcrit            string              `json:"fcrit"`
 		ExamplesQueryTpl string              `json:"examplesQueryTpl,omitempty"`
-		ResultType       ResultType          `json:"resultType"`
+		ResultType       rdb.ResultType      `json:"resultType"`
 		Error            string              `json:"error,omitempty"`
 	}{
 		ConcSize:         res.ConcSize,
@@ -141,7 +114,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 		Fcrit:            res.Fcrit,
 		ExamplesQueryTpl: res.ExamplesQueryTpl,
 		ResultType:       res.Type(),
-		Error:            res.Error,
+		Error:            errToStr(res.Error),
 	})
 }
 
@@ -177,22 +150,15 @@ type ConcSize struct {
 	Total      int64   `json:"total"`
 	ARF        float64 `json:"arf"`
 	CorpusSize int64   `json:"corpusSize"`
-	Error      string  `json:"error,omitempty"`
+	Error      error   `json:"error,omitempty"`
 }
 
-func (res *ConcSize) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
+func (res ConcSize) Err() error {
+	return res.Error
 }
 
-func (res *ConcSize) HasUserError() bool {
-	return isUserErrorMsg(res.Error)
-}
-
-func (res *ConcSize) Type() ResultType {
-	return ResultTypeConcSize
+func (res ConcSize) Type() rdb.ResultType {
+	return rdb.ResultTypeConcSize
 }
 
 func (res *ConcSize) MarshalJSON() ([]byte, error) {
@@ -202,19 +168,19 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		struct {
-			Total      int64      `json:"total"`
-			ARF        float64    `json:"arf"`
-			IPM        float64    `json:"ipm"`
-			CorpusSize int64      `json:"corpusSize"`
-			ResultType ResultType `json:"resultType"`
-			Error      string     `json:"error,omitempty"`
+			Total      int64          `json:"total"`
+			ARF        float64        `json:"arf"`
+			IPM        float64        `json:"ipm"`
+			CorpusSize int64          `json:"corpusSize"`
+			ResultType rdb.ResultType `json:"resultType"`
+			Error      string         `json:"error,omitempty"`
 		}{
 			Total:      res.Total,
-			ARF:        NormRound(res.ARF),
-			IPM:        NormRound(ipm),
+			ARF:        rdb.NormRound(res.ARF),
+			IPM:        rdb.NormRound(ipm),
 			CorpusSize: res.CorpusSize,
 			ResultType: res.Type(),
-			Error:      res.Error,
+			Error:      errToStr(res.Error),
 		},
 	)
 }
@@ -228,22 +194,15 @@ type Collocations struct {
 	Colls      []*mango.GoCollItem
 	Measure    string
 	SrchRange  [2]int
-	Error      string
+	Error      error
 }
 
-func (res *Collocations) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
+func (res Collocations) Err() error {
+	return res.Error
 }
 
-func (res *Collocations) HasUserError() bool {
-	return isUserErrorMsg(res.Error)
-}
-
-func (res *Collocations) Type() ResultType {
-	return ResultTypeCollocations
+func (res Collocations) Type() rdb.ResultType {
+	return rdb.ResultTypeCollocations
 }
 
 func (res *Collocations) MarshalJSON() ([]byte, error) {
@@ -252,7 +211,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 			CorpusSize int64               `json:"corpusSize"`
 			SubcSize   int64               `json:"subcSize,omitempty"`
 			Colls      []*mango.GoCollItem `json:"colls"`
-			ResultType ResultType          `json:"resultType"`
+			ResultType rdb.ResultType      `json:"resultType"`
 			Measure    string              `json:"measure"`
 			SrchRange  [2]int              `json:"srchRange"`
 			Error      string              `json:"error,omitempty"`
@@ -263,7 +222,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 			ResultType: res.Type(),
 			Measure:    res.Measure,
 			SrchRange:  res.SrchRange,
-			Error:      res.Error,
+			Error:      errToStr(res.Error),
 		},
 	)
 }
@@ -271,22 +230,15 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 // ----
 
 type CollFreqData struct {
-	Error string `json:"error,omitempty"`
+	Error error `json:"error,omitempty"`
 }
 
-func (res *CollFreqData) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
+func (res CollFreqData) Err() error {
+	return res.Error
 }
 
-func (res *CollFreqData) HasUserError() bool {
-	return isUserErrorMsg(res.Error)
-}
-
-func (res *CollFreqData) Type() ResultType {
-	return ResultTypeCollFreqData
+func (res CollFreqData) Type() rdb.ResultType {
+	return rdb.ResultTypeCollFreqData
 }
 
 // ----
@@ -294,22 +246,15 @@ func (res *CollFreqData) Type() ResultType {
 type Concordance struct {
 	Lines    []concordance.Line
 	ConcSize int
-	Error    string
+	Error    error
 }
 
-func (res *Concordance) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
+func (res Concordance) Err() error {
+	return res.Error
 }
 
-func (res *Concordance) HasUserError() bool {
-	return isUserErrorMsg(res.Error)
-}
-
-func (res *Concordance) Type() ResultType {
-	return ResultTypeConcordance
+func (res Concordance) Type() rdb.ResultType {
+	return rdb.ResultTypeConcordance
 }
 
 func (res Concordance) MarshalJSON() ([]byte, error) {
@@ -317,13 +262,13 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 		struct {
 			Lines      []concordance.Line `json:"lines"`
 			ConcSize   int                `json:"concSize"`
-			ResultType ResultType         `json:"resultType"`
+			ResultType rdb.ResultType     `json:"resultType"`
 			Error      string             `json:"error,omitempty"`
 		}{
 			Lines:      res.Lines,
 			ConcSize:   res.ConcSize,
 			ResultType: res.Type(),
-			Error:      res.Error,
+			Error:      errToStr(res.Error),
 		},
 	)
 }
@@ -332,33 +277,53 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 
 type CorpusInfo struct {
 	Data  baseinfo.Corpus
-	Error string
+	Error error
 }
 
-func (res *CorpusInfo) Err() error {
-	if res.Error != "" {
-		return errors.New(res.Error)
-	}
-	return nil
+func (res CorpusInfo) Err() error {
+	return res.Error
 }
 
-func (res *CorpusInfo) HasUserError() bool {
-	return false
-}
-
-func (res *CorpusInfo) Type() ResultType {
-	return ResultTypeCorpusInfo
+func (res CorpusInfo) Type() rdb.ResultType {
+	return rdb.ResultTypeCorpusInfo
 
 }
 
 func (res CorpusInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Data       baseinfo.Corpus `json:"data"`
-		ResultType ResultType      `json:"resultType"`
+		ResultType rdb.ResultType  `json:"resultType"`
 		Error      string          `json:"error,omitempty"`
 	}{
 		Data:       res.Data,
 		ResultType: res.Type(),
-		Error:      res.Error,
+		Error:      errToStr(res.Error),
+	})
+}
+
+// -----------------
+
+type TextTypeNorms struct {
+	Sizes map[string]int64 `json:"sizes"`
+	Error error            `json:"error,omitempty"`
+}
+
+func (res TextTypeNorms) Err() error {
+	return res.Error
+}
+
+func (res TextTypeNorms) Type() rdb.ResultType {
+	return rdb.ResultTypeTextTypeNorms
+}
+
+func (res TextTypeNorms) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Sizes      map[string]int64 `json:"sizes"`
+		ResultType rdb.ResultType   `json:"resultType"`
+		Error      string           `json:"error,omitempty"`
+	}{
+		Sizes:      res.Sizes,
+		ResultType: res.Type(),
+		Error:      errToStr(res.Error),
 	})
 }

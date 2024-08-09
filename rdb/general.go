@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package results
+package rdb
 
 import (
 	"encoding/json"
@@ -52,6 +52,6 @@ func NormRound(val float64) float64 {
 	return math.Round(val*1000) / 1000
 }
 
-func isUserErrorMsg(msg string) bool {
+func IsUserErrorMsg(msg string) bool {
 	return strings.HasPrefix(strings.ToLower(msg), "syntax error")
 }

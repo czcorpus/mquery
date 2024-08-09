@@ -19,12 +19,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"mquery/corpus"
 	"mquery/rdb"
-	"mquery/results"
+	"mquery/rdb/results"
 	"net/http"
 	"sort"
 	"strconv"
@@ -84,25 +83,15 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	}
 
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
-	args, err := json.Marshal(rdb.FreqDistribArgs{
-		CorpusPath: corpusPath,
-		Query:      queryProps.query,
-		Crit:       fcrit,
-		FreqLimit:  flimit,
-		MaxResults: maxItems,
-	})
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: args,
+		Args: rdb.FreqDistribArgs{
+			CorpusPath: corpusPath,
+			Query:      queryProps.query,
+			Crit:       fcrit,
+			FreqLimit:  flimit,
+			MaxResults: maxItems,
+		},
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -113,30 +102,11 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-	result, err := rdb.DeserializeFreqDistribResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if ok := HandleWorkerError(ctx, rawResult); !ok {
 		return
 	}
-	if err := result.Err(); err != nil {
-		if result.HasUserError() {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusBadRequest,
-			)
-
-		} else {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-		}
+	result, ok := TypedOrRespondError[results.FreqDistrib](ctx, rawResult)
+	if !ok {
 		return
 	}
 	uniresp.WriteJSONResponse(
@@ -233,26 +203,16 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		fcrit = DefaultFreqCrit
 	}
 	for _, subc := range sc.Subcorpora {
-		args, err := json.Marshal(rdb.FreqDistribArgs{
-			CorpusPath: corpusPath,
-			SubcPath:   subc,
-			Query:      q,
-			Crit:       fcrit,
-			FreqLimit:  flimit,
-			MaxResults: maxItems,
-		})
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-
 		wait, err := a.radapter.PublishQuery(rdb.Query{
 			Func: "freqDistrib",
-			Args: args,
+			Args: rdb.FreqDistribArgs{
+				CorpusPath: corpusPath,
+				SubcPath:   subc,
+				Query:      q,
+				Crit:       fcrit,
+				FreqLimit:  flimit,
+				MaxResults: maxItems,
+			},
 		})
 		if err != nil {
 			// TODO
@@ -262,13 +222,14 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 			go func() {
 				defer wg.Done()
 				tmp := <-wait
-				resultNext, err := rdb.DeserializeFreqDistribResult(tmp)
-				if err != nil {
+				if err := tmp.Value.Err(); err != nil {
 					// TODO
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
-				if err := resultNext.Err(); err != nil {
+				resultNext, ok := tmp.Value.(results.FreqDistrib)
+				if !ok {
 					// TODO
+					err := fmt.Errorf("invalid type for FreqDistrib")
 					log.Error().Err(err).Msg("failed to deserialize query")
 				}
 				mergedFreqLock.Lock()

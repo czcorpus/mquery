@@ -20,9 +20,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"mquery/rdb"
+	"mquery/rdb/results"
 	"net/http"
 	"strconv"
 
@@ -68,25 +68,14 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		FreqLimit:   flimit,
 		MaxResults:  textTypesInternalMaxResults,
 	}
-
 	// TODO this probably needs some work
 	if ctx.Request.URL.Query().Has("subc") {
 		freqArgs.SubcPath = ctx.Request.URL.Query().Get("subc")
 	}
 
-	args, err := json.Marshal(freqArgs)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
-		Args: args,
+		Args: freqArgs,
 	})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -97,30 +86,11 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-	result, err := rdb.DeserializeTextTypesResult(rawResult)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
+	if ok := HandleWorkerError(ctx, rawResult); !ok {
 		return
 	}
-	if err := result.Err(); err != nil {
-		if result.HasUserError() {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusBadRequest,
-			)
-
-		} else {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionErrorFrom(err),
-				http.StatusInternalServerError,
-			)
-		}
+	result, ok := TypedOrRespondError[results.FreqDistrib](ctx, rawResult)
+	if !ok {
 		return
 	}
 	uniresp.WriteJSONResponse(
