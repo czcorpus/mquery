@@ -155,7 +155,7 @@ type CorpusSetup struct {
 	Description       map[string]string    `json:"description"`
 	SyntaxConcordance SyntaxConcordance    `json:"syntaxConcordance"`
 	PosAttrs          PosAttrList          `json:"posAttrs"`
-	StructAttrs       []StructAttr         `json:"structAttrs"`
+	MarkupStructures  []string             `json:"markupStructures"`
 	MaximumRecords    int                  `json:"maximumRecords"`
 	Subcorpora        map[string]Subcorpus `json:"subcorpora"`
 	// ViewContextStruct is a structure used to specify "units"
@@ -187,15 +187,6 @@ func (cs *CorpusSetup) GetPosAttr(name string) PosAttr {
 		}
 	}
 	return PosAttr{}
-}
-
-func (cs *CorpusSetup) GetStruct(name string) StructAttr {
-	for _, v := range cs.StructAttrs {
-		if v.Name == name {
-			return v
-		}
-	}
-	return StructAttr{}
 }
 
 func (cs *CorpusSetup) ValidateAndDefaults() error {

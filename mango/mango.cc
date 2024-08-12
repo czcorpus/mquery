@@ -231,7 +231,7 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
  * @return KWICRowsRetval
  */
 KWICRowsRetval conc_examples(
-    const char* corpusPath, const char* query, const char* attrs, PosInt fromLine, PosInt limit,
+    const char* corpusPath, const char* query, const char* attrs, const char* structs, PosInt fromLine, PosInt limit,
         PosInt maxContext, const char* viewContextStruct) {
 
     string cPath(corpusPath);
@@ -274,7 +274,7 @@ KWICRowsRetval conc_examples(
             cppContextStruct.empty() ? halfRight.c_str() : ("1:"+cppContextStruct).c_str(),
             attrs,
             attrs,
-            "", // "s.id,hi,lb,g",
+            structs,
             "#",
             maxContext,
             false

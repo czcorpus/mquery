@@ -115,19 +115,49 @@ func createSchemas() ObjectProperties {
 					Properties: ObjectProperties{
 						"text": ObjectProperty{
 							Type: "array",
-							Items: &arrayItem{
-								Type: "object",
-								Properties: ObjectProperties{
-									"word": ObjectProperty{
-										Type: "string",
-									},
-									"strong": ObjectProperty{
-										Type: "boolean",
-									},
-									"attrs": ObjectProperty{
+							Items: OneOf{
+								[]arrayItem{
+									arrayItem{
 										Type: "object",
-										AdditionalProperties: &AdditionalProperty{
-											Type: "string",
+										Properties: ObjectProperties{
+											"type": ObjectProperty{
+												Type: "string",
+												Enum: []any{"token"},
+											},
+											"word": ObjectProperty{
+												Type: "string",
+											},
+											"strong": ObjectProperty{
+												Type: "boolean",
+											},
+											"attrs": ObjectProperty{
+												Type: "object",
+												AdditionalProperties: &AdditionalProperty{
+													Type: "string",
+												},
+											},
+										},
+									},
+									arrayItem{
+										Type: "object",
+										Properties: ObjectProperties{
+											"type": ObjectProperty{
+												Type: "string",
+												Enum: []any{"structure"},
+											},
+											"structureType": ObjectProperty{
+												Type: "string",
+												Enum: []any{"open", "close", "self-close"},
+											},
+											"name": ObjectProperty{
+												Type: "string",
+											},
+											"attrs": ObjectProperty{
+												Type: "object",
+												AdditionalProperties: &AdditionalProperty{
+													Type: "string",
+												},
+											},
 										},
 									},
 								},

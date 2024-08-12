@@ -147,6 +147,17 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						},
 					},
 					{
+						Name:        "markup",
+						In:          "query",
+						Description: "if 1, then markup specifying formatting and structure of text will be displayed along with tokens",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Enum:    []any{0, 1},
+							Default: 0,
+						},
+					},
+					{
 						Name: "contextWidth",
 						In:   "query",
 						Description: "Defines number of tokens around KWIC. For a value K, the left context is " +
@@ -221,6 +232,17 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 							Type:    "string",
 							Enum:    []any{"json", "markdown"},
 							Default: "json",
+						},
+					},
+					{
+						Name:        "markup",
+						In:          "query",
+						Description: "if 1, then markup specifying formatting and structure of text will be displayed along with tokens",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Enum:    []any{0, 1},
+							Default: 0,
 						},
 					},
 				},

@@ -145,8 +145,15 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 		return ans
 	}
 	concEx, err := mango.GetConcordance(
-		args.CorpusPath, args.Query, args.Attrs, args.StartLine, args.MaxItems,
-		args.MaxContext, args.ViewContextStruct)
+		args.CorpusPath,
+		args.Query,
+		args.Attrs,
+		args.ShowStructs,
+		args.StartLine,
+		args.MaxItems,
+		args.MaxContext,
+		args.ViewContextStruct,
+	)
 	if err != nil {
 		ans.Error = err
 		return ans

@@ -95,12 +95,18 @@ func concToMarkdown(data results.Concordance, conf *corpus.CorpusSetup) string {
 	var ans strings.Builder
 	for _, line := range data.Lines {
 		for i, ch := range line.Text {
+			switch lineElm := ch.(type) {
+			case *concordance.Token:
+				if i > 0 {
+					ans.WriteString(" " + expandKWIC(lineElm, conf))
 
-			if i > 0 {
-				ans.WriteString(" " + expandKWIC(ch, conf))
-
-			} else {
-				ans.WriteString(expandKWIC(ch, conf))
+				} else {
+					ans.WriteString(expandKWIC(lineElm, conf))
+				}
+			case *concordance.Struct:
+				// TODO
+			case *concordance.CloseStruct:
+				// TODO
 			}
 		}
 		ans.WriteString("\n\n")
@@ -117,18 +123,30 @@ func concToMarkdown2(data *results.Concordance, conf *corpus.CorpusSetup) string
 		ans.WriteString("| \u2026 ")
 		metadataBuff := make([]string, 0, 5)
 		for _, ch := range line.Text {
-			if state == 0 && ch.Strong {
-				state = 1
-				ans.WriteString(" | ")
+			switch tLineElem := ch.(type) {
+			case *concordance.Token:
+				if state == 0 && tLineElem.Strong {
+					state = 1
+					ans.WriteString(" | ")
 
-			} else if !ch.Strong && state == 1 {
-				ans.WriteString(" |")
-				state = 2
+				} else if !tLineElem.Strong && state == 1 {
+					ans.WriteString(" |")
+					state = 2
+				}
+				if tLineElem.Strong {
+					metadataBuff = append(metadataBuff, "["+getAttrs(tLineElem, conf)+"]")
+				}
+				ans.WriteString(" " + exportToken(tLineElem))
+			case *concordance.Struct:
+				if tLineElem.IsSelfClose {
+					ans.WriteString(fmt.Sprintf(" *&lt;%s /&gt;*", tLineElem.Name))
+
+				} else {
+					ans.WriteString(fmt.Sprintf(" *&lt;%s&gt;*", tLineElem.Name))
+				}
+			case *concordance.CloseStruct:
+				ans.WriteString(fmt.Sprintf(" *&lt;/%s&gt;*", tLineElem.Name))
 			}
-			if ch.Strong {
-				metadataBuff = append(metadataBuff, "["+getAttrs(ch, conf)+"]")
-			}
-			ans.WriteString(" " + exportToken(ch))
 		}
 		ans.WriteString(" \u2026 |\n")
 		if len(metadataBuff) > 0 {
@@ -202,11 +220,18 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		ctx,
 		format,
 		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+			showStructs := make([]string, 0, len(conf.MarkupStructures))
+			if ctx.Query("markup") == "1" {
+				for _, v := range conf.MarkupStructures {
+					showStructs = append(showStructs, v)
+				}
+			}
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 				Query:             q,
 				Attrs:             conf.PosAttrs.GetIDs(),
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				ShowStructs:       showStructs,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
 				MaxContext:        contextWidth,
@@ -231,10 +256,17 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 		ctx,
 		format,
 		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+			showStructs := make([]string, 0, len(conf.MarkupStructures))
+			if ctx.Query("markup") == "1" {
+				for _, v := range conf.MarkupStructures {
+					showStructs = append(showStructs, v)
+				}
+			}
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 				Query:             q,
 				Attrs:             conf.PosAttrs.GetIDs(),
+				ShowStructs:       showStructs,
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
