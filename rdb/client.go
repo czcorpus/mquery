@@ -148,22 +148,20 @@ type Adapter struct {
 	queryAnswerTimeout  time.Duration
 }
 
-func (a *Adapter) TestConnection(timeout time.Duration, cancel chan bool) error {
+func (a *Adapter) TestConnection(timeout time.Duration) error {
 
 	tick := time.NewTicker(2 * time.Second)
-	timeoutCh := time.After(timeout)
-	ctx2, cancelFunc := context.WithCancel(a.ctx)
-	go func() {
-		v := <-cancel
-		if v {
-			cancelFunc()
-			tick.Stop()
-		}
-	}()
+	ctx2, cancelFunc := context.WithTimeout(a.ctx, timeout)
+	defer cancelFunc()
+
 	for {
 		select {
-		case <-timeoutCh:
-			return fmt.Errorf("failed to connect to the Redis server at %s", a.conf.ServerInfo())
+		case <-ctx2.Done():
+			if ctx2.Err() == context.DeadlineExceeded {
+				return fmt.Errorf("failed to connect to the Redis server at %s within the timeout period", a.conf.ServerInfo())
+			}
+			return fmt.Errorf("operation cancelled: %v", ctx2.Err())
+
 		case <-tick.C:
 			log.Info().
 				Str("server", a.conf.ServerInfo()).
@@ -173,6 +171,7 @@ func (a *Adapter) TestConnection(timeout time.Duration, cancel chan bool) error 
 				log.Error().Err(err).Msg("...failed to get response from Redis server")
 
 			} else {
+				log.Info().Msg("Successfully connected to Redis server")
 				return nil
 			}
 		}
@@ -332,7 +331,7 @@ func (a *Adapter) Subscribe() <-chan *redis.Message {
 
 // NewAdapter is a recommended factory function
 // for creating new `Adapter` instances
-func NewAdapter(conf *Conf) *Adapter {
+func NewAdapter(conf *Conf, ctx context.Context) *Adapter {
 	chRes := conf.ChannelResultPrefix
 	chQuery := conf.ChannelQuery
 	if chRes == "" {
@@ -361,7 +360,7 @@ func NewAdapter(conf *Conf) *Adapter {
 			Password: conf.Password,
 			DB:       conf.DB,
 		}),
-		ctx:                 context.Background(),
+		ctx:                 ctx,
 		channelQuery:        chQuery,
 		channelResultPrefix: chRes,
 		queryAnswerTimeout:  queryAnswerTimeout,

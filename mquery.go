@@ -24,30 +24,24 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/logging"
-	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
-	corpusActions "mquery/corpus/handlers"
-	"mquery/corpus/infoload"
 	"mquery/general"
 	"mquery/merror"
-	"mquery/monitoring"
-	monitoringActions "mquery/monitoring/handlers"
-	"mquery/openapi"
-	"mquery/proxied"
 	"mquery/rdb"
 	"mquery/rdb/results"
-	"mquery/worker"
+)
+
+const (
+	redisConnectionTestTimeout = 120 * time.Second
 )
 
 var (
@@ -76,6 +70,11 @@ func init() {
 	gob.Register(merror.RecoveredError{})
 	gob.Register(merror.TimeoutError{})
 	gob.Register(rdb.ErrorResult{})
+}
+
+type service interface {
+	Start(ctx context.Context)
+	Stop(ctx context.Context) error
 }
 
 func getEnv(name string) string {
@@ -148,148 +147,6 @@ func AuthRequired(conf *cnf.Conf) gin.HandlerFunc {
 	}
 }
 
-func runApiServer(
-	conf *cnf.Conf,
-	syscallChan chan os.Signal,
-	exitEvent chan os.Signal,
-	radapter *rdb.Adapter,
-	infoProvider *infoload.Manatee,
-) {
-	if !conf.LogLevel.IsDebugMode() {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	engine := gin.New()
-	engine.Use(gin.Recovery())
-	engine.Use(additionalLogEvents())
-	engine.Use(logging.GinMiddleware())
-	engine.Use(uniresp.AlwaysJSONContentType())
-	engine.Use(CORSMiddleware(conf))
-	engine.NoMethod(uniresp.NoMethodHandler)
-	engine.NoRoute(uniresp.NotFoundHandler)
-
-	protected := engine.Group("/tools").Use(AuthRequired(conf))
-
-	ceActions := corpusActions.NewActions(
-		conf.CorporaSetup, radapter, infoProvider, conf.Locales)
-
-	engine.GET("/", mkServerInfo(conf))
-
-	engine.GET("/privacy-policy", mkPrivacyPolicy(conf))
-
-	engine.GET("/openapi", openapi.MkHandleRequest(conf, cleanVersionInfo(version)))
-
-	protected.POST(
-		"/split/:corpusId", ceActions.SplitCorpus)
-
-	protected.DELETE(
-		"/split/:corpusId", ceActions.DeleteSplit)
-
-	engine.GET(
-		"/info/:corpusId", ceActions.CorpusInfo)
-
-	engine.GET(
-		"/corplist", ceActions.Corplist)
-
-	engine.GET(
-		"/term-frequency/:corpusId", ceActions.TermFrequency)
-
-	engine.GET(
-		"/freqs/:corpusId", ceActions.FreqDistrib)
-
-	engine.GET(
-		"/freqs2/:corpusId", ceActions.FreqDistribParallel)
-
-	engine.GET(
-		"/text-types-norms/:corpusId", ceActions.TextTypesNorms)
-
-	engine.GET(
-		"/text-types-streamed/:corpusId", ceActions.TextTypesStreamed)
-
-	engine.GET(
-		"/freqs-by-year-streamed/:corpusId", ceActions.FreqsByYears)
-
-	engine.GET(
-		"/text-types/:corpusId", ceActions.TextTypes)
-
-	engine.GET(
-		"/text-types2/:corpusId", ceActions.TextTypesParallel)
-
-	engine.GET(
-		"/text-types-overview/:corpusId", ceActions.TextTypesOverview)
-
-	engine.GET(
-		"/collocations/:corpusId", ceActions.Collocations)
-
-	engine.GET(
-		"/word-forms/:corpusId", ceActions.WordForms)
-
-	engine.GET(
-		"/conc-examples/:corpusId", ceActions.SyntaxConcordance) // TODO rename API endpoint (where is `syntax`?)
-
-	engine.GET(
-		"/concordance/:corpusId", ceActions.Concordance)
-
-	engine.GET(
-		"/sentences/:corpusId", ceActions.Sentences)
-
-	if conf.CQLTranslatorURL != "" {
-		ctActions := proxied.NewActions(conf.CQLTranslatorURL)
-		engine.GET("/translate", ctActions.RemoteQueryTranslator)
-		log.Info().Str("url", conf.CQLTranslatorURL).Msg("enabling CQL translator proxy")
-
-	} else {
-		log.Info().Msg("CQL translator proxy not specified - /translate endpoint will be disabled")
-	}
-
-	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
-	logger.GoRunTimelineWriter()
-	monitoringActions := monitoringActions.NewActions(logger, conf.TimezoneLocation())
-
-	engine.GET(
-		"/monitoring/workers-load", monitoringActions.WorkersLoad)
-
-	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
-	srv := &http.Server{
-		Handler:      engine,
-		Addr:         fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort),
-		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
-		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
-	}
-	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
-			log.Error().Err(err).Msg("")
-		}
-		syscallChan <- syscall.SIGTERM
-	}()
-
-	select {
-	case <-exitEvent:
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := srv.Shutdown(ctx)
-		if err != nil {
-			log.Info().Err(err).Msg("Shutdown request error")
-		}
-	}
-}
-
-func runWorker(conf *cnf.Conf, workerID string, radapter *rdb.Adapter, exitEvent chan os.Signal) {
-	ch := radapter.Subscribe()
-	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
-	w := worker.NewWorker(workerID, radapter, ch, exitEvent, logger)
-	w.Listen()
-}
-
-func getWorkerID() (workerID string) {
-	workerID = getEnv("WORKER_ID")
-	if workerID == "" {
-		workerID = "0"
-	}
-	return
-}
-
 func cleanVersionInfo(v string) string {
 	return strings.TrimLeft(strings.Trim(v, "'"), "v")
 }
@@ -338,37 +195,14 @@ func main() {
 		return
 	}
 
-	log.Info().Msg("Starting MQUERY")
+	log.Info().Msg("Starting MQuery")
 	cnf.ValidateAndDefaults(conf)
-	syscallChan := make(chan os.Signal, 1)
-	signal.Notify(syscallChan, os.Interrupt)
-	signal.Notify(syscallChan, syscall.SIGTERM)
-	exitEvent := make(chan os.Signal)
-	testConnCancel := make(chan bool)
-	go func() {
-		evt := <-syscallChan
-		testConnCancel <- true
-		close(testConnCancel)
-		exitEvent <- evt
-		close(exitEvent)
-	}()
-
-	radapter := rdb.NewAdapter(conf.Redis)
 
 	switch action {
 	case "server":
-		err := radapter.TestConnection(20*time.Second, testConnCancel)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to connect to Redis")
-		}
-		infoProvider := infoload.NewManatee(radapter, conf.CorporaSetup)
-		runApiServer(conf, syscallChan, exitEvent, radapter, infoProvider)
+		runApiServer(conf)
 	case "worker":
-		err := radapter.TestConnection(20*time.Second, testConnCancel)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to connect to Redis")
-		}
-		runWorker(conf, getWorkerID(), radapter, exitEvent)
+		runWorker(conf)
 	default:
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
