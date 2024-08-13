@@ -19,11 +19,11 @@
 package results
 
 import (
-	"encoding/json"
 	"mquery/corpus/baseinfo"
 	"mquery/mango"
 	"mquery/rdb"
 
+	"github.com/bytedance/sonic"
 	"github.com/czcorpus/mquery-common/concordance"
 )
 
@@ -97,7 +97,7 @@ func (res FreqDistrib) Type() rdb.ResultType {
 }
 
 func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
+	return sonic.Marshal(struct {
 		ConcSize         int64               `json:"concSize"`
 		CorpusSize       int64               `json:"corpusSize"`
 		SubcSize         int64               `json:"subcSize,omitempty"`
@@ -166,7 +166,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 	if res.CorpusSize > 0 {
 		ipm = float64(res.Total) / float64(res.CorpusSize) * 1000000
 	}
-	return json.Marshal(
+	return sonic.Marshal(
 		struct {
 			Total      int64          `json:"total"`
 			ARF        float64        `json:"arf"`
@@ -206,7 +206,7 @@ func (res Collocations) Type() rdb.ResultType {
 }
 
 func (res *Collocations) MarshalJSON() ([]byte, error) {
-	return json.Marshal(
+	return sonic.Marshal(
 		struct {
 			CorpusSize int64               `json:"corpusSize"`
 			SubcSize   int64               `json:"subcSize,omitempty"`
@@ -258,7 +258,7 @@ func (res Concordance) Type() rdb.ResultType {
 }
 
 func (res Concordance) MarshalJSON() ([]byte, error) {
-	return json.Marshal(
+	return sonic.Marshal(
 		struct {
 			Lines      []concordance.Line `json:"lines"`
 			ConcSize   int                `json:"concSize"`
@@ -290,7 +290,7 @@ func (res CorpusInfo) Type() rdb.ResultType {
 }
 
 func (res CorpusInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
+	return sonic.Marshal(struct {
 		Data       baseinfo.Corpus `json:"data"`
 		ResultType rdb.ResultType  `json:"resultType"`
 		Error      string          `json:"error,omitempty"`
@@ -317,7 +317,7 @@ func (res TextTypeNorms) Type() rdb.ResultType {
 }
 
 func (res TextTypeNorms) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
+	return sonic.Marshal(struct {
 		Sizes      map[string]int64 `json:"sizes"`
 		ResultType rdb.ResultType   `json:"resultType"`
 		Error      string           `json:"error,omitempty"`

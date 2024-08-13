@@ -20,7 +20,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"mquery/corpus/baseinfo"
 	"mquery/rdb"
@@ -30,6 +29,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -54,7 +54,7 @@ func (tto *ttOverviewResult) findError() string {
 }
 
 func (tto *ttOverviewResult) MarshalJSON() ([]byte, error) {
-	return json.Marshal(
+	return sonic.Marshal(
 		struct {
 			Freqs      map[string]results.FreqDistrib `json:"freqs"`
 			Error      string                         `json:"error,omitempty"`

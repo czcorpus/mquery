@@ -19,12 +19,12 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"mquery/merror"
 	"mquery/rdb"
 	"mquery/rdb/results"
-	"os"
 	"os/exec"
 	"time"
 
@@ -36,17 +36,32 @@ const (
 	DefaultTickerInterval = 2 * time.Second
 )
 
-type jobLogger interface {
-	Log(rec rdb.JobLog)
+type Worker struct {
+	ID       string
+	messages <-chan *redis.Message
+	radapter *rdb.Adapter
+	ticker   time.Ticker
 }
 
-type Worker struct {
-	ID        string
-	messages  <-chan *redis.Message
-	radapter  *rdb.Adapter
-	exitEvent chan os.Signal
-	ticker    time.Ticker
-	jobLogger jobLogger
+func (w *Worker) Start(ctx context.Context) {
+	for {
+		select {
+		case <-w.ticker.C:
+			w.tryNextQuery()
+		case <-ctx.Done():
+			log.Info().Msg("about to close MQuery worker")
+			return
+		case msg := <-w.messages:
+			if msg.Payload == rdb.MsgNewQuery {
+				w.tryNextQuery()
+			}
+		}
+	}
+}
+
+func (w *Worker) Stop(ctx context.Context) error {
+	log.Warn().Str("workerId", w.ID).Msg("shutting down MQuery worker")
+	return nil
 }
 
 func (w *Worker) publishResult(
@@ -54,18 +69,13 @@ func (w *Worker) publishResult(
 	query rdb.Query,
 	t0 time.Time,
 ) error {
-	w.jobLogger.Log(rdb.JobLog{
-		WorkerID: w.ID,
-		Func:     query.Func,
-		Begin:    t0,
-		End:      time.Now(),
-		Err:      res.Err(),
-	})
 	return w.radapter.PublishResult(
 		query.Channel,
 		rdb.WorkerResult{
-			ID:    w.ID,
-			Value: res,
+			ID:        w.ID,
+			Value:     res,
+			ProcBegin: t0,
+			ProcEnd:   time.Now(),
 		})
 }
 
@@ -211,22 +221,6 @@ func (w *Worker) tryNextQuery() {
 	}
 }
 
-func (w *Worker) Listen() {
-	for {
-		select {
-		case <-w.ticker.C:
-			w.tryNextQuery()
-		case <-w.exitEvent:
-			log.Info().Msg("worker exiting")
-			return
-		case msg := <-w.messages:
-			if msg.Payload == rdb.MsgNewQuery {
-				w.tryNextQuery()
-			}
-		}
-	}
-}
-
 func (w *Worker) tokenCoverage(mktokencovPath, subcPath, corpusPath, structure string) error {
 	cmd := exec.Command(mktokencovPath, corpusPath, structure, "-s", subcPath)
 	return cmd.Run()
@@ -236,15 +230,11 @@ func NewWorker(
 	workerID string,
 	radapter *rdb.Adapter,
 	messages <-chan *redis.Message,
-	exitEvent chan os.Signal,
-	jobLogger jobLogger,
 ) *Worker {
 	return &Worker{
-		ID:        workerID,
-		radapter:  radapter,
-		messages:  messages,
-		exitEvent: exitEvent,
-		ticker:    *time.NewTicker(DefaultTickerInterval),
-		jobLogger: jobLogger,
+		ID:       workerID,
+		radapter: radapter,
+		messages: messages,
+		ticker:   *time.NewTicker(DefaultTickerInterval),
 	}
 }
