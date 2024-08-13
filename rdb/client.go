@@ -267,6 +267,7 @@ func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 							Func:     string(wr.Value.Type()),
 							Begin:    wr.ProcBegin,
 							End:      wr.ProcEnd,
+							Err:      wr.Value.Err(),
 						})
 						ans <- wr
 					}

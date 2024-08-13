@@ -21,7 +21,6 @@ package monitoring
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"mquery/rdb"
 	"time"
@@ -40,92 +39,12 @@ var (
 	ErrWorkerNotFound = errors.New("worker not found")
 )
 
-type WorkerLoad struct {
-	NumJobs       int
-	TotalTimeSecs float64
-	NumErrors     int
-	FirstUpdate   time.Time
-	LastUpdate    time.Time
-	NumWorkers    int
-}
-
-// TotalSpan returns time span covered by the load info
-func (wl WorkerLoad) TotalSpan() time.Duration {
-	return wl.LastUpdate.Sub(wl.FirstUpdate)
-}
-
-func (wl WorkerLoad) AvgLoad() float64 {
-	if wl.TotalTimeSecs == 0 {
-		return 0
-	}
-	return wl.TotalTimeSecs / wl.TotalSpan().Seconds() / float64(wl.NumWorkers)
-}
-
-func (wl WorkerLoad) MarshalJSON() ([]byte, error) {
-	var t0, t1 *time.Time
-	if !wl.FirstUpdate.IsZero() {
-		t0 = &wl.FirstUpdate
-	}
-	if !wl.LastUpdate.IsZero() {
-		t1 = &wl.LastUpdate
-	}
-	return json.Marshal(
-		struct {
-			NumJobs       int        `json:"numJobs"`
-			TotalTimeSecs float64    `json:"totalTimeSecs"`
-			NumErrors     int        `json:"numErrors"`
-			FirstUpdate   *time.Time `json:"firstUpdate,omitempty"`
-			LastUpdate    *time.Time `json:"lastUpdate,omitempty"`
-			AvgLoad       float64    `json:"avgLoad"`
-		}{
-			NumJobs:       wl.NumJobs,
-			TotalTimeSecs: wl.TotalTimeSecs,
-			NumErrors:     wl.NumErrors,
-			FirstUpdate:   t0,
-			LastUpdate:    t1,
-			AvgLoad:       wl.AvgLoad(),
-		},
-	)
-}
-
-// ----------------
-
-type WorkersLoad map[string]WorkerLoad
-
-func (wl WorkersLoad) SumLoad(tz *time.Location) WorkerLoad {
-	var ans WorkerLoad
-	firstUpdate := time.Now().In(tz)
-	for _, item := range wl {
-		if item.LastUpdate.After(ans.LastUpdate) {
-			ans.LastUpdate = item.LastUpdate
-		}
-		if item.FirstUpdate.Before(firstUpdate) {
-			firstUpdate = item.FirstUpdate
-			ans.FirstUpdate = item.FirstUpdate
-		}
-		ans.NumJobs += item.NumJobs
-		ans.TotalTimeSecs += item.TotalTimeSecs
-		ans.NumErrors += item.NumErrors
-		ans.NumWorkers = len(wl)
-	}
-	return ans
-}
-
-func (wl WorkersLoad) cleanOldRecords() {
-	for k, v := range wl {
-		if time.Since(v.LastUpdate) > StaleWorkerLoadTTL {
-			delete(wl, k)
-		}
-	}
-}
-
-// -----
-
 type WorkerJobLogger struct {
-	loadData  WorkersLoad
-	recentLog *collections.CircularList[rdb.JobLog]
-	tz        *time.Location
-	numTicks  int64
+	loadData     WorkersLoad
+	recentLog    *collections.CircularList[rdb.JobLog]
+	tz           *time.Location
+	numTicks     int64
+	statusWriter StatusWriter
 }
 
 func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
@@ -141,6 +60,7 @@ func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
 	entry.TotalTimeSecs += rec.End.Sub(rec.Begin).Seconds()
 	w.loadData[rec.WorkerID] = entry
 	w.recentLog.Append(rec)
+	w.statusWriter.Write(rec)
 }
 
 func (w *WorkerJobLogger) TotalLoad() WorkerLoad {
@@ -252,8 +172,12 @@ func (w *WorkerJobLogger) Stop(ctx context.Context) error {
 	return nil
 }
 
-func NewWorkerJobLogger(tz *time.Location) *WorkerJobLogger {
+func NewWorkerJobLogger(
+	statusWriter StatusWriter,
+	tz *time.Location,
+) *WorkerJobLogger {
 	return &WorkerJobLogger{
-		tz: tz,
+		statusWriter: statusWriter,
+		tz:           tz,
 	}
 }

@@ -47,6 +47,16 @@ type NullLogger struct{}
 
 func (n *NullLogger) Log(rec rdb.JobLog) {}
 
+//
+
+type NullStatusWriter struct{}
+
+func (n *NullStatusWriter) Write(rec rdb.JobLog) {}
+
+func (n *NullStatusWriter) Start(ctx context.Context) {}
+
+func (n *NullStatusWriter) Stop(ctx context.Context) error { return nil }
+
 // -------
 
 func runWorker(conf *cnf.Conf) {
@@ -63,7 +73,7 @@ func runWorker(conf *cnf.Conf) {
 	}
 
 	ch := radapter.Subscribe()
-	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
+	logger := monitoring.NewWorkerJobLogger(new(NullStatusWriter), conf.TimezoneLocation())
 	wrk := worker.NewWorker(workerID, radapter, ch)
 
 	services := []service{logger, wrk}

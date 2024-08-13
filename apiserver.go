@@ -173,16 +173,39 @@ func runApiServer(
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
+	var statusWriter monitoring.StatusWriter
+	var err error
+
+	if conf.Monitoring != nil {
+		statusWriter, err = monitoring.NewTimescaleDBWriter(
+			conf.Monitoring.DB,
+			conf.TimezoneLocation(),
+			func(err error) {
+				// TODO
+			},
+		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize status writer")
+			return
+		}
+		log.Warn().Str("host", conf.Monitoring.DB.Host).Msg("initialized status writer")
+
+	} else {
+		log.Warn().Msg("status writer not specified - NullStatusWriter will be used")
+		statusWriter = new(NullStatusWriter)
+	}
+
+	logger := monitoring.NewWorkerJobLogger(statusWriter, conf.TimezoneLocation())
 	radapter := rdb.NewAdapter(conf.Redis, ctx, logger)
-	err := radapter.TestConnection(redisConnectionTestTimeout)
+	err = radapter.TestConnection(redisConnectionTestTimeout)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to Redis")
+		return
 	}
 	infoProvider := infoload.NewManatee(radapter, conf.CorporaSetup)
 	server := newAPIServer(conf, radapter, infoProvider, logger)
 
-	services := []service{logger, server}
+	services := []service{statusWriter, logger, server}
 	for _, m := range services {
 		m.Start(ctx)
 	}
