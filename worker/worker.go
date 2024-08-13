@@ -173,15 +173,16 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 	return nil
 }
 
-func (w *Worker) tryNextQuery() error {
+func (w *Worker) tryNextQuery() {
 
 	time.Sleep(time.Duration(rand.Intn(40)) * time.Millisecond)
 	query, err := w.radapter.DequeueQuery()
 	if err == rdb.ErrorEmptyQueue {
-		return nil
+		return
 
 	} else if err != nil {
-		return err
+		log.Error().Err(err).Msg("failed to fetch next job")
+		return
 	}
 	log.Debug().
 		Str("channel", query.Channel).
@@ -191,15 +192,16 @@ func (w *Worker) tryNextQuery() error {
 
 	isActive, err := w.radapter.SomeoneListens(query.Channel)
 	if err != nil {
-		return err
+		log.Error().Err(err).Msg("failed to test channel listeners")
+		return
 	}
 	if !isActive {
 		log.Warn().
 			Str("func", query.Func).
 			Str("channel", query.Channel).
-			// Any("args", query.Args). TODO
+			Any("args", query.Args).
 			Msg("worker found an inactive query")
-		return nil
+		return
 	}
 
 	if err := w.runQueryProtected(query); err != nil {
@@ -208,16 +210,15 @@ func (w *Worker) tryNextQuery() error {
 		// publishing might have been the cause of the problem)
 		if err2 := w.publishResult(
 			rdb.ErrorResult{
-				Error: err,
+				Error: wrapError(err),
 				Func:  query.Func,
 			},
 			query,
 			time.Now(),
 		); err2 != nil {
-			return err2
+			log.Error().Err(err2).Msg("failed to return worker error back to client")
 		}
 	}
-	return nil
 }
 
 func (w *Worker) tokenCoverage(mktokencovPath, subcPath, corpusPath, structure string) error {

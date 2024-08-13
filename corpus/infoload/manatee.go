@@ -43,15 +43,6 @@ func mergeConfigInfo(conf *corpus.CorpusSetup, info *results.CorpusInfo, lang st
 		newAttrList[i] = attr
 	}
 	info.Data.AttrList = newAttrList
-	newStructList := make([]baseinfo.Item, len(info.Data.StructList))
-	for i, strct := range info.Data.StructList {
-		srch := conf.GetStruct(strct.Name)
-		if !srch.IsZero() {
-			strct.Description = srch.LocaleDescription(lang)
-		}
-		newStructList[i] = strct
-	}
-	info.Data.StructList = newStructList
 	desc := conf.LocaleDescription(lang)
 	if desc != "" {
 		info.Data.Description = desc

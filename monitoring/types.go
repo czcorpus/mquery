@@ -21,9 +21,10 @@ package monitoring
 
 import (
 	"context"
-	"encoding/json"
 	"mquery/rdb"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 type StatusWriter interface {
@@ -63,7 +64,7 @@ func (wl WorkerLoad) MarshalJSON() ([]byte, error) {
 	if !wl.LastUpdate.IsZero() {
 		t1 = &wl.LastUpdate
 	}
-	return json.Marshal(
+	return sonic.Marshal(
 		struct {
 			NumJobs       int        `json:"numJobs"`
 			TotalTimeSecs float64    `json:"totalTimeSecs"`

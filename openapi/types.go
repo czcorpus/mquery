@@ -41,7 +41,7 @@ type Parameter struct {
 	Description string      `json:"description"`
 	Required    bool        `json:"required"`
 	Schema      ParamSchema `json:"schema"`
-	Style       string      `json:"style"`
+	Style       string      `json:"style,omitempty"`
 	Explode     bool        `json:"explode"`
 }
 
@@ -66,6 +66,10 @@ type arrayItem struct {
 	Description string           `json:"description,omitempty"`
 }
 
+type OneOf struct {
+	OneOf []arrayItem `json:"oneOf"`
+}
+
 type AdditionalProperty struct {
 	Type string `json:"type"`
 }
@@ -74,7 +78,7 @@ type ObjectProperty struct {
 	Type                 string              `json:"type"`
 	Enum                 []any               `json:"enum,omitempty"`
 	Properties           ObjectProperties    `json:"properties,omitempty"`
-	Items                *arrayItem          `json:"items,omitempty"`
+	Items                any                 `json:"items,omitempty"`
 	AdditionalProperties *AdditionalProperty `json:"additionalProperties,omitempty"`
 	Description          string              `json:"description,omitempty"`
 }
@@ -82,7 +86,7 @@ type ObjectProperty struct {
 type ObjectProperties map[string]ObjectProperty
 
 type MethodResponseSchema struct {
-	Type       string           `json:"type"`
+	Type       string           `json:"type,omitempty"`
 	Properties ObjectProperties `json:"properties,omitempty"`
 	Format     string           `json:"format,omitempty"`
 	Ref        string           `json:"$ref,omitempty"`

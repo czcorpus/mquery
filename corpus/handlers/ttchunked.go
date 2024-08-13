@@ -19,7 +19,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"mquery/corpus"
@@ -31,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -218,7 +218,7 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 }
 
 func (a *Actions) writeStreamingError(ctx *gin.Context, err error) {
-	messageJSON, err2 := json.Marshal(streamingError{err.Error()})
+	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
 	if err2 != nil {
 		ctx.String(http.StatusInternalServerError, "Internal Server Error")
 		return
@@ -303,7 +303,7 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 		return
 	}
 	for message := range calc {
-		messageJSON, err := json.Marshal(message)
+		messageJSON, err := sonic.Marshal(message)
 		if err == nil {
 			ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
 
@@ -340,7 +340,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 	calc = a.filterByYearRange(calc, fromYear, toYear)
 
 	for message := range calc {
-		messageJSON, err := json.Marshal(message)
+		messageJSON, err := sonic.Marshal(message)
 		if err == nil {
 			ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
 

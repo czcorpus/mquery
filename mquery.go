@@ -30,6 +30,7 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/logging"
+	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
@@ -65,6 +66,9 @@ func init() {
 	gob.Register(results.CorpusInfo{})
 	gob.Register(results.FreqDistrib{})
 	gob.Register(results.TextTypeNorms{})
+	gob.Register(&concordance.Token{})
+	gob.Register(&concordance.Struct{})
+	gob.Register(&concordance.CloseStruct{})
 	gob.Register(merror.InputError{})
 	gob.Register(merror.InternalError{})
 	gob.Register(merror.RecoveredError{})

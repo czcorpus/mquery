@@ -119,12 +119,18 @@ func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
 func GetConcordance(
 	corpusPath, query string,
 	attrs []string,
+	structs []string,
 	fromLine, maxItems, maxContext int,
 	viewContextStruct string,
 ) (GoConcordance, error) {
 	ans := C.conc_examples(
-		C.CString(corpusPath), C.CString(query), C.CString(strings.Join(attrs, ",")),
-		C.longlong(fromLine), C.longlong(maxItems), C.longlong(maxContext),
+		C.CString(corpusPath),
+		C.CString(query),
+		C.CString(strings.Join(attrs, ",")),
+		C.CString(strings.Join(structs, ",")),
+		C.longlong(fromLine),
+		C.longlong(maxItems),
+		C.longlong(maxContext),
 		C.CString(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)

@@ -19,10 +19,11 @@
 package rdb
 
 import (
-	"encoding/json"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 const (
@@ -42,7 +43,7 @@ func (jl *JobLog) TimeSpent() time.Duration {
 }
 
 func (jl *JobLog) ToJSON() (string, error) {
-	ans, err := json.Marshal(jl)
+	ans, err := sonic.Marshal(jl)
 	if err != nil {
 		return "", err
 	}
