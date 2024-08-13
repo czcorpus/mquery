@@ -41,13 +41,21 @@ func getWorkerID() (workerID string) {
 	return
 }
 
+// -------
+
+type NullLogger struct{}
+
+func (n *NullLogger) Log(rec rdb.JobLog) {}
+
+// -------
+
 func runWorker(conf *cnf.Conf) {
 	workerID := getWorkerID()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	radapter := rdb.NewAdapter(conf.Redis, ctx)
+	radapter := rdb.NewAdapter(conf.Redis, ctx, &NullLogger{})
 
 	err := radapter.TestConnection(redisConnectionTestTimeout)
 	if err != nil {
@@ -56,9 +64,9 @@ func runWorker(conf *cnf.Conf) {
 
 	ch := radapter.Subscribe()
 	logger := monitoring.NewWorkerJobLogger(conf.TimezoneLocation())
-	wrk := worker.NewWorker(workerID, radapter, ch, logger)
+	wrk := worker.NewWorker(workerID, radapter, ch)
 
-	services := []service{wrk}
+	services := []service{logger, wrk}
 	for _, m := range services {
 		m.Start(ctx)
 	}

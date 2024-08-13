@@ -18,6 +18,8 @@
 
 package rdb
 
+import "time"
+
 const (
 	ResultTypeConcordance   ResultType = "conc"
 	ResultTypeConcSize      ResultType = "termFrequency"
@@ -47,4 +49,6 @@ type WorkerResult struct {
 	ID           string
 	Value        FuncResult
 	HasUserError bool
+	ProcBegin    time.Time
+	ProcEnd      time.Time
 }

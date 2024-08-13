@@ -19,13 +19,27 @@
 package handlers
 
 import (
+	"fmt"
 	"mquery/monitoring"
 	"net/http"
 	"time"
 
-	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+)
+
+type timeSpan string
+
+func (ts timeSpan) Validate() error {
+	if ts != spanTypeRecent && ts != spanTypeTotal {
+		return fmt.Errorf("unknown time span `%s`", ts)
+	}
+	return nil
+}
+
+const (
+	spanTypeRecent timeSpan = "recent"
+	spanTypeTotal  timeSpan = "total"
 )
 
 type Actions struct {
@@ -34,40 +48,52 @@ type Actions struct {
 }
 
 func (a *Actions) WorkersLoad(ctx *gin.Context) {
-	now := time.Now().In(a.location)
-	dur, err := datetime.ParseDuration(ctx.Request.URL.Query().Get("ago"))
-	fromDT := now.Add(-dur)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+
+	span := timeSpan(ctx.DefaultQuery("span", "recent"))
+	if err := span.Validate(); err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 		return
 	}
-	load, err := a.logger.WorkersLoad(fromDT, now)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
-		return
+	var ans monitoring.WorkerLoad
+	if span == spanTypeRecent {
+		ans = a.logger.RecentLoad()
+
+	} else if span == spanTypeTotal {
+		ans = a.logger.TotalLoad()
 	}
-	for k, v := range load {
-		load[k] = v * 100
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, load)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
-func (a *Actions) WorkersLoadTotal(ctx *gin.Context) {
-	now := time.Now().In(a.location)
-	dur, err := datetime.ParseDuration(ctx.Request.URL.Query().Get("ago"))
-	fromDT := now.Add(-dur)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+func (a *Actions) SingleWorkerLoad(ctx *gin.Context) {
+
+	span := timeSpan(ctx.DefaultQuery("span", "recent"))
+	if err := span.Validate(); err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 		return
 	}
-	load, err := a.logger.TotalLoad(fromDT, now)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+	workerID := ctx.Param("workerId")
+
+	var ans monitoring.WorkerLoad
+	var srchErr error
+	if span == spanTypeRecent {
+		ans, srchErr = a.logger.RecentWorkerLoad(workerID)
+
+	} else if span == spanTypeTotal {
+		ans, srchErr = a.logger.TotalWorkerLoad(workerID)
+	}
+	if srchErr == monitoring.ErrWorkerNotFound {
+		uniresp.RespondWithErrorJSON(ctx, srchErr, http.StatusNotFound)
+		return
+
+	} else if srchErr != nil {
+		uniresp.RespondWithErrorJSON(ctx, srchErr, http.StatusInternalServerError)
 		return
 	}
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
+}
 
-	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"loadPercent": 100 * load})
-
+func (a *Actions) RecentRecords(ctx *gin.Context) {
+	uniresp.WriteJSONResponse(ctx.Writer, a.logger.RecentRecords())
 }
 
 func NewActions(
