@@ -20,60 +20,164 @@
 package monitoring
 
 import (
-	"database/sql"
+	"context"
+	"errors"
 	"mquery/rdb"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/collections"
+	"github.com/rs/zerolog/log"
 )
 
-type WorkersLoad map[string]float64
+const (
+	StaleWorkerLoadTTL       = time.Hour * 24
+	tickerIntervalSecs int64 = 10
+	recentLogSize            = 100
+)
+
+var (
+	ErrWorkerNotFound = errors.New("worker not found")
+)
 
 type WorkerJobLogger struct {
-	db       *sql.DB
-	location *time.Location
+	loadData     WorkersLoad
+	recentLog    *collections.CircularList[rdb.JobLog]
+	tz           *time.Location
+	numTicks     int64
+	statusWriter StatusWriter
 }
 
 func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
-	// TODO
+	entry, ok := w.loadData[rec.WorkerID]
+	if !ok {
+		entry.FirstUpdate = rec.Begin
+	}
+	entry.NumJobs++
+	entry.LastUpdate = rec.End
+	if rec.Err != nil {
+		entry.NumErrors++
+	}
+	entry.TotalTimeSecs += rec.End.Sub(rec.Begin).Seconds()
+	w.loadData[rec.WorkerID] = entry
+	w.recentLog.Append(rec)
+	w.statusWriter.Write(rec)
 }
 
-func (w *WorkerJobLogger) WorkersLoad(fromDT, toDT time.Time) (WorkersLoad, error) {
-	ans := make(map[string]float64)
-	// TODO
+func (w *WorkerJobLogger) TotalLoad() WorkerLoad {
+	return w.loadData.SumLoad(w.tz)
+}
+
+func (w *WorkerJobLogger) RecentLoad() WorkerLoad {
+	var ans WorkerLoad
+	workers := collections.NewSet[string]()
+	w.recentLog.ForEach(func(i int, item rdb.JobLog) bool {
+		workers.Add(item.WorkerID)
+		if i == 0 {
+			ans.FirstUpdate = item.Begin
+		}
+		ans.LastUpdate = item.End
+		if item.Err != nil {
+			ans.NumErrors++
+		}
+		ans.NumJobs++
+		ans.TotalTimeSecs += item.End.Sub(item.Begin).Seconds()
+		return true
+	})
+	ans.NumWorkers = workers.Size()
+	return ans
+}
+
+func (w *WorkerJobLogger) RecentRecords() []rdb.JobLog {
+	ans := make([]rdb.JobLog, w.recentLog.Len())
+	w.recentLog.ForEach(func(i int, item rdb.JobLog) bool {
+		ans[i] = item
+		return true
+	})
+	return ans
+}
+
+func (w *WorkerJobLogger) TotalWorkerLoad(workerID string) (WorkerLoad, error) {
+	ans, ok := w.loadData[workerID]
+	if !ok {
+		return ans, ErrWorkerNotFound
+	}
 	return ans, nil
 }
 
-func (w *WorkerJobLogger) TotalLoad(fromDT, toDT time.Time) (float64, error) {
-	// TODO
-	return 0, nil
+func (w *WorkerJobLogger) RecentWorkerLoad(workerID string) (WorkerLoad, error) {
+	var ans WorkerLoad
+	var found bool
+	w.recentLog.ForEach(func(i int, item rdb.JobLog) bool {
+		if item.WorkerID != workerID {
+			return true
+		}
+		if !found {
+			ans.FirstUpdate = item.End
+			found = true
+		}
+		ans.LastUpdate = item.End
+		if item.Err != nil {
+			ans.NumErrors++
+		}
+		ans.NumJobs++
+		ans.TotalTimeSecs += item.End.Sub(item.Begin).Seconds()
+		return true
+	})
+	if found {
+		ans.NumWorkers = 1
+		return ans, nil
+	}
+	return ans, ErrWorkerNotFound
 }
 
-func (w *WorkerJobLogger) writeTimelineItem() error {
-	// TODO
-	return nil
-}
-
-func (w *WorkerJobLogger) cleanupTimeline() error {
-	// TODO
-	return nil
-}
-
-func (w *WorkerJobLogger) GoRunTimelineWriter() {
+func (w *WorkerJobLogger) Start(ctx context.Context) {
+	ticksPerCleanup := int64(StaleWorkerLoadTTL.Seconds()) / tickerIntervalSecs
+	w.loadData = make(WorkersLoad)
+	w.recentLog = collections.NewCircularList[rdb.JobLog](recentLogSize)
+	log.Info().Msg("starting worker job logger")
 	go func() {
 		ticker := time.NewTicker(60 * time.Second)
-		for range ticker.C {
-			w.writeTimelineItem()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				if ctx.Err() != nil { // should be always true here
+					log.Info().Msg("requesting worker job logger stop")
+				}
+			case <-ticker.C:
+				// TODO report to TimescaleDB (if configured)
+				if w.numTicks%ticksPerCleanup == 0 {
+					w.loadData.cleanOldRecords()
+					w.numTicks = 0
+
+				} else {
+					w.numTicks++
+				}
+			}
 		}
 	}()
-	go func() {
-		ticker := time.NewTicker(time.Hour)
-		for range ticker.C {
-			w.cleanupTimeline()
-		}
-	}()
+
+	/*
+		go func() {
+			ticker := time.NewTicker(time.Hour)
+			for range ticker.C {
+				w.cleanupTimeline()
+			}
+		}()
+	*/
 }
 
-func NewWorkerJobLogger(location *time.Location) *WorkerJobLogger {
+func (w *WorkerJobLogger) Stop(ctx context.Context) error {
+	log.Info().Msg("shutting down worker job logger")
+	return nil
+}
+
+func NewWorkerJobLogger(
+	statusWriter StatusWriter,
+	tz *time.Location,
+) *WorkerJobLogger {
 	return &WorkerJobLogger{
-		location: location,
+		statusWriter: statusWriter,
+		tz:           tz,
 	}
 }

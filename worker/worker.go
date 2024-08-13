@@ -36,16 +36,11 @@ const (
 	DefaultTickerInterval = 2 * time.Second
 )
 
-type jobLogger interface {
-	Log(rec rdb.JobLog)
-}
-
 type Worker struct {
-	ID        string
-	messages  <-chan *redis.Message
-	radapter  *rdb.Adapter
-	ticker    time.Ticker
-	jobLogger jobLogger
+	ID       string
+	messages <-chan *redis.Message
+	radapter *rdb.Adapter
+	ticker   time.Ticker
 }
 
 func (w *Worker) Start(ctx context.Context) {
@@ -74,18 +69,13 @@ func (w *Worker) publishResult(
 	query rdb.Query,
 	t0 time.Time,
 ) error {
-	w.jobLogger.Log(rdb.JobLog{
-		WorkerID: w.ID,
-		Func:     query.Func,
-		Begin:    t0,
-		End:      time.Now(),
-		Err:      res.Err(),
-	})
 	return w.radapter.PublishResult(
 		query.Channel,
 		rdb.WorkerResult{
-			ID:    w.ID,
-			Value: res,
+			ID:        w.ID,
+			Value:     res,
+			ProcBegin: t0,
+			ProcEnd:   time.Now(),
 		})
 }
 
@@ -239,13 +229,11 @@ func NewWorker(
 	workerID string,
 	radapter *rdb.Adapter,
 	messages <-chan *redis.Message,
-	jobLogger jobLogger,
 ) *Worker {
 	return &Worker{
-		ID:        workerID,
-		radapter:  radapter,
-		messages:  messages,
-		ticker:    *time.NewTicker(DefaultTickerInterval),
-		jobLogger: jobLogger,
+		ID:       workerID,
+		radapter: radapter,
+		messages: messages,
+		ticker:   *time.NewTicker(DefaultTickerInterval),
 	}
 }

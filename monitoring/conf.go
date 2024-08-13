@@ -1,4 +1,5 @@
 // Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2023 Martin Zimandl <martin.zimandl@gmail.com>
 // Copyright 2023 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
@@ -16,39 +17,10 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package rdb
+package monitoring
 
-import "time"
+import "github.com/czcorpus/hltscl"
 
-const (
-	ResultTypeConcordance   ResultType = "conc"
-	ResultTypeConcSize      ResultType = "termFrequency"
-	ResultTypeCollocations  ResultType = "coll"
-	ResultTypeCollFreqData  ResultType = "collFreqData"
-	ResultTypeFreqs         ResultType = "freqs"
-	ResultTypeMultipleFreqs ResultType = "multipleFreqs"
-	ResultTypeCorpusInfo    ResultType = "corpusInfo"
-	ResultTypeTextTypeNorms ResultType = "textTypeNorms"
-	ResultTypeError         ResultType = "error"
-)
-
-type ResultType string
-
-func (rt ResultType) String() string {
-	return string(rt)
-}
-
-// ----------------
-
-type FuncResult interface {
-	Err() error
-	Type() ResultType
-}
-
-type WorkerResult struct {
-	ID           string
-	Value        FuncResult
-	HasUserError bool
-	ProcBegin    time.Time
-	ProcEnd      time.Time
+type Conf struct {
+	DB hltscl.PgConf `json:"db"`
 }

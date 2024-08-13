@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"mquery/corpus"
+	"mquery/monitoring"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -98,6 +99,7 @@ type Conf struct {
 	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
 	AuthHeaderName         string               `json:"authHeaderName"`
 	AuthTokens             []string             `json:"authTokens"`
+	Monitoring             *monitoring.Conf     `json:"monitoring"`
 
 	srcPath string
 }
