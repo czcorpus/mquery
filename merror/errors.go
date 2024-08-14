@@ -18,6 +18,8 @@
 
 package merror
 
+import "fmt"
+
 type InputError struct {
 	Msg string
 }
@@ -52,4 +54,18 @@ type TimeoutError struct {
 
 func (err TimeoutError) Error() string {
 	return err.Msg
+}
+
+// -----------------
+
+func PanicValueToErr(v any) (err error) {
+	switch tr := v.(type) {
+	case error:
+		err = fmt.Errorf("recovered panic: %w", tr)
+	case string:
+		err = fmt.Errorf("recovered panic: %s", tr)
+	default:
+		err = fmt.Errorf("recovered panic from an error of type %T", v)
+	}
+	return
 }
