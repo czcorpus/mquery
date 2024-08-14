@@ -52,6 +52,7 @@ type WorkerJobLogger struct {
 func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
 	w.dataLock.Lock()
 	defer w.dataLock.Unlock()
+
 	entry, ok := w.loadData[rec.WorkerID]
 	if !ok {
 		entry.FirstUpdate = rec.Begin

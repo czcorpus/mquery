@@ -91,7 +91,7 @@ func (w *Worker) publishResult(
 func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 	defer func() {
 		if r := recover(); r != nil {
-			ansErr = merror.RecoveredError{Msg: fmt.Sprintf("recovered error: %v", r)}
+			ansErr = merror.PanicValueToErr(r)
 			return
 		}
 	}()

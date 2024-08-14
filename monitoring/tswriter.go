@@ -72,7 +72,6 @@ func (sw *TimescaleDBWriter) Stop(ctx context.Context) error {
 }
 
 func (sw *TimescaleDBWriter) Write(item rdb.JobLog) {
-	fmt.Println("ABOUT TO WRITE: ", item, " to ", sw.tableWriter)
 	if sw.tableWriter != nil {
 		var numErr int
 		if item.Err != nil {
