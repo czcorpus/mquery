@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"mquery/rdb"
+	"sync"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -41,6 +42,7 @@ var (
 
 type WorkerJobLogger struct {
 	loadData     WorkersLoad
+	dataLock     sync.RWMutex
 	recentLog    *collections.CircularList[rdb.JobLog]
 	tz           *time.Location
 	numTicks     int64
@@ -48,6 +50,8 @@ type WorkerJobLogger struct {
 }
 
 func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
+	w.dataLock.Lock()
+	defer w.dataLock.Unlock()
 	entry, ok := w.loadData[rec.WorkerID]
 	if !ok {
 		entry.FirstUpdate = rec.Begin
@@ -64,6 +68,8 @@ func (w *WorkerJobLogger) Log(rec rdb.JobLog) {
 }
 
 func (w *WorkerJobLogger) TotalLoad() WorkerLoad {
+	w.dataLock.RLock()
+	defer w.dataLock.RUnlock()
 	return w.loadData.SumLoad(w.tz)
 }
 
@@ -97,6 +103,8 @@ func (w *WorkerJobLogger) RecentRecords() []rdb.JobLog {
 }
 
 func (w *WorkerJobLogger) TotalWorkerLoad(workerID string) (WorkerLoad, error) {
+	w.dataLock.RLock()
+	defer w.dataLock.RUnlock()
 	ans, ok := w.loadData[workerID]
 	if !ok {
 		return ans, ErrWorkerNotFound
@@ -147,7 +155,9 @@ func (w *WorkerJobLogger) Start(ctx context.Context) {
 			case <-ticker.C:
 				// TODO report to TimescaleDB (if configured)
 				if w.numTicks%ticksPerCleanup == 0 {
+					w.dataLock.Lock()
 					w.loadData.cleanOldRecords()
+					w.dataLock.Unlock()
 					w.numTicks = 0
 
 				} else {
