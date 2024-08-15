@@ -149,6 +149,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 		args.Query,
 		args.Attrs,
 		args.ShowStructs,
+		args.ShowRefs,
 		args.StartLine,
 		args.MaxItems,
 		args.MaxContext,

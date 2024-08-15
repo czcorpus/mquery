@@ -166,6 +166,12 @@ func createSchemas() ObjectProperties {
 						"ref": ObjectProperty{
 							Type: "string",
 						},
+						"props": ObjectProperty{
+							Type: "object",
+							AdditionalProperties: &AdditionalProperty{
+								Type: "string",
+							},
+						},
 					},
 				},
 			},

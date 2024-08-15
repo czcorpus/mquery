@@ -161,6 +161,8 @@ KWICRowsRetval conc_examples(
     const char*query,
     const char* attrs,
     const char* structs,
+    const char* refs,
+    const char* refsSplitter,
     PosInt fromLine,
     PosInt limit,
     PosInt maxContext,

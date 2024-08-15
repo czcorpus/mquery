@@ -31,7 +31,9 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/maths"
+	"github.com/czcorpus/mquery-common/concordance"
 )
 
 const (
@@ -120,14 +122,20 @@ func GetConcordance(
 	corpusPath, query string,
 	attrs []string,
 	structs []string,
+	refs []string,
 	fromLine, maxItems, maxContext int,
 	viewContextStruct string,
 ) (GoConcordance, error) {
+	if !collections.SliceContains(refs, "#") {
+		refs = append([]string{"#"}, refs...)
+	}
 	ans := C.conc_examples(
 		C.CString(corpusPath),
 		C.CString(query),
 		C.CString(strings.Join(attrs, ",")),
 		C.CString(strings.Join(structs, ",")),
+		C.CString(strings.Join(refs, ",")),
+		C.CString(concordance.RefsEndMark),
 		C.longlong(fromLine),
 		C.longlong(maxItems),
 		C.longlong(maxContext),
