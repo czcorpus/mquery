@@ -96,6 +96,7 @@ type ConcordanceArgs struct {
 	QueryLemma        string
 	Attrs             []string
 	ShowStructs       []string
+	ShowRefs          []string
 	MaxItems          int
 	StartLine         int
 	MaxContext        int

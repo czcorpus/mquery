@@ -147,9 +147,20 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						},
 					},
 					{
-						Name:        "markup",
+						Name:        "showMarkup",
 						In:          "query",
 						Description: "if 1, then markup specifying formatting and structure of text will be displayed along with tokens",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Enum:    []any{0, 1},
+							Default: 0,
+						},
+					},
+					{
+						Name:        "showTextProps",
+						In:          "query",
+						Description: "if 1, then text metadata (e.g. author, publication year) will be attached to each line",
 						Required:    false,
 						Schema: ParamSchema{
 							Type:    "integer",
@@ -235,9 +246,20 @@ func NewResponse(ver, url, subscriber string) *APIResponse {
 						},
 					},
 					{
-						Name:        "markup",
+						Name:        "showMarkup",
 						In:          "query",
 						Description: "if 1, then markup specifying formatting and structure of text will be displayed along with tokens",
+						Required:    false,
+						Schema: ParamSchema{
+							Type:    "integer",
+							Enum:    []any{0, 1},
+							Default: 0,
+						},
+					},
+					{
+						Name:        "showTextProps",
+						In:          "query",
+						Description: "if 1, then text metadata (e.g. author, publication year) will be attached to each line",
 						Required:    false,
 						Schema: ParamSchema{
 							Type:    "integer",

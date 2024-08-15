@@ -150,14 +150,16 @@ func (ttp TextTypeProperties) Attr(prop baseinfo.TextProperty) string {
 }
 
 type CorpusSetup struct {
-	ID                string               `json:"id"`
-	FullName          map[string]string    `json:"fullName"`
-	Description       map[string]string    `json:"description"`
-	SyntaxConcordance SyntaxConcordance    `json:"syntaxConcordance"`
-	PosAttrs          PosAttrList          `json:"posAttrs"`
-	MarkupStructures  []string             `json:"markupStructures"`
-	MaximumRecords    int                  `json:"maximumRecords"`
-	Subcorpora        map[string]Subcorpus `json:"subcorpora"`
+	ID                   string               `json:"id"`
+	FullName             map[string]string    `json:"fullName"`
+	Description          map[string]string    `json:"description"`
+	SyntaxConcordance    SyntaxConcordance    `json:"syntaxConcordance"`
+	PosAttrs             PosAttrList          `json:"posAttrs"`
+	ConcMarkupStructures []string             `json:"concMarkupStructures"`
+	ConcTextPropsAttrs   []string             `json:"concTextPropsAttrs"`
+	TextProperties       TextTypeProperties   `json:"textProperties"`
+	MaximumRecords       int                  `json:"maximumRecords"`
+	Subcorpora           map[string]Subcorpus `json:"subcorpora"`
 	// ViewContextStruct is a structure used to specify "units"
 	// for KWIC left and right context. Typically, this is
 	// a structure representing a sentence or a speach.
@@ -165,7 +167,6 @@ type CorpusSetup struct {
 	Variants          map[string]CorpusVariant `json:"variants"`
 	SrchKeywords      []string                 `json:"srchKeywords"`
 	WebURL            string                   `json:"webUrl"`
-	TextProperties    TextTypeProperties       `json:"textProperties"`
 }
 
 func (cs *CorpusSetup) LocaleDescription(lang string) string {

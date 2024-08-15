@@ -231,8 +231,16 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
  * @return KWICRowsRetval
  */
 KWICRowsRetval conc_examples(
-    const char* corpusPath, const char* query, const char* attrs, const char* structs, PosInt fromLine, PosInt limit,
-        PosInt maxContext, const char* viewContextStruct) {
+    const char* corpusPath,
+    const char* query,
+    const char* attrs,
+    const char* structs,
+    const char* refs,
+    const char* refsSplitter,
+    PosInt fromLine,
+    PosInt limit,
+    PosInt maxContext,
+    const char* viewContextStruct) {
 
     string cPath(corpusPath);
     try {
@@ -275,7 +283,7 @@ KWICRowsRetval conc_examples(
             attrs,
             attrs,
             structs,
-            "#",
+            refs,
             maxContext,
             false
         );
@@ -290,7 +298,7 @@ KWICRowsRetval conc_examples(
             auto rgt = kl->get_right();
             std::ostringstream buffer;
 
-            buffer << kl->get_refs() << " ";
+            buffer << kl->get_refs() << refsSplitter;
 
             for (size_t i = 0; i < lft.size(); ++i) {
                 if (i > 0) {

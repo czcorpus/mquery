@@ -168,6 +168,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 				QueryLemma:        ctx.Query("lemma"),
 				Query:             q,
 				Attrs:             conf.SyntaxConcordance.ResultAttrs,
+				ShowRefs:          []string{},
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
@@ -220,11 +221,13 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		ctx,
 		format,
 		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
-			showStructs := make([]string, 0, len(conf.MarkupStructures))
-			if ctx.Query("markup") == "1" {
-				for _, v := range conf.MarkupStructures {
-					showStructs = append(showStructs, v)
-				}
+			showStructs := []string{}
+			if ctx.Query("showMarkup") == "1" {
+				showStructs = conf.ConcMarkupStructures
+			}
+			showRefs := []string{}
+			if ctx.Query("showTextProps") == "1" {
+				showRefs = conf.ConcTextPropsAttrs
 			}
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
@@ -232,6 +235,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				Attrs:             conf.PosAttrs.GetIDs(),
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				ShowStructs:       showStructs,
+				ShowRefs:          showRefs,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
 				MaxContext:        contextWidth,
@@ -256,17 +260,20 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 		ctx,
 		format,
 		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
-			showStructs := make([]string, 0, len(conf.MarkupStructures))
-			if ctx.Query("markup") == "1" {
-				for _, v := range conf.MarkupStructures {
-					showStructs = append(showStructs, v)
-				}
+			showStructs := []string{}
+			if ctx.Query("showMarkup") == "1" {
+				showStructs = conf.ConcMarkupStructures
+			}
+			showRefs := []string{}
+			if ctx.Query("showTextProps") == "1" {
+				showRefs = conf.ConcTextPropsAttrs
 			}
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 				Query:             q,
 				Attrs:             conf.PosAttrs.GetIDs(),
 				ShowStructs:       showStructs,
+				ShowRefs:          showRefs,
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				StartLine:         0, // TODO
 				MaxItems:          conf.MaximumRecords,
@@ -323,6 +330,8 @@ func (a *Actions) anyConcordance(
 	if !ok {
 		return
 	}
+	corpus.ApplyTextPropertiesMapping(result, queryProps.corpusConf.TextProperties)
+
 	switch format {
 	case concFormatJSON:
 		uniresp.WriteJSONResponse(ctx.Writer, &result)
