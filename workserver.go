@@ -74,7 +74,7 @@ func runWorker(conf *cnf.Conf) {
 
 	ch := radapter.Subscribe()
 	logger := monitoring.NewWorkerJobLogger(new(NullStatusWriter), conf.TimezoneLocation())
-	wrk := worker.NewWorker(workerID, radapter, ch)
+	wrk := worker.NewWorker(workerID, radapter, conf.CorporaSetup.PosAttrDelimCharCode, ch)
 
 	services := []service{logger, wrk}
 	for _, m := range services {
