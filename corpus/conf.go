@@ -27,9 +27,32 @@ import (
 )
 
 const (
-	DfltSplitChunkSize = 100000000
-	DfltMaximumRecords = 50
+	DfltSplitChunkSize   = 100000000
+	DfltMaximumRecords   = 50
+	DfltPosAttrDelimiter = 47
 )
+
+type PosAttrDelimiter int
+
+func (pad PosAttrDelimiter) Validate() error {
+	if pad != 9 && pad != 31 && pad != 47 {
+		return fmt.Errorf("unsupported delimiter ascii code (supported values are: 9, 31, 47)")
+	}
+	return nil
+}
+
+func (pad PosAttrDelimiter) AsString() string {
+	switch pad {
+	case 9:
+		return "\x09"
+	case 31:
+		return "\x1f"
+	case 47:
+		return "/"
+	default:
+		panic(fmt.Errorf("unsupported value for PosAttrDelimiter: %d", pad))
+	}
+}
 
 // CorporaSetup defines a root configuration of corpora
 type CorporaSetup struct {
@@ -47,6 +70,12 @@ type CorporaSetup struct {
 
 	ConfFilesDir string    `json:"confFilesDir"`
 	Resources    Resources `json:"resources"`
+
+	// PosAttrDelimCharCode specifies an ASCII code value of
+	// character for delimiting positional attributes. Only
+	// these values are currently supported:
+	// 9 (TAB), 31 (US), 47 (/)
+	PosAttrDelimCharCode PosAttrDelimiter `json:"posAttrDelimCharCode"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
@@ -90,6 +119,15 @@ func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 	}
 	if !isFile {
 		return fmt.Errorf("the `%s.mktokencovPath` does not point to a file", confContext)
+	}
+	if cs.PosAttrDelimCharCode == 0 {
+		cs.PosAttrDelimCharCode = DfltPosAttrDelimiter
+		log.Warn().
+			Int("value", int(cs.PosAttrDelimCharCode)).
+			Msg("no `posAttrDelimCharCode` specified, using default")
+	}
+	if err := cs.PosAttrDelimCharCode.Validate(); err != nil {
+		return fmt.Errorf("failed to validate `posAttrDelimCharCode`: %w", err)
 	}
 	for _, v := range cs.Resources {
 		if err := v.ValidateAndDefaults(); err != nil {

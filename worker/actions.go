@@ -160,7 +160,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 		return ans
 	}
 	parser := concordance.NewLineParser(args.Attrs)
-	ans.Lines = parser.Parse(concEx.Lines)
+	ans.Lines = parser.Parse(concEx.Lines, w.posAttrDelim.AsString())
 	ans.ConcSize = concEx.ConcSize
 	return ans
 }

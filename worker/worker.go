@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"mquery/corpus"
 	"mquery/merror"
 	"mquery/rdb"
 	"mquery/rdb/results"
@@ -37,10 +38,11 @@ const (
 )
 
 type Worker struct {
-	ID       string
-	messages <-chan *redis.Message
-	radapter *rdb.Adapter
-	ticker   time.Ticker
+	ID           string
+	messages     <-chan *redis.Message
+	radapter     *rdb.Adapter
+	posAttrDelim corpus.PosAttrDelimiter
+	ticker       time.Ticker
 }
 
 func (w *Worker) Start(ctx context.Context) {
@@ -229,12 +231,14 @@ func (w *Worker) tokenCoverage(mktokencovPath, subcPath, corpusPath, structure s
 func NewWorker(
 	workerID string,
 	radapter *rdb.Adapter,
+	posAttrDelim corpus.PosAttrDelimiter,
 	messages <-chan *redis.Message,
 ) *Worker {
 	return &Worker{
-		ID:       workerID,
-		radapter: radapter,
-		messages: messages,
-		ticker:   *time.NewTicker(DefaultTickerInterval),
+		ID:           workerID,
+		radapter:     radapter,
+		posAttrDelim: posAttrDelim,
+		messages:     messages,
+		ticker:       *time.NewTicker(DefaultTickerInterval),
 	}
 }
