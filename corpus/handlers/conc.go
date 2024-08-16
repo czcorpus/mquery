@@ -21,14 +21,13 @@ package handlers
 import (
 	"fmt"
 	"mquery/corpus"
+	"mquery/corpus/transform"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
 )
 
@@ -52,110 +51,6 @@ func (cf concFormat) Validate() error {
 type ConcArgsBuilder func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs
 
 type ConcArgsValidator func(args *rdb.ConcordanceArgs) error
-
-func expandKWIC(tk *concordance.Token, conf *corpus.CorpusSetup) string {
-	var tmp strings.Builder
-	if tk.Strong {
-		tmp.WriteString(fmt.Sprintf("**%s** *{", tk.Word))
-		var i int
-		for _, v := range conf.PosAttrs {
-			if v.Name == "word" {
-				continue
-			}
-			if i > 0 {
-				tmp.WriteString(", ")
-			}
-			tmp.WriteString(fmt.Sprintf("%s=%s", v.Name, tk.Attrs[v.Name]))
-			i++
-		}
-		tmp.WriteString("}*")
-		return tmp.String()
-	}
-	return tk.Word
-}
-
-func getAttrs(tk *concordance.Token, conf *corpus.CorpusSetup) string {
-	ans := make([]string, 0, len(conf.PosAttrs)-1)
-	for _, v := range conf.PosAttrs {
-		if v.Name != "word" {
-			ans = append(ans, fmt.Sprintf("*%s*=&quot;%s&quot;", v.Name, tk.Attrs[v.Name]))
-		}
-	}
-	return strings.Join(ans, " &amp; ")
-}
-
-func exportToken(tk *concordance.Token) string {
-	if tk.Strong {
-		return fmt.Sprintf("**%s**", tk.Word)
-	}
-	return tk.Word
-}
-
-func concToMarkdown(data results.Concordance, conf *corpus.CorpusSetup) string {
-	var ans strings.Builder
-	for _, line := range data.Lines {
-		for i, ch := range line.Text {
-			switch lineElm := ch.(type) {
-			case *concordance.Token:
-				if i > 0 {
-					ans.WriteString(" " + expandKWIC(lineElm, conf))
-
-				} else {
-					ans.WriteString(expandKWIC(lineElm, conf))
-				}
-			case *concordance.Struct:
-				// TODO
-			case *concordance.CloseStruct:
-				// TODO
-			}
-		}
-		ans.WriteString("\n\n")
-	}
-	return ans.String()
-}
-
-func concToMarkdown2(data *results.Concordance, conf *corpus.CorpusSetup) string {
-	var ans strings.Builder
-	ans.WriteString("|left context | KWIC | right context |\n")
-	ans.WriteString("|-------:|:----:|:-------|\n")
-	for _, line := range data.Lines {
-		var state int
-		ans.WriteString("| \u2026 ")
-		metadataBuff := make([]string, 0, 5)
-		for _, ch := range line.Text {
-			switch tLineElem := ch.(type) {
-			case *concordance.Token:
-				if state == 0 && tLineElem.Strong {
-					state = 1
-					ans.WriteString(" | ")
-
-				} else if !tLineElem.Strong && state == 1 {
-					ans.WriteString(" |")
-					state = 2
-				}
-				if tLineElem.Strong {
-					metadataBuff = append(metadataBuff, "["+getAttrs(tLineElem, conf)+"]")
-				}
-				ans.WriteString(" " + exportToken(tLineElem))
-			case *concordance.Struct:
-				if tLineElem.IsSelfClose {
-					ans.WriteString(fmt.Sprintf(" *&lt;%s /&gt;*", tLineElem.Name))
-
-				} else {
-					ans.WriteString(fmt.Sprintf(" *&lt;%s&gt;*", tLineElem.Name))
-				}
-			case *concordance.CloseStruct:
-				ans.WriteString(fmt.Sprintf(" *&lt;/%s&gt;*", tLineElem.Name))
-			}
-		}
-		ans.WriteString(" \u2026 |\n")
-		if len(metadataBuff) > 0 {
-			ans.WriteString("|| " + strings.Join(metadataBuff, " ") + " ||\n")
-		}
-	}
-	ans.WriteString("\n\n")
-	return ans.String()
-}
 
 func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 	a.anyConcordance(
@@ -336,7 +231,11 @@ func (a *Actions) anyConcordance(
 	case concFormatJSON:
 		uniresp.WriteJSONResponse(ctx.Writer, &result)
 	case concFormatMarkdown:
-		md := concToMarkdown2(&result, a.conf.Resources.Get(queryProps.corpus))
+		md := transform.ConcToMarkdown(
+			&result,
+			a.conf.Resources.Get(queryProps.corpus),
+			len(args.ShowRefs) > 0,
+		)
 		ctx.Header("content-type", "text/markdown; charset=utf-8")
 		ctx.Writer.WriteString(md)
 	default:
