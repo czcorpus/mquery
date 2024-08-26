@@ -39,8 +39,7 @@ var (
 )
 
 func findHTTPProtocol(req *http.Request) string {
-	prot := req.Header.Get("x-forwarded-proto")
-	if prot != "" {
+	if prot := req.Header.Get("x-forwarded-proto"); prot != "" {
 		return prot
 	}
 	if req.TLS != nil {
@@ -50,17 +49,24 @@ func findHTTPProtocol(req *http.Request) string {
 }
 
 func findHTTPServer(req *http.Request) string {
-	serv := req.Header.Get("x-forwarded-host")
-	if serv != "" {
+	if serv := req.Header.Get("x-forwarded-host"); serv != "" {
 		return serv
 	}
 	return req.Host
 }
 
+func findPath(req *http.Request) string {
+	if path := req.Header.Get("x-original-path"); path != "" {
+		return path
+	}
+	return req.URL.Path
+}
+
 func findCurrentPublicURL(conf *cnf.Conf, req *http.Request) string {
 	proto := findHTTPProtocol(req)
 	host := findHTTPServer(req)
-	curr, err := url.JoinPath(fmt.Sprintf("%s://%s", proto, host), req.URL.Path)
+	path := findPath(req)
+	curr, err := url.JoinPath(fmt.Sprintf("%s://%s/%s", proto, host), path)
 	if err != nil {
 		panic(fmt.Errorf("cannot find current public url: %w", err))
 	}
