@@ -38,12 +38,29 @@ var (
 	}
 )
 
-func findCurrentPublicURL(conf *cnf.Conf, req *http.Request) string {
-	protoPrefix := "http"
-	if req.TLS != nil {
-		protoPrefix = "https"
+func findHTTPProtocol(req *http.Request) string {
+	prot := req.Header.Get("x-forwarded-proto")
+	if prot != "" {
+		return prot
 	}
-	curr, err := url.JoinPath(fmt.Sprintf("%s://%s", protoPrefix, req.Host), req.URL.Path)
+	if req.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func findHTTPServer(req *http.Request) string {
+	serv := req.Header.Get("x-forwarded-host")
+	if serv != "" {
+		return serv
+	}
+	return req.Host
+}
+
+func findCurrentPublicURL(conf *cnf.Conf, req *http.Request) string {
+	proto := findHTTPProtocol(req)
+	host := findHTTPServer(req)
+	curr, err := url.JoinPath(fmt.Sprintf("%s://%s", proto, host), req.URL.Path)
 	if err != nil {
 		panic(fmt.Errorf("cannot find current public url: %w", err))
 	}
