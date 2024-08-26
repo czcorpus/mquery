@@ -24,6 +24,7 @@ import (
 	"mquery/corpus"
 	"mquery/monitoring"
 	"mquery/rdb"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,8 +84,12 @@ type PrivacyPolicy struct {
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress          string               `json:"listenAddress"`
-	PublicURL              string               `json:"publicUrl"`
+	ListenAddress string `json:"listenAddress"`
+
+	// PublicURLs specifies which URLs are used to access the server.
+	// For more flexibility, we allow for more public URLs where
+	// a concrete variant is inferred based on client's request.
+	PublicURLs             []string             `json:"publicUrls"`
 	ListenPort             int                  `json:"listenPort"`
 	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
@@ -164,9 +169,17 @@ func ValidateAndDefaults(conf *Conf) {
 			dfltServerWriteTimeoutSecs,
 		)
 	}
-	if conf.PublicURL == "" {
-		conf.PublicURL = fmt.Sprintf("http://%s", conf.ListenAddress)
-		log.Warn().Str("address", conf.PublicURL).Msg("publicUrl not set, using listenAddress")
+	if len(conf.PublicURLs) == 0 {
+		log.Warn().
+			Strs("address", conf.PublicURLs).
+			Msg("no publicUrls set, using listenAddress")
+		conf.PublicURLs = []string{fmt.Sprintf("http://%s", conf.ListenAddress)}
+	}
+	for _, addr := range conf.PublicURLs {
+		if _, err := url.Parse(addr); err != nil {
+			log.Fatal().Err(err).Msg("failed to validate publicUrls")
+			return
+		}
 	}
 
 	// check locales conf.

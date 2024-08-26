@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"mquery/cnf"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -35,6 +37,23 @@ var (
 	}
 )
 
+func findCurrentPublicURL(conf *cnf.Conf, req *http.Request) string {
+	protoPrefix := "http"
+	if req.TLS != nil {
+		protoPrefix = "https"
+	}
+	curr, err := url.JoinPath(fmt.Sprintf("%s://%s", protoPrefix, req.Host), req.URL.Path)
+	if err != nil {
+		panic(fmt.Errorf("cannot find current public url: %w", err))
+	}
+	for _, addr := range conf.PublicURLs {
+		if strings.HasPrefix(curr, addr) {
+			return addr
+		}
+	}
+	return ""
+}
+
 func MkHandleRequest(conf *cnf.Conf, ver string) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		subscr := ctx.Query("subscriber")
@@ -46,7 +65,8 @@ func MkHandleRequest(conf *cnf.Conf, ver string) func(ctx *gin.Context) {
 			)
 			return
 		}
-		ans := NewResponse(ver, conf.PublicURL, ctx.Query("subscriber"))
+		publicURL := findCurrentPublicURL(conf, ctx.Request)
+		ans := NewResponse(ver, publicURL, ctx.Query("subscriber"))
 		uniresp.WriteJSONResponse(ctx.Writer, &ans)
 	}
 }
