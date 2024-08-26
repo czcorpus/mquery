@@ -66,7 +66,7 @@ func findCurrentPublicURL(conf *cnf.Conf, req *http.Request) string {
 	proto := findHTTPProtocol(req)
 	host := findHTTPServer(req)
 	path := findPath(req)
-	curr, err := url.JoinPath(fmt.Sprintf("%s://%s/%s", proto, host), path)
+	curr, err := url.JoinPath(fmt.Sprintf("%s://%s", proto, host), path)
 	if err != nil {
 		panic(fmt.Errorf("cannot find current public url: %w", err))
 	}
