@@ -22,6 +22,7 @@ import (
 	"mquery/cnf"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -46,7 +47,11 @@ func findCurrentPublicURL(conf *cnf.Conf, req *http.Request) string {
 	if err != nil {
 		panic(fmt.Errorf("cannot find current public url: %w", err))
 	}
-	for _, addr := range conf.PublicURLs {
+	publicURLs := make([]string, len(conf.PublicURLs))
+	copy(publicURLs, conf.PublicURLs)
+	slices.Sort(publicURLs)
+	slices.Reverse(publicURLs)
+	for _, addr := range publicURLs {
 		if strings.HasPrefix(curr, addr) {
 			return addr
 		}
