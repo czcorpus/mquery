@@ -70,12 +70,6 @@ type CorporaSetup struct {
 
 	ConfFilesDir string    `json:"confFilesDir"`
 	Resources    Resources `json:"resources"`
-
-	// PosAttrDelimCharCode specifies an ASCII code value of
-	// character for delimiting positional attributes. Only
-	// these values are currently supported:
-	// 9 (TAB), 31 (US), 47 (/)
-	PosAttrDelimCharCode PosAttrDelimiter `json:"posAttrDelimCharCode"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
@@ -119,15 +113,6 @@ func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 	}
 	if !isFile {
 		return fmt.Errorf("the `%s.mktokencovPath` does not point to a file", confContext)
-	}
-	if cs.PosAttrDelimCharCode == 0 {
-		cs.PosAttrDelimCharCode = DfltPosAttrDelimiter
-		log.Warn().
-			Int("value", int(cs.PosAttrDelimCharCode)).
-			Msg("no `posAttrDelimCharCode` specified, using default")
-	}
-	if err := cs.PosAttrDelimCharCode.Validate(); err != nil {
-		return fmt.Errorf("failed to validate `posAttrDelimCharCode`: %w", err)
 	}
 	for _, v := range cs.Resources {
 		if err := v.ValidateAndDefaults(); err != nil {
