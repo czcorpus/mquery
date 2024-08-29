@@ -23,8 +23,8 @@ github.com/czcorpus/hltscl v0.0.6 h1:v51pKbWdoKzrattrNHtdC3VH94M1SEgFvGCJB3bwqJ8
 github.com/czcorpus/hltscl v0.0.6/go.mod h1:o4u0BSOu4LgYSuBErIMDvWAzrzkUYMYOViNGhV6AluM=
 github.com/czcorpus/manabuild v0.1.3 h1:dcTMpRtUUHhm1H+7532MeNFID0WyRVDorydROgbbo4w=
 github.com/czcorpus/manabuild v0.1.3/go.mod h1:dj2iAsZObs4yJhF6KkQs5oH2AAyZlrmaNwMGV44hLbk=
-github.com/czcorpus/mquery-common v0.3.2 h1:hJDOf5bw5Yp/2FYVxIoDtBtpAbJXHNJ733gJhtvgMuU=
-github.com/czcorpus/mquery-common v0.3.2/go.mod h1:uLj/oxkcA9I72nKel1IUp/NCm646sMbBu3xZsnfdf5A=
+github.com/czcorpus/mquery-common v0.4.0 h1:mBOsNzSaPiyma6Uz45dbj9PRNmgJKLLpMgCHUHdOqDU=
+github.com/czcorpus/mquery-common v0.4.0/go.mod h1:uLj/oxkcA9I72nKel1IUp/NCm646sMbBu3xZsnfdf5A=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
