@@ -184,10 +184,11 @@ func (w *Worker) tryNextQuery() {
 		log.Error().Err(err).Msg("failed to fetch next job")
 		return
 	}
-	log.Debug().
+	log.Info().
+		Str("workerId", w.ID).
 		Str("channel", query.Channel).
 		Str("func", query.Func).
-		// Any("args", query.Args). TODO
+		Any("args", query.Args).
 		Msg("received query")
 
 	isActive, err := w.radapter.SomeoneListens(query.Channel)
