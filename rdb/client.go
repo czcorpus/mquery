@@ -94,7 +94,7 @@ type ConcordanceArgs struct {
 	CorpusPath        string
 	Query             string
 	QueryLemma        string
-	Attrs             []string
+	Attrs             []string	
 	ShowStructs       []string
 	ShowRefs          []string
 	MaxItems          int

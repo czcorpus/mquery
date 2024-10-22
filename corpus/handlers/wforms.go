@@ -107,7 +107,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 	ans := &results.WordFormsItem{
 		Lemma: lemma,
 		POS:   pos,
-		Forms: freqs.Freqs,
+		Forms: freqs.Freqs.AlwaysAsList(),
 	}
 	return ans, nil
 }
