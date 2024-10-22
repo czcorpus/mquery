@@ -45,6 +45,15 @@ func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 	return flist
 }
 
+// AlwaysAsList returns an empty list in case the original
+// value is nil.
+func (flist FreqDistribItemList) AlwaysAsList() []*FreqDistribItem {
+	if flist != nil {
+		return flist
+	}
+	return []*FreqDistribItem{}
+}
+
 type FreqDistribItem struct {
 	Value string  `json:"value"`
 	Freq  int64   `json:"freq"`
