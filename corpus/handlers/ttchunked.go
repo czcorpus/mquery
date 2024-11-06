@@ -37,52 +37,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type FreqDistribItemSD struct {
-	Word string  `json:"word"`
-	Freq int64   `json:"freq"`
-	Base int64   `json:"base"`
-	IPM  float32 `json:"ipm"`
-}
-
-type FreqDistribItemListSD []*FreqDistribItemSD
-
-// Cut makes the list at most maxItems long (i.e. in case
-// the list is shorter, no error is triggered)
-func (flist FreqDistribItemListSD) Cut(maxItems int) FreqDistribItemListSD {
-	if len(flist) > maxItems {
-		return flist[:maxItems]
-	}
-	return flist
-}
-
-type FreqDistribSD struct {
-
-	// ConcSize represents number of matching concordance rows
-	ConcSize int64 `json:"concSize"`
-
-	// CorpusSize is always equal to the whole corpus size
-	// (even if we work with a subcorpus)
-	CorpusSize int64 `json:"corpusSize"`
-
-	// SubcSize shows a subcorpus size in case a subcorpus
-	// is involved
-	SubcSize int64 `json:"subcSize,omitempty"`
-
-	Freqs FreqDistribItemListSD `json:"freqs"`
-
-	// Fcrit a Manatee-encoded freq. criterion used with
-	// this result. This is mostly useful (as an info for
-	// a client) in case a default criterion is applied.
-	Fcrit string `json:"fcrit"`
-
-	// ExamplesQueryTpl provides a (CQL) query template
-	// for obtaining examples matching words from the `Freqs`
-	// atribute (one by one).
-	ExamplesQueryTpl string `json:"examplesQueryTpl,omitempty"`
-
-	Error string `json:"error,omitempty"`
-}
-
 type StreamData struct {
 	Entries results.FreqDistrib `json:"entries"`
 
@@ -165,19 +119,10 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 	ans := make(chan StreamData)
 	go func() {
 		for item := range inStream {
-			sdItems := make([]*FreqDistribItemSD, len(item.Entries.Freqs))
-			for i, x := range item.Entries.Freqs {
-				sdItems[i] = &FreqDistribItemSD{
-					Word: x.Value,
-					Base: x.Base,
-					Freq: x.Freq,
-					IPM:  x.IPM,
-				}
-			}
-			sdItems = collections.SliceFilter(
-				sdItems,
-				func(v *FreqDistribItemSD, i int) bool {
-					year, err := strconv.Atoi(v.Word)
+			item.Entries.Freqs = collections.SliceFilter(
+				item.Entries.Freqs,
+				func(v *results.FreqDistribItem, i int) bool {
+					year, err := strconv.Atoi(v.Value)
 					if err != nil {
 						return false
 					}
