@@ -94,6 +94,17 @@ type StreamData struct {
 	Error string `json:"error,omitempty"`
 }
 
+type StreamDataSD struct {
+	Entries FreqDistribSD `json:"entries"`
+
+	// ChunkNum identifies the chunk. Values starts with 1.
+	ChunkNum int `json:"chunkNum"`
+
+	Total int `json:"totalChunks"`
+
+	Error string `json:"error,omitempty"`
+}
+
 type streamedFreqsBaseArgs struct {
 	Q        string
 	Attr     string
@@ -158,11 +169,14 @@ func mockFreqCalculation() chan StreamData {
 // filterByYearRange creates a new stream of `StreamData` with freqs not matching
 // the provided year range (`fromYear` ... `toYear`) excluded. To leave a year
 // limit empty, use 0.
-func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int) chan StreamData {
+func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int) chan StreamDataSD {
+	ans := make(chan StreamDataSD)
 	if fromYear == 0 && toYear == 0 {
-		return inStream
+		go func() {
+			close(ans)
+		}()
+		return ans
 	}
-	ans := make(chan StreamData)
 	go func() {
 		for item := range inStream {
 			sdItems := make([]*FreqDistribItemSD, len(item.Entries.Freqs))
@@ -187,7 +201,17 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 					return year >= fromYear && year <= toYear
 				},
 			)
-			ans <- item
+			ans <- StreamDataSD{
+				Entries: FreqDistribSD{
+					ConcSize:         item.Entries.ConcSize,
+					CorpusSize:       item.Entries.CorpusSize,
+					SubcSize:         item.Entries.SubcSize,
+					Freqs:            sdItems,
+					Fcrit:            item.Entries.Fcrit,
+					ExamplesQueryTpl: item.Entries.ExamplesQueryTpl,
+					Error:            item.Entries.Error,
+				},
+			}
 		}
 		close(ans)
 	}()
@@ -402,9 +426,9 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		a.writeStreamingError(ctx, err)
 		return
 	}
-	calc = a.filterByYearRange(calc, fromYear, toYear)
+	calcSD := a.filterByYearRange(calc, fromYear, toYear)
 
-	for message := range calc {
+	for message := range calcSD {
 		messageJSON, err := json.Marshal(message)
 		if err == nil {
 			ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
