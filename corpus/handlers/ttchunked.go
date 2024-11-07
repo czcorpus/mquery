@@ -211,6 +211,9 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 					ExamplesQueryTpl: item.Entries.ExamplesQueryTpl,
 					Error:            item.Entries.Error,
 				},
+				ChunkNum: item.ChunkNum,
+				Total:    item.Total,
+				Error:    item.Error,
 			}
 		}
 		close(ans)
