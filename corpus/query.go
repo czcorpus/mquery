@@ -27,10 +27,14 @@ func SubcorpusToCQL(tt TextTypes) string {
 	var buff strings.Builder
 	for attr, values := range tt {
 		pAttr := strings.Split(attr, ".")
-		for _, value := range values {
-			buff.WriteString(
-				fmt.Sprintf(` within <%s %s="%s" />`, pAttr[0], pAttr[1], value))
-		}
+		buff.WriteString(
+			fmt.Sprintf(
+				` within <%s %s="%s" />`,
+				pAttr[0],
+				pAttr[1],
+				strings.Join(values, "|"),
+			),
+		)
 	}
 	return buff.String()
 }
