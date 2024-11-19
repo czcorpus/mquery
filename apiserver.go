@@ -49,7 +49,7 @@ type apiServer struct {
 }
 
 func (api *apiServer) Start(ctx context.Context) {
-	if !api.conf.LogLevel.IsDebugMode() {
+	if !api.conf.Logging.Level.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 

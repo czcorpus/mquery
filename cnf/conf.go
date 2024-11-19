@@ -97,8 +97,7 @@ type Conf struct {
 	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
 	CQLTranslatorURL       string               `json:"cqlTranslatorURL"`
 	Redis                  *rdb.Conf            `json:"redis"`
-	LogFile                string               `json:"logFile"`
-	LogLevel               logging.LogLevel     `json:"logLevel"`
+	Logging                logging.LoggingConf  `json:"logging"`
 	Locales                LocalesConf          `json:"locales"`
 	TimeZone               string               `json:"timeZone"`
 	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
@@ -116,10 +115,6 @@ func (conf *Conf) LoadSubconfigs() error {
 		}
 	}
 	return nil
-}
-
-func (conf *Conf) IsDebugMode() bool {
-	return conf.LogLevel == "debug"
 }
 
 func (conf *Conf) TimezoneLocation() *time.Location {
