@@ -178,11 +178,10 @@ func main() {
 	conf := cnf.LoadConfig(flag.Arg(1))
 
 	if action == "worker" {
-		var wPath string
-		if conf.LogFile != "" {
-			wPath = filepath.Join(filepath.Dir(conf.LogFile), "worker.log")
+		if conf.Logging.Path != "" {
+			conf.Logging.Path = filepath.Join(filepath.Dir(conf.Logging.Path), "worker.log")
 		}
-		logging.SetupLogging(wPath, conf.LogLevel)
+		logging.SetupLogging(conf.Logging)
 		log.Logger = log.Logger.With().Str("worker", getWorkerID()).Logger()
 
 	} else if action == "test" {
@@ -191,7 +190,7 @@ func main() {
 		return
 
 	} else {
-		logging.SetupLogging(conf.LogFile, conf.LogLevel)
+		logging.SetupLogging(conf.Logging)
 	}
 
 	if err := conf.LoadSubconfigs(); err != nil {
