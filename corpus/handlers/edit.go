@@ -82,6 +82,8 @@ func (a *Actions) DeleteSplit(ctx *gin.Context) {
 
 func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	corpPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	precalcAttr := ctx.QueryArray("precalcAttr")
+	precalcStruct := ctx.QueryArray("precalcStruct")
 	exists, err := edit.SplitCorpusExists(a.conf.SplitCorporaDir, corpPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -116,8 +118,8 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 			Args: rdb.CalcCollFreqDataArgs{
 				CorpusPath:     corpPath,
 				SubcPath:       subc,
-				Attrs:          []string{"word", "lemma"}, // TODO this should not be hardcoded
-				Structs:        []string{"doc"},
+				Attrs:          precalcAttr,
+				Structs:        precalcStruct,
 				MktokencovPath: a.conf.MktokencovPath,
 			},
 		})
