@@ -114,7 +114,7 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 			CorpusPath:     corpPath,
 			SubcPath:       subc,
 			Attrs:          []string{"word", "lemma"}, // TODO this should not be hardcoded
-			Structs:        []string{"doc"},
+			Structs:        []string{"doc", "text"},
 			MktokencovPath: a.conf.MktokencovPath,
 		})
 		if err != nil {
