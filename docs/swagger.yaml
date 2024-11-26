@@ -1,0 +1,114 @@
+basePath: /
+definitions:
+  mango.GoCollItem:
+    properties:
+      freq:
+        type: integer
+      score:
+        type: number
+      word:
+        type: string
+    type: object
+  results.Collocations:
+    properties:
+      colls:
+        items:
+          $ref: '#/definitions/mango.GoCollItem'
+        type: array
+      concSize:
+        type: integer
+      corpusSize:
+        type: integer
+      error: {}
+      measure:
+        type: string
+      srchRange:
+        items:
+          type: integer
+        type: array
+      subcSize:
+        type: integer
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a sample server celler server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: MQuery API
+paths:
+  /collocations/{corpusId}:
+    get:
+      consumes:
+      - application/json
+      description: Calculate a defined collocation profile of a searched expression.
+        Values are sorted in descending order by their collocation score.
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      - default: logDice
+        description: a collocation measure
+        enum:
+        - absFreq
+        - logLikelihood
+        - logDice
+        - minSensitivity
+        - mutualInfo
+        - mutualInfo3
+        - mutualInfoLogF
+        - relFreq
+        - tScore
+        in: query
+        name: measure
+        type: string
+      - default: 5
+        description: left range for candidates searching; values must be greater or
+          equal to 1 (1 stands for words right before the searched term)
+        in: query
+        name: srchLeft
+        type: integer
+      - default: 5
+        description: right range for candidates searching; values must be greater
+          or equal to 1 (1 stands for words right after the searched term)
+        in: query
+        name: srchRight
+        type: integer
+      - default: 3
+        description: ' the minimum frequency that a collocate must have in the searched
+          range.'
+        in: query
+        name: minCollFreq
+        type: integer
+      - default: 20
+        description: maximum number of result items
+        in: query
+        name: maxItems
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/results.Collocations'
+      summary: Collocations
+      tags:
+      - accounts
+swagger: "2.0"

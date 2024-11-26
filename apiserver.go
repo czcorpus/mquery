@@ -38,6 +38,9 @@ import (
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type apiServer struct {
@@ -146,6 +149,8 @@ func (api *apiServer) Start(ctx context.Context) {
 
 	engine.GET(
 		"/monitoring/recent-records", monitoringActions.RecentRecords)
+
+	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	log.Info().Msgf("starting to listen at %s:%d", api.conf.ListenAddress, api.conf.ListenPort)
 	api.server = &http.Server{
