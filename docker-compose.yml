@@ -1,0 +1,24 @@
+services:
+  mquery:
+    build:
+      context: .
+    volumes:
+      - ./conf-docker.json:/opt/mquery/conf-docker.json
+      - corpora-data:/var/lib/manatee
+      - split-data:/var/lib/manatee/split
+    ports:
+      - "8989:8989"
+    networks:
+      - redis
+    
+  redis:
+    image: redis:latest
+    networks:
+      - redis
+
+volumes:
+  split-data: {}
+  corpora-data: {}
+
+networks:
+  redis: {}
