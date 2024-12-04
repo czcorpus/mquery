@@ -35,6 +35,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type ttOverviewResponse struct {
+	Freqs      map[string]results.FreqDistrib `json:"freqs"`
+	Error      string                         `json:"error,omitempty"`
+	ResultType rdb.ResultType                 `json:"resultType"`
+} // @name TextTypesOverview
+
 type ttOverviewResult struct {
 	freqs map[string]results.FreqDistrib
 	error string
@@ -55,11 +61,7 @@ func (tto *ttOverviewResult) findError() string {
 
 func (tto *ttOverviewResult) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(
-		struct {
-			Freqs      map[string]results.FreqDistrib `json:"freqs"`
-			Error      string                         `json:"error,omitempty"`
-			ResultType rdb.ResultType                 `json:"resultType"`
-		}{
+		ttOverviewResponse{
 			Freqs:      tto.freqs,
 			ResultType: tto.Type(),
 			Error:      tto.findError(),
@@ -79,6 +81,16 @@ func newTtOverviewResult() *ttOverviewResult {
 
 // ----
 
+// TextTypesOverview godoc
+// @Summary      TTOverview
+// @Description  Shows the text types (= values of predefined structural attributes) of a searched term. This endpoint provides a similar result to the endpoint `/text-types/{corpusId}` called multiple times on a fixed set of attributes (typically: publication years, authors, text types, media)
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Param        flimit query int false "minimum frequency of result items to be included in the result set" minimum(0) default(1)
+// @Success      200 {object} ttOverviewResponse
+// @Router       /text-types-overview/{corpusId} [get]
 func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {

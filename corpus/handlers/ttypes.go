@@ -34,6 +34,16 @@ const (
 	textTypesInternalMaxResults = 20
 )
 
+// TextTypes godoc
+// @Summary      TextTypes
+// @Description  Calculates frequencies of all the values of a requested structural attribute found in structures matching required query (e.g. all the authors found in &lt;doc author=\"...\"&gt;)
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Param        attr query string false "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)"
+// @Success      200 {object} results.FreqDistribResponse
+// @Router       /text-types/{corpusId} [get]
 func (a *Actions) TextTypes(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {

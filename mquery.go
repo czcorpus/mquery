@@ -156,9 +156,8 @@ func cleanVersionInfo(v string) string {
 	return strings.TrimLeft(strings.Trim(v, "'"), "v")
 }
 
-// @title           MQuery API
-// @description     This is a sample server celler server.
-// @termsOfService  http://swagger.io/terms/
+// @title           MQuery - query and analyze corpus data
+// @description     Retrieves concordances, frequency information and collocations from language corpora
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html

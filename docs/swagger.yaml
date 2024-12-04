@@ -1,5 +1,224 @@
 basePath: /
 definitions:
+  Citation:
+    properties:
+      article_ref:
+        items:
+          type: string
+        type: array
+      default_ref:
+        type: string
+      other_bibliography:
+        type: string
+    type: object
+  Collocations:
+    properties:
+      colls:
+        items:
+          $ref: '#/definitions/mango.GoCollItem'
+        type: array
+      corpusSize:
+        type: integer
+      error:
+        type: string
+      measure:
+        type: string
+      resultType:
+        $ref: '#/definitions/ResultType'
+      srchRange:
+        items:
+          type: integer
+        type: array
+      subcSize:
+        type: integer
+    type: object
+  ConcSize:
+    properties:
+      arf:
+        type: number
+      corpusSize:
+        type: integer
+      error:
+        type: string
+      ipm:
+        type: number
+      resultType:
+        $ref: '#/definitions/ResultType'
+      total:
+        type: integer
+    type: object
+  Concordance:
+    properties:
+      concSize:
+        type: integer
+      error:
+        type: string
+      lines:
+        items:
+          $ref: '#/definitions/concordance.Line'
+        type: array
+      resultType:
+        $ref: '#/definitions/ResultType'
+    type: object
+  Corplist:
+    properties:
+      corpora:
+        items:
+          $ref: '#/definitions/CorpusCompactInfo'
+        type: array
+      locale:
+        type: string
+    type: object
+  Corpus:
+    properties:
+      attrList:
+        items:
+          $ref: '#/definitions/Item'
+        type: array
+      citationInfo:
+        $ref: '#/definitions/Citation'
+      corpname:
+        type: string
+      description:
+        type: string
+      size:
+        type: integer
+      srchKeywords:
+        items:
+          type: string
+        type: array
+      structList:
+        items:
+          $ref: '#/definitions/Item'
+        type: array
+      textProperties:
+        items:
+          type: string
+        type: array
+      webUrl:
+        type: string
+    type: object
+  CorpusCompactInfo:
+    properties:
+      description:
+        type: string
+      flags:
+        items:
+          type: string
+        type: array
+      fullName:
+        type: string
+      id:
+        type: string
+      subcorpora:
+        items:
+          $ref: '#/definitions/SubcInfo'
+        type: array
+    type: object
+  CorpusInfo:
+    properties:
+      corpus:
+        $ref: '#/definitions/results.CorpusInfo'
+      locale:
+        type: string
+    type: object
+  Freq:
+    properties:
+      concSize:
+        type: integer
+      corpusSize:
+        type: integer
+      error:
+        type: string
+      examplesQueryTpl:
+        type: string
+      fcrit:
+        type: string
+      freqs:
+        items:
+          $ref: '#/definitions/results.FreqDistribItem'
+        type: array
+      resultType:
+        $ref: '#/definitions/ResultType'
+      subcSize:
+        type: integer
+    type: object
+  Item:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
+  ResultType:
+    enum:
+    - conc
+    - termFrequency
+    - coll
+    - collFreqData
+    - freqs
+    - multipleFreqs
+    - corpusInfo
+    - textTypeNorms
+    - error
+    type: string
+    x-enum-varnames:
+    - ResultTypeConcordance
+    - ResultTypeConcSize
+    - ResultTypeCollocations
+    - ResultTypeCollFreqData
+    - ResultTypeFreqs
+    - ResultTypeMultipleFreqs
+    - ResultTypeCorpusInfo
+    - ResultTypeTextTypeNorms
+    - ResultTypeError
+  SubcInfo:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+    type: object
+  TextTypesOverview:
+    properties:
+      error:
+        type: string
+      freqs:
+        additionalProperties:
+          $ref: '#/definitions/results.FreqDistrib'
+        type: object
+      resultType:
+        $ref: '#/definitions/ResultType'
+    type: object
+  concordance.Line:
+    properties:
+      errMsg:
+        description: |-
+          ErrMsg is an error message in case problems occured
+          with parsing related to the line. The policy here is
+          to always return a line with value replaced by a placeholder
+          in case of an error.
+        type: string
+      props:
+        additionalProperties:
+          type: string
+        description: |-
+          Props contains information about the text this
+          line comes from (typically information like author,
+          publication year etc.)
+        type: object
+      ref:
+        description: |-
+          Ref contains numeric ID of the first token of the KWIC
+          It is typically used when referring back to the concordance
+        type: string
+      text:
+        description: Text contains positional text data (= tokens)
+        items: {}
+        type: array
+    type: object
   mango.GoCollItem:
     properties:
       freq:
@@ -9,25 +228,55 @@ definitions:
       word:
         type: string
     type: object
-  results.Collocations:
+  results.CorpusInfo:
     properties:
-      colls:
-        items:
-          $ref: '#/definitions/mango.GoCollItem'
-        type: array
+      data:
+        $ref: '#/definitions/Corpus'
+      error: {}
+    type: object
+  results.FreqDistrib:
+    properties:
       concSize:
+        description: ConcSize represents number of matching concordance rows
         type: integer
       corpusSize:
+        description: |-
+          CorpusSize is always equal to the whole corpus size
+          (even if we work with a subcorpus)
         type: integer
       error: {}
-      measure:
+      examplesQueryTpl:
+        description: |-
+          ExamplesQueryTpl provides a (CQL) query template
+          for obtaining examples matching words from the `Freqs`
+          atribute (one by one).
         type: string
-      srchRange:
+      fcrit:
+        description: |-
+          Fcrit a Manatee-encoded freq. criterion used with
+          this result. This is mostly useful (as an info for
+          a client) in case a default criterion is applied.
+        type: string
+      freqs:
         items:
-          type: integer
+          $ref: '#/definitions/results.FreqDistribItem'
         type: array
       subcSize:
+        description: |-
+          SubcSize shows a subcorpus size in case a subcorpus
+          is involved
         type: integer
+    type: object
+  results.FreqDistribItem:
+    properties:
+      base:
+        type: integer
+      freq:
+        type: integer
+      ipm:
+        type: number
+      value:
+        type: string
     type: object
 externalDocs:
   description: OpenAPI
@@ -35,17 +284,15 @@ externalDocs:
 host: localhost:8080
 info:
   contact: {}
-  description: This is a sample server celler server.
+  description: Retrieves concordances, frequency information and collocations from
+    language corpora
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  termsOfService: http://swagger.io/terms/
-  title: MQuery API
+  title: MQuery - query and analyze corpus data
 paths:
   /collocations/{corpusId}:
     get:
-      consumes:
-      - application/json
       description: Calculate a defined collocation profile of a searched expression.
         Values are sorted in descending order by their collocation score.
       parameters:
@@ -107,8 +354,335 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/results.Collocations'
+            $ref: '#/definitions/Collocations'
       summary: Collocations
-      tags:
-      - accounts
+  /concordance/{corpusId}:
+    get:
+      description: Search in a corpus for concordances
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      - default: json
+        description: For a concordance formatted in Markdown, `markdown` value can
+          be passed
+        enum:
+        - json
+        - markdown
+        in: query
+        name: format
+        type: string
+      - default: 0
+        description: if 1, then markup specifying formatting and structure of text
+          will be displayed along with tokens
+        enum:
+        - 0
+        - 1
+        in: query
+        name: showMarkup
+        type: integer
+      - default: 0
+        description: if 1, then text metadata (e.g. author, publication year) will
+          be attached to each line
+        enum:
+        - 0
+        - 1
+        in: query
+        name: showTextProps
+        type: integer
+      - default: 10
+        description: Defines number of tokens around KWIC. For a value K, the left
+          context is floor(K / 2) and for the right context, it is ceil(K / 2).
+        in: query
+        maximum: 50
+        minimum: 0
+        name: contextWidth
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Concordance
+  /corplist:
+    get:
+      description: Shows a list of available corpora with their basic properties.
+      parameters:
+      - default: en
+        description: An ISO 639-1 locale code of response
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Corplist'
+      summary: Corplist
+  /freqs/{corpusId}:
+    get:
+      description: Calculate a frequency distribution for a searched term (KWIC).
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      - default: lemma
+        description: a positional attribute (e.g. `word`, `lemma`, `tag`) the frequency
+          will be calculated on
+        in: query
+        name: attr
+        type: string
+      - description: ' '
+        enum:
+        - 0
+        - 1
+        in: query
+        name: matchCase
+        type: integer
+      - default: 20
+        description: maximum number of result items
+        in: query
+        name: maxItems
+        type: integer
+      - default: 1
+        description: minimum frequency of result items to be included in the result
+          set
+        in: query
+        minimum: 0
+        name: flimit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Freq'
+      summary: FreqDistrib
+  /info/{corpusId}:
+    get:
+      description: Shows a detailed corpus information, including size in tokens,
+        available positional and structural attributes.
+      parameters:
+      - description: An ID of a corpus to get info about
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - default: en
+        description: An ISO 639-1 locale code of response.
+        in: query
+        name: locale
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CorpusInfo'
+      summary: CorpusInfo
+  /sentences/{corpusId}:
+    get:
+      description: Search in a corpus for matching sentences. This is an alternative
+        to the /concordance/{corpusId} endpoint.
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      - default: json
+        description: For a concordance formatted in Markdown, `markdown` value can
+          be passed
+        enum:
+        - json
+        - markdown
+        in: query
+        name: format
+        type: string
+      - default: 0
+        description: if 1, then markup specifying formatting and structure of text
+          will be displayed along with tokens
+        enum:
+        - 0
+        - 1
+        in: query
+        name: showMarkup
+        type: integer
+      - default: 0
+        description: if 1, then text metadata (e.g. author, publication year) will
+          be attached to each line
+        enum:
+        - 0
+        - 1
+        in: query
+        name: showTextProps
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Sentences
+  /term-frequency/{corpusId}:
+    get:
+      description: This endpoint retrieves the frequency, instances per million (IPM),
+        and Average Reduced Frequency (ARF) of a searched term within a corpus. It
+        provides a concise aggregated frequency overview for a given query, regardless
+        of the number of concrete words (n-grams) it covers.
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ConcSize'
+      summary: TermFrequency
+  /text-types-overview/{corpusId}:
+    get:
+      description: 'Shows the text types (= values of predefined structural attributes)
+        of a searched term. This endpoint provides a similar result to the endpoint
+        `/text-types/{corpusId}` called multiple times on a fixed set of attributes
+        (typically: publication years, authors, text types, media)'
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      - default: 1
+        description: minimum frequency of result items to be included in the result
+          set
+        in: query
+        minimum: 0
+        name: flimit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TextTypesOverview'
+      summary: TTOverview
+  /text-types/{corpusId}:
+    get:
+      description: Calculates frequencies of all the values of a requested structural
+        attribute found in structures matching required query (e.g. all the authors
+        found in &lt;doc author=\"...\"&gt;)
+      parameters:
+      - description: An ID of a corpus to search in
+        in: path
+        name: corpusId
+        required: true
+        type: string
+      - description: The translated query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: An ID of a subcorpus
+        in: query
+        name: subcorpus
+        type: string
+      - description: a structural attribute the frequencies will be calculated for
+          (e.g. `doc.pubyear`, `text.author`,...)
+        in: query
+        name: attr
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Freq'
+      summary: TextTypes
+  /translate:
+    get:
+      description: Translate a query to CQL.
+      parameters:
+      - description: the raw query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: language in which the raw query is (eng or ces)
+        enum:
+        - ces
+        - eng
+        in: query
+        name: lang
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Translate
 swagger: "2.0"

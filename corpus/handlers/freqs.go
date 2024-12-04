@@ -44,6 +44,19 @@ const (
 	MaxFreqResultItems = 20
 )
 
+// FreqDistrib godoc
+// @Summary      FreqDistrib
+// @Description  Calculate a frequency distribution for a searched term (KWIC).
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Param        attr query string false "a positional attribute (e.g. `word`, `lemma`, `tag`) the frequency will be calculated on" default(lemma)
+// @Param        matchCase query int false " " enums(0, 1)
+// @Param        maxItems query int false "maximum number of result items" default(20)
+// @Param        flimit query int false "minimum frequency of result items to be included in the result set" minimum(0) default(1)
+// @Success      200 {object} results.FreqDistribResponse
+// @Router       /freqs/{corpusId} [get]
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {
