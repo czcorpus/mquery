@@ -56,10 +56,10 @@ func CompileFreqResult(
 			ans = append(
 				ans,
 				&results.FreqDistribItem{
-					Freq:  freqs.Freqs[i],
-					Base:  norm,
-					IPM:   float32(freqs.Freqs[i]) / float32(norm) * 1e6,
-					Value: freqs.Words[i],
+					Freq: freqs.Freqs[i],
+					Base: norm,
+					IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
+					Word: freqs.Words[i],
 				},
 			)
 		}
