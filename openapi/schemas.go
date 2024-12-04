@@ -247,7 +247,7 @@ func createSchemas() ObjectProperties {
 				Items: &arrayItem{
 					Type: "object",
 					Properties: ObjectProperties{
-						"value": ObjectProperty{
+						"word": ObjectProperty{
 							Type:        "string",
 							Description: "an analyzed term",
 						},
@@ -330,7 +330,7 @@ func createSchemas() ObjectProperties {
 				Items: &arrayItem{
 					Type: "object",
 					Properties: ObjectProperties{
-						"value": ObjectProperty{
+						"word": ObjectProperty{
 							Type:        "string",
 							Description: "an analyzed term",
 						},
