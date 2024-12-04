@@ -55,10 +55,10 @@ func (flist FreqDistribItemList) AlwaysAsList() []*FreqDistribItem {
 }
 
 type FreqDistribItem struct {
-	Value string  `json:"value"`
-	Freq  int64   `json:"freq"`
-	Base  int64   `json:"base"`
-	IPM   float32 `json:"ipm"`
+	Word string  `json:"word"`
+	Freq int64   `json:"freq"`
+	Base int64   `json:"base"`
+	IPM  float32 `json:"ipm"`
 }
 
 type WordFormsItem struct {
@@ -129,7 +129,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 
 func (res *FreqDistrib) FindItem(w string) *FreqDistribItem {
 	for _, v := range res.Freqs {
-		if v.Value == w {
+		if v.Word == w {
 			return v
 		}
 	}
@@ -141,7 +141,7 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 	res.CorpusSize = other.CorpusSize // always the same value but to resolve possible initial 0
 	res.ExamplesQueryTpl = ""         // we cannot merge two CQL queries so we remove it
 	for _, v2 := range other.Freqs {
-		v1 := res.FindItem(v2.Value)
+		v1 := res.FindItem(v2.Word)
 		if v1 != nil {
 			v1.Freq += v2.Freq
 			v1.IPM = float32(v1.Freq) / float32(v1.Base) * 1e6
