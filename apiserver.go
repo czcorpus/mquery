@@ -25,7 +25,6 @@ import (
 	"mquery/corpus/infoload"
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
-	"mquery/openapi"
 	"mquery/proxied"
 	"mquery/rdb"
 	"net/http"
@@ -74,7 +73,7 @@ func (api *apiServer) Start(ctx context.Context) {
 
 	engine.GET("/privacy-policy", mkPrivacyPolicy(api.conf))
 
-	engine.GET("/openapi", openapi.MkHandleRequest(api.conf, cleanVersionInfo(version)))
+	engine.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	protected.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)
@@ -149,8 +148,6 @@ func (api *apiServer) Start(ctx context.Context) {
 
 	engine.GET(
 		"/monitoring/recent-records", monitoringActions.RecentRecords)
-
-	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	log.Info().Msgf("starting to listen at %s:%d", api.conf.ListenAddress, api.conf.ListenPort)
 	api.server = &http.Server{
