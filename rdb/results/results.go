@@ -263,8 +263,9 @@ type ConcordanceResponse struct {
 	ConcSize   int                `json:"concSize"`
 	ResultType rdb.ResultType     `json:"resultType"`
 	Error      string             `json:"error,omitempty"`
-} // @name Concordance
+}
 
+// @name Concordance
 type Concordance struct {
 	Lines    []concordance.Line
 	ConcSize int
