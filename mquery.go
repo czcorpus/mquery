@@ -35,6 +35,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
+	"mquery/docs"
 	"mquery/general"
 	"mquery/merror"
 	"mquery/rdb"
@@ -155,12 +156,24 @@ func cleanVersionInfo(v string) string {
 	return strings.TrimLeft(strings.Trim(v, "'"), "v")
 }
 
+// @title           MQuery - query and analyze corpus data
+// @description     Retrieves concordances, frequency information and collocations from language corpora
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
 func main() {
 	version := general.VersionInfo{
 		Version:   cleanVersionInfo(version),
 		BuildDate: cleanVersionInfo(buildDate),
 		GitCommit: cleanVersionInfo(gitCommit),
 	}
+	docs.SwaggerInfo.Version = version.Version
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "MQUERY - A specialized corpus querying server\n\n")

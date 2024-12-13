@@ -32,7 +32,7 @@ import (
 type subcInfo struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
-}
+} // @name SubcInfo
 
 type corpusCompactInfo struct {
 	ID          string     `json:"id"`
@@ -40,17 +40,17 @@ type corpusCompactInfo struct {
 	Description string     `json:"description"`
 	Flags       []string   `json:"flags"`
 	Subcorpora  []subcInfo `json:"subcorpora"`
-}
+} // @name CorpusCompactInfo
 
 type corplistResponse struct {
 	Corpora []corpusCompactInfo `json:"corpora"`
 	Locale  string              `json:"locale"`
-}
+} // @name Corplist
 
 type corpusInfoResponse struct {
 	Corpus *results.CorpusInfo `json:"corpus"`
 	Locale string              `json:"locale"`
-}
+} // @name CorpusInfo
 
 func getTranslation(data map[string]string, lang string) string {
 	v, ok := data[lang]
@@ -60,6 +60,14 @@ func getTranslation(data map[string]string, lang string) string {
 	return data["en"]
 }
 
+// CorpusInfo godoc
+// @Summary      CorpusInfo
+// @Description  Shows a detailed corpus information, including size in tokens, available positional and structural attributes.
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to get info about"
+// @Param        locale query string false "An ISO 639-1 locale code of response." default(en)
+// @Success      200 {object} corpusInfoResponse
+// @Router       /info/{corpusId} [get]
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
 	lang := ctx.DefaultQuery("lang", a.locales.DefaultLocale())
 	if !a.locales.SupportsLocale(lang) {
@@ -104,6 +112,13 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
+// Corplist godoc
+// @Summary      Corplist
+// @Description  Shows a list of available corpora with their basic properties.
+// @Produce      json
+// @Param        lang query string false "An ISO 639-1 locale code of response" default(en)
+// @Success      200 {object} corplistResponse
+// @Router       /corplist [get]
 func (a *Actions) Corplist(ctx *gin.Context) {
 	lang := ctx.DefaultQuery("lang", a.locales.DefaultLocale())
 	if !a.locales.SupportsLocale(lang) {

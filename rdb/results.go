@@ -32,7 +32,7 @@ const (
 	ResultTypeError         ResultType = "error"
 )
 
-type ResultType string
+type ResultType string // @name ResultType
 
 func (rt ResultType) String() string {
 	return string(rt)

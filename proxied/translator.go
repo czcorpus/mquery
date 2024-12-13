@@ -34,6 +34,14 @@ type Actions struct {
 	requestTimeoutSecs  int
 }
 
+// RemoteQueryTranslator godoc
+// @Summary      Translate
+// @Description  Translate a query to CQL.
+// @Produce      plain
+// @Param        q query string true "the raw query"
+// @Param        lang query string true "language in which the raw query is (eng or ces)" enums(ces, eng)
+// @Success      200 {string} string
+// @Router       /translate [get]
 func (a *Actions) RemoteQueryTranslator(ctx *gin.Context) {
 	req, err := http.NewRequest("GET", a.translatorURL, nil)
 	if err != nil {

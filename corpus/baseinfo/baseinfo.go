@@ -21,13 +21,13 @@ type Item struct {
 	Name        string `json:"name"`
 	Size        int    `json:"size"`
 	Description string `json:"description,omitempty"`
-}
+} // @name Item
 
 type Citation struct {
 	DefaultRef        string   `json:"default_ref"`
 	ArticleRef        []string `json:"article_ref"`
 	OtherBibliography string   `json:"other_bibliography"`
-}
+} // @name Citation
 
 type Tagset struct {
 	ID            string     `json:"ident"`
@@ -51,4 +51,4 @@ type Corpus struct {
 	WebUrl         string         `json:"webUrl"`
 	CitationInfo   *Citation      `json:"citationInfo"`
 	SrchKeywords   []string       `json:"srchKeywords"`
-}
+} // @name Corpus

@@ -38,6 +38,20 @@ const (
 	DefaultCollMaxItems    = 20
 )
 
+// Collocations godoc
+// @Summary      Collocations
+// @Description  Calculate a defined collocation profile of a searched expression. Values are sorted in descending order by their collocation score.
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Param        measure query string false "a collocation measure" enums(absFreq, logLikelihood, logDice, minSensitivity, mutualInfo, mutualInfo3, mutualInfoLogF, relFreq, tScore) default(logDice)
+// @Param        srchLeft query int false "left range for candidates searching; values must be greater or equal to 1 (1 stands for words right before the searched term)" default(5)
+// @Param        srchRight query int false "right range for candidates searching; values must be greater or equal to 1 (1 stands for words right after the searched term)" default(5)
+// @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
+// @Param        maxItems query int false "maximum number of result items" default(20)
+// @Success      200 {object} results.CollocationsResponse
+// @Router       /collocations/{corpusId} [get]
 func (a *Actions) Collocations(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	if queryProps.hasError() {

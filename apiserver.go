@@ -25,7 +25,6 @@ import (
 	"mquery/corpus/infoload"
 	"mquery/monitoring"
 	monitoringActions "mquery/monitoring/handlers"
-	"mquery/openapi"
 	"mquery/proxied"
 	"mquery/rdb"
 	"net/http"
@@ -38,6 +37,9 @@ import (
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type apiServer struct {
@@ -71,7 +73,7 @@ func (api *apiServer) Start(ctx context.Context) {
 
 	engine.GET("/privacy-policy", mkPrivacyPolicy(api.conf))
 
-	engine.GET("/openapi", openapi.MkHandleRequest(api.conf, cleanVersionInfo(version)))
+	engine.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	protected.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)

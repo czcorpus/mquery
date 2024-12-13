@@ -69,6 +69,17 @@ type WordFormsItem struct {
 
 // ----
 
+type FreqDistribResponse struct {
+	ConcSize         int64               `json:"concSize"`
+	CorpusSize       int64               `json:"corpusSize"`
+	SubcSize         int64               `json:"subcSize,omitempty"`
+	Freqs            FreqDistribItemList `json:"freqs"`
+	Fcrit            string              `json:"fcrit"`
+	ExamplesQueryTpl string              `json:"examplesQueryTpl,omitempty"`
+	ResultType       rdb.ResultType      `json:"resultType"`
+	Error            string              `json:"error,omitempty"`
+} // @name Freq
+
 type FreqDistrib struct {
 
 	// ConcSize represents number of matching concordance rows
@@ -106,16 +117,7 @@ func (res FreqDistrib) Type() rdb.ResultType {
 }
 
 func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(struct {
-		ConcSize         int64               `json:"concSize"`
-		CorpusSize       int64               `json:"corpusSize"`
-		SubcSize         int64               `json:"subcSize,omitempty"`
-		Freqs            FreqDistribItemList `json:"freqs"`
-		Fcrit            string              `json:"fcrit"`
-		ExamplesQueryTpl string              `json:"examplesQueryTpl,omitempty"`
-		ResultType       rdb.ResultType      `json:"resultType"`
-		Error            string              `json:"error,omitempty"`
-	}{
+	return sonic.Marshal(FreqDistribResponse{
 		ConcSize:         res.ConcSize,
 		CorpusSize:       res.CorpusSize,
 		SubcSize:         res.SubcSize,
@@ -155,6 +157,15 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 
 // ----
 
+type ConcSizeResponse struct {
+	Total      int64          `json:"total"`
+	ARF        float64        `json:"arf"`
+	IPM        float64        `json:"ipm"`
+	CorpusSize int64          `json:"corpusSize"`
+	ResultType rdb.ResultType `json:"resultType"`
+	Error      string         `json:"error,omitempty"`
+} // @name ConcSize
+
 type ConcSize struct {
 	Total      int64   `json:"total"`
 	ARF        float64 `json:"arf"`
@@ -176,14 +187,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 		ipm = float64(res.Total) / float64(res.CorpusSize) * 1000000
 	}
 	return sonic.Marshal(
-		struct {
-			Total      int64          `json:"total"`
-			ARF        float64        `json:"arf"`
-			IPM        float64        `json:"ipm"`
-			CorpusSize int64          `json:"corpusSize"`
-			ResultType rdb.ResultType `json:"resultType"`
-			Error      string         `json:"error,omitempty"`
-		}{
+		ConcSizeResponse{
 			Total:      res.Total,
 			ARF:        rdb.NormRound(res.ARF),
 			IPM:        rdb.NormRound(ipm),
@@ -195,6 +199,16 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 }
 
 // ----
+
+type CollocationsResponse struct {
+	CorpusSize int64               `json:"corpusSize"`
+	SubcSize   int64               `json:"subcSize,omitempty"`
+	Colls      []*mango.GoCollItem `json:"colls"`
+	ResultType rdb.ResultType      `json:"resultType"`
+	Measure    string              `json:"measure"`
+	SrchRange  [2]int              `json:"srchRange"`
+	Error      string              `json:"error,omitempty"`
+} // @name Collocations
 
 type Collocations struct {
 	ConcSize   int64
@@ -216,15 +230,7 @@ func (res Collocations) Type() rdb.ResultType {
 
 func (res *Collocations) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(
-		struct {
-			CorpusSize int64               `json:"corpusSize"`
-			SubcSize   int64               `json:"subcSize,omitempty"`
-			Colls      []*mango.GoCollItem `json:"colls"`
-			ResultType rdb.ResultType      `json:"resultType"`
-			Measure    string              `json:"measure"`
-			SrchRange  [2]int              `json:"srchRange"`
-			Error      string              `json:"error,omitempty"`
-		}{
+		CollocationsResponse{
 			CorpusSize: res.CorpusSize,
 			SubcSize:   res.SubcSize,
 			Colls:      res.Colls,
@@ -252,6 +258,13 @@ func (res CollFreqData) Type() rdb.ResultType {
 
 // ----
 
+type ConcordanceResponse struct {
+	Lines      []concordance.Line `json:"lines"`
+	ConcSize   int                `json:"concSize"`
+	ResultType rdb.ResultType     `json:"resultType"`
+	Error      string             `json:"error,omitempty"`
+} // @name Concordance
+
 type Concordance struct {
 	Lines    []concordance.Line
 	ConcSize int
@@ -268,12 +281,7 @@ func (res Concordance) Type() rdb.ResultType {
 
 func (res Concordance) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(
-		struct {
-			Lines      []concordance.Line `json:"lines"`
-			ConcSize   int                `json:"concSize"`
-			ResultType rdb.ResultType     `json:"resultType"`
-			Error      string             `json:"error,omitempty"`
-		}{
+		ConcordanceResponse{
 			Lines:      res.Lines,
 			ConcSize:   res.ConcSize,
 			ResultType: res.Type(),

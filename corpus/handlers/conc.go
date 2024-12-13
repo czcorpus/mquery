@@ -80,6 +80,20 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 	)
 }
 
+// Concordance godoc
+// @Summary      Concordance
+// @Description  Search in a corpus for concordances
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Param        format query string false "For a concordance formatted in Markdown, `markdown` value can be passed" Enums(json,markdown) default(json)
+// @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
+// @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
+// @Param        contextWidth query int false "Defines number of tokens around KWIC. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
+// @Success      200 {object} results.ConcordanceResponse
+// @Success      200 {string} text/markdown
+// @Router       /concordance/{corpusId} [get]
 func (a *Actions) Concordance(ctx *gin.Context) {
 	format := concFormat(ctx.DefaultQuery("format", "json"))
 	if err := format.Validate(); err != nil {
@@ -141,6 +155,19 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 	)
 }
 
+// Sentences godoc
+// @Summary      Sentences
+// @Description  Search in a corpus for matching sentences. This is an alternative to the /concordance/{corpusId} endpoint.
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Param        format query string false "For a concordance formatted in Markdown, `markdown` value can be passed" enums(json,markdown) default(json)
+// @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
+// @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
+// @Success      200 {object} results.ConcordanceResponse
+// @Success      200 {string} text/markdown
+// @Router       /sentences/{corpusId} [get]
 func (a *Actions) Sentences(ctx *gin.Context) {
 	format := concFormat(ctx.DefaultQuery("format", "json"))
 	if err := format.Validate(); err != nil {
@@ -244,6 +271,15 @@ func (a *Actions) anyConcordance(
 	}
 }
 
+// TermFrequency godoc
+// @Summary      TermFrequency
+// @Description  This endpoint retrieves the frequency, instances per million (IPM), and Average Reduced Frequency (ARF) of a searched term within a corpus. It provides a concise aggregated frequency overview for a given query, regardless of the number of concrete words (n-grams) it covers.
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "The translated query"
+// @Param        subcorpus query string false "An ID of a subcorpus"
+// @Success      200 {object} results.ConcSizeResponse
+// @Router       /term-frequency/{corpusId} [get]
 func (a *Actions) TermFrequency(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
 	argsBuilder := func(conf *corpus.CorpusSetup, q string) rdb.TermFrequencyArgs {

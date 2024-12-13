@@ -16,7 +16,11 @@
                 "syntaxConcordance": {
                     "parentAttr": "someParent",
                     "resultAttrs": ["word", "lemma", "p_lemma", "parent"]
-                }
+                },
+                "posAttrs": [
+                    {"name": "word"},
+                    {"name": "lemma"}
+                ]
             }
         ]
     },
@@ -29,8 +33,10 @@
         "channelResultPrefix": "res",
         "queryAnswerTimeoutSecs": 600
     },
-    "logFile": "",
-    "logLevel": "debug",
+    "logging": {
+        "path": "",
+        "level": "debug"
+    },
     "language": "en",
     "timeZone": "UTC"
 }
