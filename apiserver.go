@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"mquery/cnf"
 	corpusActions "mquery/corpus/handlers"
@@ -50,6 +51,9 @@ type apiServer struct {
 	jobLogger    *monitoring.WorkerJobLogger
 }
 
+//go:embed docs/swagger.json
+var swaggerJSON embed.FS
+
 func (api *apiServer) Start(ctx context.Context) {
 	if !api.conf.Logging.Level.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
@@ -74,6 +78,20 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.GET("/privacy-policy", mkPrivacyPolicy(api.conf))
 
 	engine.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// also serve the JSON variant of the docs on the legacy URL:
+	engine.GET(
+		"/openapi",
+		func(ctx *gin.Context) {
+			jsonFile, err := swaggerJSON.ReadFile("docs/swagger.json")
+			if err != nil {
+				err = fmt.Errorf("Failed to read Swagger file: %w", err)
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+				return
+			}
+			uniresp.WriteRawJSONResponse(ctx.Writer, jsonFile)
+		},
+	)
 
 	protected.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)

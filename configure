@@ -11,6 +11,13 @@ else
   echo "...error"
 fi
 
+go install github.com/swaggo/swag/cmd/swag@latest
+if [ $? -eq 0 ]; then
+  echo "...done"
+else
+  echo "...error"
+fi
+
 # check system and prepare env variables
 eval $(manabuild -no-build)
 
@@ -28,10 +35,12 @@ LDFLAGS=-ldflags "-w -s -X main.version=\${VERSION} -X main.buildDate=\${BUILD} 
 all: test-and-build
 
 build:
-	@echo "building the project without running unit tests"
+	@echo "building without running unit tests and without regenerating OpenAPI"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery
 
 test-and-build:
+	@echo "generating OpenAPI documentation"
+	swag init --parseDependency -g apiserver.go
 	@echo "running unit tests and building the project"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go test $(go list ./...  | tr '\n' ' ')
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery
@@ -39,6 +48,7 @@ test-and-build:
 tools:
 	@echo "installing local dependencies"
 	@go install github.com/czcorpus/manabuild@latest
+	@go install github.com/swaggo/swag/cmd/swag@latest
 
 manatee-src:
 	manabuild -no-build
@@ -54,13 +64,17 @@ install:
 	@systemctl enable mquery-server
 	@systemctl enable mquery-worker-all.target
 
-clean:
+uninstall:
 	@systemctl disable mquery-server
 	@systemctl disable mquery-worker-all.target
 	@rm -rf /etc/systemd/system/mquery-server.service
 	@rm -rf /etc/systemd/system/mquery-worker-all.target
 	@rm -rf /etc/systemd/system/mquery-worker@.service
 	@rm -rf /opt/mquery
+
+clean:
+	rm -rf docs/*
+
 
 test:
 	@echo "running unit tests"
