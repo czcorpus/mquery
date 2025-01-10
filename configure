@@ -18,6 +18,13 @@ else
   echo "...error"
 fi
 
+swag init -g mquery.go --parseDependency
+if [ $? -eq 0 ]; then
+  echo "...done"
+else
+  echo "...error"
+fi
+
 # check system and prepare env variables
 eval $(manabuild -no-build)
 
