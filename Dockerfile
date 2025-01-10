@@ -19,5 +19,4 @@ RUN git config --global --add safe.directory /opt/mquery \
     && ./configure \
     && make build
 
-EXPOSE 8088
 CMD ["./mquery", "server", "conf-docker.json"]

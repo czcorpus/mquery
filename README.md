@@ -23,9 +23,9 @@ MQuery is an HTTP API server for mining language corpora using Manatee-Open engi
       * the application will be installed in `/opt/mquery`
       * for data and registry, `/var/opt/corpora/data` and `/var/opt/corpora/registry` directories will be created
       * systemd services `mquery-server.service` and `mquery-worker-all.target` will be created
-8. Copy at least one corpus and its configuration (registry) into respective directories (`/var/opt/corpora/data`, `/var/opt/corpora/registry`)
-9. Update corpora entries in `/opt/mquery/conf.json` file to match your installed corpora
-10. start the service:
+7. Copy at least one corpus and its configuration (registry) into respective directories (`/var/opt/corpora/data`, `/var/opt/corpora/registry`)
+8. Update corpora entries in `/opt/mquery/conf.json` file to match your installed corpora
+9. start the service:
       * `systemctl start mquery-server`
       * `systemctl start mquery-worker-all.target`
 
