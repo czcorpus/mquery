@@ -44,19 +44,21 @@ type Worker struct {
 }
 
 func (w *Worker) Start(ctx context.Context) {
-	for {
-		select {
-		case <-w.ticker.C:
-			w.tryNextQuery()
-		case <-ctx.Done():
-			log.Info().Msg("about to close MQuery worker")
-			return
-		case msg := <-w.messages:
-			if msg.Payload == rdb.MsgNewQuery {
+	go func() {
+		for {
+			select {
+			case <-w.ticker.C:
 				w.tryNextQuery()
+			case <-ctx.Done():
+				log.Info().Msg("about to close MQuery worker")
+				return
+			case msg := <-w.messages:
+				if msg.Payload == rdb.MsgNewQuery {
+					w.tryNextQuery()
+				}
 			}
 		}
-	}
+	}()
 }
 
 func (w *Worker) Stop(ctx context.Context) error {
