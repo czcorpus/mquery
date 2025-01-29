@@ -40,6 +40,7 @@ func CompileFreqResult(
 ) ([]*results.FreqDistribItem, error) {
 	ans := make([]*results.FreqDistribItem, 0, len(freqs.Freqs))
 	isTT := len(norms) > 0
+	presentValues := make(map[string]bool)
 	for i := range freqs.Freqs {
 		var norm int64
 		if isTT {
@@ -60,6 +61,20 @@ func CompileFreqResult(
 					Base: norm,
 					IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
 					Word: freqs.Words[i],
+				},
+			)
+			presentValues[freqs.Words[i]] = true
+		}
+	}
+	for nName, nValue := range norms {
+		if !presentValues[nName] {
+			ans = append(
+				ans,
+				&results.FreqDistribItem{
+					Freq: 0,
+					Base: nValue,
+					IPM:  0.0,
+					Word: nName,
 				},
 			)
 		}

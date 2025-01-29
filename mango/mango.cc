@@ -491,24 +491,28 @@ AttrValSizes get_attr_values_sizes(
         corp = new Corpus(corpus_path);
         strct = corp->get_struct(struct_name);
         attr = strct->get_attr(attr_name);
-
         map<PosInt, PosInt> normvals;
         auto sizes = new map<string, PosInt>;
 
         for (PosInt i = 0; i < strct->size(); i++) {
             normvals[strct->rng->beg_at(i)] = strct->rng->end_at(i) - strct->rng->beg_at(i);
         }
-
-        for (PosInt i = 0; i < attr->id_range(); i++) {
-            const char* value = attr->id2str(i);
-            PosInt valid = attr->str2id(value);
-            RangeStream* rng = corp->filter_query(strct->rng->part(attr->id2poss(valid)));
+        int i, id_range = attr->id_range();
+        for (i = 0; i < id_range; i++) {
             PosInt cnt = 0;
+            const char* value = attr->id2str(i);
+            FastStream *pos = attr->id2poss(i);
+            RangeStream *rng = strct->rng->part(pos);
+
+            if (false) { // TODO if subc
+                rng = corp->filter_query(rng);
+            }
             while (!rng->end()) {
                 cnt += normvals[rng->peek_beg()];
                 rng->next();
             }
             (*sizes)[value] = cnt;
+            delete pos;
         }
         ans.sizes = static_cast<void*>(sizes);
 
@@ -516,7 +520,6 @@ AttrValSizes get_attr_values_sizes(
         ans.err = strdup(e.what());
     }
     delete corp;
-
     return ans;
 }
 

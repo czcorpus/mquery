@@ -30,6 +30,7 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/mquery-common/concordance"
+	"github.com/rs/zerolog/log"
 )
 
 func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) results.CorpusInfo {
@@ -80,10 +81,20 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) results.FreqDistrib {
 	var norms map[string]int64
 	if args.IsTextTypes {
 		attr := extractAttrFromTTCrit(args.Crit)
-		norms, err = mango.GetTextTypesNorms(args.CorpusPath, attr)
 
-		if err != nil {
-			ans.Error = err
+		var ok bool
+		norms, ok = w.normsCache.Get(args.CorpusPath, attr)
+		if ok {
+			log.Debug().
+				Str("corp", args.CorpusPath).
+				Str("attr", attr).
+				Msg("norms cache hit")
+		} else {
+			var err error
+			norms, err = mango.GetTextTypesNorms(args.CorpusPath, attr)
+			if err != nil {
+				ans.Error = err
+			}
 		}
 	}
 	mergedFreqs, err := CompileFreqResult(
@@ -183,12 +194,21 @@ func (w *Worker) calcCollFreqData(args rdb.CalcCollFreqDataArgs) results.CollFre
 
 func (w *Worker) textTypeNorms(args rdb.TextTypeNormsArgs) results.TextTypeNorms {
 	var ans results.TextTypeNorms
-	norms, err := mango.GetTextTypesNorms(args.CorpusPath, args.StructAttr)
-	if err != nil {
-		ans.Error = err
-		return ans
+	norms, ok := w.normsCache.Get(args.CorpusPath, args.StructAttr)
+	if ok {
+		log.Debug().
+			Str("corp", args.CorpusPath).
+			Str("attr", args.StructAttr).
+			Msg("norms cache hit")
+	} else {
+		var err error
+		norms, err = mango.GetTextTypesNorms(args.CorpusPath, args.StructAttr)
+		if err != nil {
+			ans.Error = err
+			return ans
+		}
+		w.normsCache.Set(args.CorpusPath, args.StructAttr, norms)
 	}
 	ans.Sizes = norms
 	return ans
-
 }
