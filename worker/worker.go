@@ -37,10 +37,11 @@ const (
 )
 
 type Worker struct {
-	ID       string
-	messages <-chan *redis.Message
-	radapter *rdb.Adapter
-	ticker   time.Ticker
+	ID         string
+	messages   <-chan *redis.Message
+	radapter   *rdb.Adapter
+	ticker     time.Ticker
+	normsCache *NormsCache
 }
 
 func (w *Worker) Start(ctx context.Context) {
@@ -235,9 +236,10 @@ func NewWorker(
 	messages <-chan *redis.Message,
 ) *Worker {
 	return &Worker{
-		ID:       workerID,
-		radapter: radapter,
-		messages: messages,
-		ticker:   *time.NewTicker(DefaultTickerInterval),
+		ID:         workerID,
+		radapter:   radapter,
+		messages:   messages,
+		ticker:     *time.NewTicker(DefaultTickerInterval),
+		normsCache: NewNormsCache(),
 	}
 }

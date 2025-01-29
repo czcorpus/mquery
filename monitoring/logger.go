@@ -152,8 +152,8 @@ func (w *WorkerJobLogger) Start(ctx context.Context) {
 			case <-ctx.Done():
 				if ctx.Err() != nil { // should be always true here
 					log.Info().Msg("requesting worker job logger stop")
-					return
 				}
+				return
 			case <-ticker.C:
 				// TODO report to TimescaleDB (if configured)
 				if w.numTicks%ticksPerCleanup == 0 {

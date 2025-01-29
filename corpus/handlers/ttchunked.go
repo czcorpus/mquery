@@ -322,6 +322,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	corpusID := ctx.Param("corpusId")
 
 	fromYear, ok := unireq.GetURLIntArgOrFail(ctx, "fromYear", 0)
 	if !ok {
@@ -332,7 +333,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		return
 	}
 
-	calc, err := a.streamCalc(args.Q, args.Attr, ctx.Param("corpusId"), args.Flimit, args.MaxItems)
+	calc, err := a.streamCalc(args.Q, args.Attr, corpusID, args.Flimit, args.MaxItems)
 	if err != nil {
 		a.writeStreamingError(ctx, err)
 		return
