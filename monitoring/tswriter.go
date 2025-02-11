@@ -85,6 +85,7 @@ func (sw *TimescaleDBWriter) Write(item rdb.JobLog) {
 }
 
 func NewTimescaleDBWriter(
+	ctx context.Context,
 	conf hltscl.PgConf,
 	tz *time.Location,
 	onError func(err error),
@@ -95,7 +96,10 @@ func NewTimescaleDBWriter(
 		return nil, err
 	}
 	twriter := hltscl.NewTableWriter(conn, "mquery_operations_stats", "time", tz)
-	opsDataCh, errCh := twriter.Activate()
+	opsDataCh, errCh := twriter.Activate(
+		ctx,
+		hltscl.WithTimeout(20*time.Second),
+	)
 
 	return &TimescaleDBWriter{
 		tableWriter: twriter,
