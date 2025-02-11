@@ -198,6 +198,7 @@ func runApiServer(
 
 	if conf.Monitoring != nil {
 		statusWriter, err = monitoring.NewTimescaleDBWriter(
+			ctx,
 			conf.Monitoring.DB,
 			conf.TimezoneLocation(),
 			func(err error) {
