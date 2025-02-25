@@ -121,6 +121,9 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	}
 	result, ok := TypedOrRespondError[results.FreqDistrib](ctx, rawResult)
 	if !ok {
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("invalid result type"), http.StatusInternalServerError,
+		)
 		return
 	}
 	uniresp.WriteJSONResponse(
