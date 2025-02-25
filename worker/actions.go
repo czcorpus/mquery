@@ -65,7 +65,7 @@ func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) results.CorpusInfo {
 }
 
 func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) results.FreqDistrib {
-	var ans results.FreqDistrib
+	ans := results.FreqDistrib{Freqs: []*results.FreqDistribItem{}}
 	if args.MaxResults <= 0 {
 		ans.Error = merror.InputError{
 			Msg: "MaxResults must be a positive number"}
