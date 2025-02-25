@@ -100,6 +100,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		Func: "freqDistrib",
 		Args: rdb.FreqDistribArgs{
 			CorpusPath: corpusPath,
+			SubcPath:   queryProps.savedSubcorpus,
 			Query:      queryProps.query,
 			Crit:       fcrit,
 			FreqLimit:  flimit,

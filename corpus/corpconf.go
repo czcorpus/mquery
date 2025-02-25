@@ -150,16 +150,20 @@ func (ttp TextTypeProperties) Attr(prop baseinfo.TextProperty) string {
 }
 
 type CorpusSetup struct {
-	ID                   string               `json:"id"`
-	FullName             map[string]string    `json:"fullName"`
-	Description          map[string]string    `json:"description"`
-	SyntaxConcordance    SyntaxConcordance    `json:"syntaxConcordance"`
-	PosAttrs             PosAttrList          `json:"posAttrs"`
-	ConcMarkupStructures []string             `json:"concMarkupStructures"`
-	ConcTextPropsAttrs   []string             `json:"concTextPropsAttrs"`
-	TextProperties       TextTypeProperties   `json:"textProperties"`
-	MaximumRecords       int                  `json:"maximumRecords"`
-	Subcorpora           map[string]Subcorpus `json:"subcorpora"`
+	ID                   string             `json:"id"`
+	FullName             map[string]string  `json:"fullName"`
+	Description          map[string]string  `json:"description"`
+	SyntaxConcordance    SyntaxConcordance  `json:"syntaxConcordance"`
+	PosAttrs             PosAttrList        `json:"posAttrs"`
+	ConcMarkupStructures []string           `json:"concMarkupStructures"`
+	ConcTextPropsAttrs   []string           `json:"concTextPropsAttrs"`
+	TextProperties       TextTypeProperties `json:"textProperties"`
+	MaximumRecords       int                `json:"maximumRecords"`
+
+	// Subcorpora defines named transient subcorpora created as part of the query.
+	// MQuery also supports so called saved subcorpora which are files created via Manatee-open
+	// (or in a more user-friendly way using KonText or NoSkE).
+	Subcorpora map[string]Subcorpus `json:"subcorpora"`
 	// ViewContextStruct is a structure used to specify "units"
 	// for KWIC left and right context. Typically, this is
 	// a structure representing a sentence or a speach.

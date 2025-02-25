@@ -68,8 +68,9 @@ type CorporaSetup struct {
 
 	MktokencovPath string `json:"mktokencovPath"`
 
-	ConfFilesDir string    `json:"confFilesDir"`
-	Resources    Resources `json:"resources"`
+	ConfFilesDir       string    `json:"confFilesDir"`
+	Resources          Resources `json:"resources"`
+	SavedSubcorporaDir string    `json:"savedSubcorporaDir"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {
