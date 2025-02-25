@@ -76,7 +76,7 @@ func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProp
 				ans.savedSubcorpus = savedSubcPath
 
 			} else {
-				ans.err = errors.New("invalid subcorpus specification")
+				ans.err = fmt.Errorf("invalid subcorpus specification: %s", savedSubcPath)
 				ans.status = http.StatusUnprocessableEntity
 				return ans
 			}

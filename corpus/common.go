@@ -71,7 +71,7 @@ func CheckSavedSubcorpus(baseDir, corp, subcID string) (string, bool) {
 	isf, err := fs.IsFile(path)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to check saved subcorpus path")
-		return "", false
+		return path, false
 	}
 	return path, isf
 }
