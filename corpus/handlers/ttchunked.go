@@ -54,6 +54,15 @@ type streamedFreqsBaseArgs struct {
 	Fcrit    string
 	Flimit   int
 	MaxItems int
+
+	// Event is an optional argument specifying that
+	// a clients wants data to be returned with a specific
+	// event name (EventSource API). This is mostly used
+	// in case the streamed freqs. are part of multiple data
+	// stream (e.g. in WaG). Otherwise, MQuery will expect
+	// the client to have an exclusive event stream opened
+	// for the data (it returns just the `data` label).
+	Event string
 }
 
 type streamingError struct {
@@ -244,6 +253,7 @@ func (a *Actions) ttStreamedBase(ctx *gin.Context) (streamedFreqsBaseArgs, bool)
 	args.Q = ctx.Request.URL.Query().Get("q")
 	args.Attr = ctx.Request.URL.Query().Get("attr")
 	args.Fcrit = ctx.Request.URL.Query().Get("fcrit")
+	args.Event = ctx.Request.URL.Query().Get("event")
 	if args.Attr != "" && args.Fcrit != "" {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -305,7 +315,12 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 	for message := range calc {
 		messageJSON, err := sonic.Marshal(message)
 		if err == nil {
-			ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
+			if args.Event != "" {
+				ctx.String(http.StatusOK, "event: %s\ndata: %s\n\n", args.Event, messageJSON)
+
+			} else {
+				ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
+			}
 
 		} else {
 			a.writeStreamingError(ctx, err)
@@ -343,7 +358,12 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 	for message := range calc {
 		messageJSON, err := sonic.Marshal(message)
 		if err == nil {
-			ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
+			if args.Event != "" {
+				ctx.String(http.StatusOK, "event: %s\ndata: %s\n\n", args.Event, messageJSON)
+
+			} else {
+				ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
+			}
 
 		} else {
 			a.writeStreamingError(ctx, err)
