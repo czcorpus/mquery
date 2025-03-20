@@ -155,17 +155,38 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 		ans.Error = merror.InputError{Msg: "No positional attributes selected for the concordance"}
 		return ans
 	}
-	concEx, err := mango.GetConcordance(
-		args.CorpusPath,
-		args.Query,
-		args.Attrs,
-		args.ShowStructs,
-		args.ShowRefs,
-		args.StartLine,
-		args.MaxItems,
-		args.MaxContext,
-		args.ViewContextStruct,
-	)
+	var concEx mango.GoConcordance
+	var err error
+
+	if args.CollQuery != "" {
+		concEx, err = mango.GetConcordanceWithCollPhrase(
+			args.CorpusPath,
+			args.Query,
+			args.CollQuery,
+			args.CollLftCtx,
+			args.CollRgtCtx,
+			args.Attrs,
+			args.ShowStructs,
+			args.ShowRefs,
+			args.StartLine,
+			args.MaxItems,
+			args.MaxContext,
+			args.ViewContextStruct,
+		)
+
+	} else {
+		concEx, err = mango.GetConcordance(
+			args.CorpusPath,
+			args.Query,
+			args.Attrs,
+			args.ShowStructs,
+			args.ShowRefs,
+			args.StartLine,
+			args.MaxItems,
+			args.MaxContext,
+			args.ViewContextStruct,
+		)
+	}
 	if err != nil {
 		ans.Error = err
 		return ans

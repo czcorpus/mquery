@@ -38,6 +38,75 @@ const (
 	DefaultCollMaxItems    = 20
 )
 
+type collArgs struct {
+	queryProps  queryProps
+	measure     string
+	srchLeft    int
+	srchRight   int
+	minCollFreq int
+	maxItems    int
+}
+
+func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
+	var ans collArgs
+
+	ans.queryProps = DetermineQueryProps(ctx, a.conf)
+	if ans.queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, ans.queryProps.err, ans.queryProps.status)
+		return ans, false
+	}
+
+	ans.measure = ctx.Request.URL.Query().Get("measure")
+	if ans.measure == "" {
+		ans.measure = DefaultCollocationFunc
+	}
+
+	var ok bool
+	ans.srchLeft, ok = unireq.GetURLIntArgOrFail(ctx, "srchLeft", DefaultSrchLeft)
+	if !ok {
+		return ans, false
+	}
+	if ans.srchLeft < 0 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid srchLeft: %d, value must be greater or equal to 0", ans.srchLeft),
+			http.StatusBadRequest,
+		)
+		return ans, false
+	}
+	ans.srchRight, ok = unireq.GetURLIntArgOrFail(ctx, "srchRight", DefaultSrchRight)
+	if !ok {
+		return ans, false
+	}
+	if ans.srchRight < 0 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid srchRight: %d, value must be greater or equal to 0", ans.srchRight),
+			http.StatusBadRequest,
+		)
+		return ans, false
+	}
+
+	if ans.srchLeft == 0 && ans.srchRight == 0 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("at least one of srchRight and srchLeft must be greater than 0"),
+			http.StatusBadRequest,
+		)
+		return ans, false
+	}
+
+	ans.minCollFreq, ok = unireq.GetURLIntArgOrFail(ctx, "minCollFreq", DefaultMinCollFreq)
+	if !ok {
+		return ans, false
+	}
+	ans.maxItems, ok = unireq.GetURLIntArgOrFail(ctx, "maxItems", DefaultCollMaxItems)
+	if !ok {
+		return ans, false
+	}
+	return ans, true
+}
+
 // Collocations godoc
 // @Summary      Collocations
 // @Description  Calculate a defined collocation profile of a searched expression. Values are sorted in descending order by their collocation score.
@@ -53,75 +122,26 @@ const (
 // @Success      200 {object} results.CollocationsResponse
 // @Router       /collocations/{corpusId} [get]
 func (a *Actions) Collocations(ctx *gin.Context) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
-	if queryProps.hasError() {
-		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
-		return
-	}
-
-	measure := ctx.Request.URL.Query().Get("measure")
-	if measure == "" {
-		measure = DefaultCollocationFunc
-	}
-
-	srchLeft, ok := unireq.GetURLIntArgOrFail(ctx, "srchLeft", DefaultSrchLeft)
-	if !ok {
-		return
-	}
-	if srchLeft < 0 {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("invalid srchLeft: %d, value must be greater or equal to 0", srchLeft),
-			http.StatusBadRequest,
-		)
-		return
-	}
-	srchRight, ok := unireq.GetURLIntArgOrFail(ctx, "srchRight", DefaultSrchRight)
-	if !ok {
-		return
-	}
-	if srchRight < 0 {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("invalid srchRight: %d, value must be greater or equal to 0", srchRight),
-			http.StatusBadRequest,
-		)
-		return
-	}
-
-	if srchLeft == 0 && srchRight == 0 {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("at least one of srchRight and srchLeft must be greater than 0"),
-			http.StatusBadRequest,
-		)
-		return
-	}
-
-	minCollFreq, ok := unireq.GetURLIntArgOrFail(ctx, "minCollFreq", DefaultMinCollFreq)
-	if !ok {
-		return
-	}
-	maxItems, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", DefaultCollMaxItems)
+	collArgs, ok := a.fetchCollActionArgs(ctx)
 	if !ok {
 		return
 	}
 
-	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
+	corpusPath := a.conf.GetRegistryPath(collArgs.queryProps.corpus)
 
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "collocations",
 		Args: rdb.CollocationsArgs{
 			CorpusPath: corpusPath,
-			Query:      queryProps.query,
+			Query:      collArgs.queryProps.query,
 			Attr:       CollDefaultAttr,
-			Measure:    measure,
+			Measure:    collArgs.measure,
 			// Note: see the range below and note that the left context
 			// is published differently (as a positive number) in contrast
 			// with the "internals" where a negative number is required
-			SrchRange: [2]int{-srchLeft, srchRight},
-			MinFreq:   int64(minCollFreq),
-			MaxItems:  maxItems,
+			SrchRange: [2]int{-collArgs.srchLeft, collArgs.srchRight},
+			MinFreq:   int64(collArgs.minCollFreq),
+			MaxItems:  collArgs.maxItems,
 		}})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(

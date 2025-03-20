@@ -25,8 +25,8 @@ import (
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
-	"strconv"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
@@ -104,19 +104,10 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		)
 		return
 	}
-	contextWidth := ConcordanceDefaultWidth
-	sContextWidth := ctx.Query("contextWidth")
-	if sContextWidth != "" {
-		var err error
-		contextWidth, err = strconv.Atoi(sContextWidth)
-		if err != nil {
-			uniresp.RespondWithErrorJSON(
-				ctx,
-				err,
-				http.StatusBadRequest,
-			)
-			return
-		}
+
+	contextWidth, ok := unireq.GetURLIntArgOrFail(ctx, "contextWidth", ConcordanceDefaultWidth)
+	if !ok {
+		return
 	}
 	if contextWidth > ConcordanceMaxWidth {
 		uniresp.RespondWithErrorJSON(
@@ -126,6 +117,11 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		)
 		return
 	}
+
+	collQuery := ctx.Request.URL.Query().Get("collQuery")
+	collLftCtx, ok := unireq.GetURLIntArgOrFail(ctx, "collLftCtx", 0)
+	collRgtCtx, ok := unireq.GetURLIntArgOrFail(ctx, "collRgtCtx", 0)
+
 	a.anyConcordance(
 		ctx,
 		format,
@@ -141,6 +137,9 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 				Query:             q,
+				CollQuery:         collQuery,
+				CollLftCtx:        collLftCtx,
+				CollRgtCtx:        collRgtCtx,
 				Attrs:             conf.PosAttrs.GetIDs(),
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				ShowStructs:       showStructs,

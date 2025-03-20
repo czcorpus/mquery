@@ -170,6 +170,22 @@ KWICRowsRetval conc_examples(
 
 void conc_examples_free(KWICRowsV value, int numItems);
 
+
+KWICRowsRetval conc_examples_with_coll_phrase(
+    const char* corpusPath,
+    const char* query,
+    const char* collQuery,
+    const char* lctx,
+    const char* rctx,
+    const char* attrs,
+    const char* structs,
+    const char* refs,
+    const char* refsSplitter,
+    PosInt fromLine,
+    PosInt limit,
+    PosInt maxContext,
+    const char* viewContextStruct);
+
 CollsRetVal collocations(
     const char* corpusPath,
     const char* subcPath,
