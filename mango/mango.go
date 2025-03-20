@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"mquery/merror"
+	"strconv"
 	"strings"
 	"unicode"
 	"unsafe"
@@ -132,6 +133,58 @@ func GetConcordance(
 	ans := C.conc_examples(
 		C.CString(corpusPath),
 		C.CString(query),
+		C.CString(strings.Join(attrs, ",")),
+		C.CString(strings.Join(structs, ",")),
+		C.CString(strings.Join(refs, ",")),
+		C.CString(concordance.RefsEndMark),
+		C.longlong(fromLine),
+		C.longlong(maxItems),
+		C.longlong(maxContext),
+		C.CString(viewContextStruct))
+	var ret GoConcordance
+	ret.Lines = make([]string, 0, maxItems)
+	ret.ConcSize = int(ans.concSize)
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		if ans.errorCode == 1 {
+			return ret, ErrRowsRangeOutOfConc
+		}
+		return ret, err
+
+	} else {
+		defer C.conc_examples_free(ans.value, C.int(ans.size))
+	}
+	tmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.value))
+	for i := 0; i < int(ans.size); i++ {
+		str := C.GoString(tmp[i])
+		// we must test str len as our c++ wrapper may return it
+		// e.g. in case our offset is higher than actual num of lines
+		if len(str) > 0 {
+			ret.Lines = append(ret.Lines, str)
+		}
+	}
+	return ret, nil
+}
+
+func GetConcordanceWithCollPhrase(
+	corpusPath, query, collQuery string,
+	lftCtx, rgtCtx int,
+	attrs []string,
+	structs []string,
+	refs []string,
+	fromLine, maxItems, maxContext int,
+	viewContextStruct string,
+) (GoConcordance, error) {
+	if !collections.SliceContains(refs, "#") {
+		refs = append([]string{"#"}, refs...)
+	}
+	ans := C.conc_examples_with_coll_phrase(
+		C.CString(corpusPath),
+		C.CString(query),
+		C.CString(collQuery+";"),
+		C.CString(strconv.Itoa(lftCtx)),
+		C.CString(strconv.Itoa(rgtCtx)),
 		C.CString(strings.Join(attrs, ",")),
 		C.CString(strings.Join(structs, ",")),
 		C.CString(strings.Join(refs, ",")),

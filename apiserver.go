@@ -136,6 +136,9 @@ func (api *apiServer) Start(ctx context.Context) {
 		"/collocations/:corpusId", ceActions.Collocations)
 
 	engine.GET(
+		"/collocations-with-examples/:corpusId", ceActions.CollocationsWithExamples)
+
+	engine.GET(
 		"/word-forms/:corpusId", ceActions.WordForms)
 
 	engine.GET(
@@ -143,6 +146,9 @@ func (api *apiServer) Start(ctx context.Context) {
 
 	engine.GET(
 		"/concordance/:corpusId", ceActions.Concordance)
+
+	engine.GET(
+		"/concordance-with-coll-phrase", ceActions.ConcordanceWithCollPhrase)
 
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
