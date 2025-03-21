@@ -265,9 +265,18 @@ type ConcordanceResponse struct {
 	Error      string             `json:"error,omitempty"`
 }
 
+type ConcordanceLines []concordance.Line
+
+func (cl ConcordanceLines) alwaysAsList() ConcordanceLines {
+	if cl == nil {
+		return []concordance.Line{}
+	}
+	return cl
+}
+
 // @name Concordance
 type Concordance struct {
-	Lines    []concordance.Line
+	Lines    ConcordanceLines
 	ConcSize int
 	Error    error
 }
@@ -283,7 +292,7 @@ func (res Concordance) Type() rdb.ResultType {
 func (res Concordance) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(
 		ConcordanceResponse{
-			Lines:      res.Lines,
+			Lines:      res.Lines.alwaysAsList(),
 			ConcSize:   res.ConcSize,
 			ResultType: res.Type(),
 			Error:      errToStr(res.Error),

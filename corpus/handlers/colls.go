@@ -117,6 +117,7 @@ func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
 // @Param        measure query string false "a collocation measure" enums(absFreq, logLikelihood, logDice, minSensitivity, mutualInfo, mutualInfo3, mutualInfoLogF, relFreq, tScore) default(logDice)
 // @Param        srchLeft query int false "left range for candidates searching; values must be greater or equal to 1 (1 stands for words right before the searched term)" default(5)
 // @Param        srchRight query int false "right range for candidates searching; values must be greater or equal to 1 (1 stands for words right after the searched term)" default(5)
+// @Param        srchAttr query string false "a positional attribute considered when collocations are calculated ()" default(lemma)
 // @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
 // @Param        maxItems query int false "maximum number of result items" default(20)
 // @Success      200 {object} results.CollocationsResponse
@@ -129,12 +130,17 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 
 	corpusPath := a.conf.GetRegistryPath(collArgs.queryProps.corpus)
 
+	srchAttr := ctx.Request.URL.Query().Get("srchAttr")
+	if srchAttr == "" {
+		srchAttr = CollDefaultAttr
+	}
+
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "collocations",
 		Args: rdb.CollocationsArgs{
 			CorpusPath: corpusPath,
 			Query:      collArgs.queryProps.query,
-			Attr:       CollDefaultAttr,
+			Attr:       srchAttr,
 			Measure:    collArgs.measure,
 			// Note: see the range below and note that the left context
 			// is published differently (as a positive number) in contrast

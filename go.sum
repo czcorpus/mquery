@@ -20,12 +20,14 @@ github.com/cloudwego/base64x v0.1.4/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJ
 github.com/cloudwego/iasm v0.2.0 h1:1KNIy1I1H9hNNFEEH3DVnI4UujN+1zjpuk6gwHLTssg=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/czcorpus/cnc-gokit v0.11.3 h1:gV3OTUXtDqHEJ4v5rhhHNKeY3Wz5MFqs1/mT+UdvLY0=
-github.com/czcorpus/cnc-gokit v0.11.3/go.mod h1:BZSRrYUFIHXVIiuqnSoZbfXfL2X/gHWG3w35aIVW36U=
+github.com/czcorpus/cnc-gokit v0.12.0 h1:8HT1pg7aJ5uSVRZlppV5FEe/oNiz4L1r26KGSkruRls=
+github.com/czcorpus/cnc-gokit v0.12.0/go.mod h1:BZSRrYUFIHXVIiuqnSoZbfXfL2X/gHWG3w35aIVW36U=
 github.com/czcorpus/hltscl v0.2.0 h1:Rz4zNKGKHS/RchgXWnEobXTnvkHb+Cz63/JneBHroMo=
 github.com/czcorpus/hltscl v0.2.0/go.mod h1:qoi+22q0mRV5UPHNkda2PoTwZ2gaOKlt2U/7eCCzYoY=
 github.com/czcorpus/manabuild v0.1.3 h1:dcTMpRtUUHhm1H+7532MeNFID0WyRVDorydROgbbo4w=
 github.com/czcorpus/manabuild v0.1.3/go.mod h1:dj2iAsZObs4yJhF6KkQs5oH2AAyZlrmaNwMGV44hLbk=
+github.com/czcorpus/mquery-common v0.4.6 h1:cjLqYDAlZUE38t5klGrLCCVdB0jhgNfMaIvAZxrwBe8=
+github.com/czcorpus/mquery-common v0.4.6/go.mod h1:xAWGWB1e4P43bj0obOWq+Ie5NvutM+ZeSTUB7rEb6po=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

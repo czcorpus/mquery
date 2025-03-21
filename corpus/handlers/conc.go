@@ -25,6 +25,8 @@ import (
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -91,6 +93,8 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
 // @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
+// @Param        coll query string false "Optional collocate query (CQL)"
+// @Param        collRange query string false "Specifies where to search the collocate. I.e. this only applies if the `coll` is filled. Format: left,right where negative numbers are on the left side of the KWIC."
 // @Success      200 {object} results.ConcordanceResponse
 // @Success      200 {string} text/markdown
 // @Router       /concordance/{corpusId} [get]
@@ -118,9 +122,35 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		return
 	}
 
-	collQuery := ctx.Request.URL.Query().Get("collQuery")
-	collLftCtx, ok := unireq.GetURLIntArgOrFail(ctx, "collLftCtx", 0)
-	collRgtCtx, ok := unireq.GetURLIntArgOrFail(ctx, "collRgtCtx", 0)
+	collQuery := ctx.Request.URL.Query().Get("coll")
+	rng := ctx.Request.URL.Query().Get("collRange")
+	rngItems := strings.Split(rng, ",")
+	if len(rngItems) != 2 {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid collocate range format (should be 'left,right')"),
+			http.StatusBadRequest,
+		)
+		return
+	}
+	collLftCtx, err := strconv.Atoi(rngItems[0])
+	if err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid collocate left range value %s: %w", rngItems[0], err),
+			http.StatusBadRequest,
+		)
+		return
+	}
+	collRgtCtx, err := strconv.Atoi(rngItems[1])
+	if err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid collocate right range value %s: %w", rngItems[1], err),
+			http.StatusBadRequest,
+		)
+		return
+	}
 
 	a.anyConcordance(
 		ctx,
@@ -251,6 +281,7 @@ func (a *Actions) anyConcordance(
 	if !ok {
 		return
 	}
+
 	corpus.ApplyTextPropertiesMapping(result, queryProps.corpusConf.TextProperties)
 
 	switch format {

@@ -148,9 +148,6 @@ func (api *apiServer) Start(ctx context.Context) {
 		"/concordance/:corpusId", ceActions.Concordance)
 
 	engine.GET(
-		"/concordance-with-coll-phrase", ceActions.ConcordanceWithCollPhrase)
-
-	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
 
 	if api.conf.CQLTranslatorURL != "" {

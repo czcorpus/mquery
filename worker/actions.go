@@ -150,7 +150,9 @@ func (w *Worker) concSize(args rdb.ConcordanceArgs) results.ConcSize {
 }
 
 func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
-	var ans results.Concordance
+	ans := results.Concordance{
+		Lines: []concordance.Line{},
+	}
 	if len(args.Attrs) == 0 {
 		ans.Error = merror.InputError{Msg: "No positional attributes selected for the concordance"}
 		return ans

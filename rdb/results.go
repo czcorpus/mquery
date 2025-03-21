@@ -21,15 +21,16 @@ package rdb
 import "time"
 
 const (
-	ResultTypeConcordance   ResultType = "conc"
-	ResultTypeConcSize      ResultType = "termFrequency"
-	ResultTypeCollocations  ResultType = "coll"
-	ResultTypeCollFreqData  ResultType = "collFreqData"
-	ResultTypeFreqs         ResultType = "freqs"
-	ResultTypeMultipleFreqs ResultType = "multipleFreqs"
-	ResultTypeCorpusInfo    ResultType = "corpusInfo"
-	ResultTypeTextTypeNorms ResultType = "textTypeNorms"
-	ResultTypeError         ResultType = "error"
+	ResultTypeConcordance              ResultType = "conc"
+	ResultTypeConcSize                 ResultType = "termFrequency"
+	ResultTypeCollocations             ResultType = "coll"
+	ResultTypeCOllocationsWithExamples ResultType = "collWithExamples"
+	ResultTypeCollFreqData             ResultType = "collFreqData"
+	ResultTypeFreqs                    ResultType = "freqs"
+	ResultTypeMultipleFreqs            ResultType = "multipleFreqs"
+	ResultTypeCorpusInfo               ResultType = "corpusInfo"
+	ResultTypeTextTypeNorms            ResultType = "textTypeNorms"
+	ResultTypeError                    ResultType = "error"
 )
 
 type ResultType string // @name ResultType
