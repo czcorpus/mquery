@@ -18,7 +18,10 @@
 
 package merror
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type InputError struct {
 	Msg string
@@ -28,12 +31,28 @@ func (err InputError) Error() string {
 	return err.Msg
 }
 
+func (err InputError) MarshalJSON() ([]byte, error) {
+	if err.Msg != "" {
+		return json.Marshal(err.Msg)
+	}
+	return json.Marshal(nil)
+}
+
+// ----------------------------
+
 type InternalError struct {
 	Msg string
 }
 
 func (err InternalError) Error() string {
 	return err.Msg
+}
+
+func (err InternalError) MarshalJSON() ([]byte, error) {
+	if err.Msg != "" {
+		return json.Marshal(err.Msg)
+	}
+	return json.Marshal(nil)
 }
 
 // ---------------------------
@@ -46,6 +65,13 @@ func (err RecoveredError) Error() string {
 	return err.Msg
 }
 
+func (err RecoveredError) MarshalJSON() ([]byte, error) {
+	if err.Msg != "" {
+		return json.Marshal(err.Msg)
+	}
+	return json.Marshal(nil)
+}
+
 // ---------------------------
 
 type TimeoutError struct {
@@ -54,6 +80,13 @@ type TimeoutError struct {
 
 func (err TimeoutError) Error() string {
 	return err.Msg
+}
+
+func (err TimeoutError) MarshalJSON() ([]byte, error) {
+	if err.Msg != "" {
+		return json.Marshal(err.Msg)
+	}
+	return json.Marshal(nil)
 }
 
 // -----------------

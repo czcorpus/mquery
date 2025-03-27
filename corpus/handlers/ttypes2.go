@@ -73,7 +73,7 @@ func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 				Crit:        fmt.Sprintf("%s 0", attr),
 				IsTextTypes: true,
 				FreqLimit:   flimit,
-				MaxResults:  maxItems,
+				MaxItems:    maxItems,
 			},
 		})
 		if err != nil {

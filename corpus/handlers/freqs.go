@@ -104,7 +104,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			Query:      queryProps.query,
 			Crit:       fcrit,
 			FreqLimit:  flimit,
-			MaxResults: maxItems,
+			MaxItems:   maxItems,
 		},
 	})
 	if err != nil {
@@ -228,7 +228,7 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 				Query:      q,
 				Crit:       fcrit,
 				FreqLimit:  flimit,
-				MaxResults: maxItems,
+				MaxItems:   maxItems,
 			},
 		})
 		if err != nil {

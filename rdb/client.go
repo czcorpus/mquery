@@ -68,7 +68,7 @@ type FreqDistribArgs struct {
 	Crit        string
 	IsTextTypes bool
 	FreqLimit   int
-	MaxResults  int
+	MaxItems    int
 }
 
 // --------------

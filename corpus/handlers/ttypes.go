@@ -83,7 +83,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		Crit:        fmt.Sprintf("%s 0", attr),
 		IsTextTypes: true,
 		FreqLimit:   flimit,
-		MaxResults:  maxResults,
+		MaxItems:    maxResults,
 	}
 	// TODO this probably needs some work
 	if ctx.Request.URL.Query().Has("subc") {

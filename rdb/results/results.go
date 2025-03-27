@@ -19,6 +19,7 @@
 package results
 
 import (
+	"fmt"
 	"mquery/corpus/baseinfo"
 	"mquery/mango"
 	"mquery/rdb"
@@ -26,13 +27,6 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/mquery-common/concordance"
 )
-
-func errToStr(err error) string {
-	if err != nil {
-		return err.Error()
-	}
-	return ""
-}
 
 type FreqDistribItemList []*FreqDistribItem
 
@@ -77,7 +71,7 @@ type FreqDistribResponse struct {
 	Fcrit            string              `json:"fcrit"`
 	ExamplesQueryTpl string              `json:"examplesQueryTpl,omitempty"`
 	ResultType       rdb.ResultType      `json:"resultType"`
-	Error            string              `json:"error,omitempty"`
+	Error            error               `json:"error,omitempty"`
 } // @name Freq
 
 type FreqDistrib struct {
@@ -117,6 +111,7 @@ func (res FreqDistrib) Type() rdb.ResultType {
 }
 
 func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
+	fmt.Printf("marshaling: %#v\n", res.Error)
 	return sonic.Marshal(FreqDistribResponse{
 		ConcSize:         res.ConcSize,
 		CorpusSize:       res.CorpusSize,
@@ -125,7 +120,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 		Fcrit:            res.Fcrit,
 		ExamplesQueryTpl: res.ExamplesQueryTpl,
 		ResultType:       res.Type(),
-		Error:            errToStr(res.Error),
+		Error:            res.Error,
 	})
 }
 
@@ -163,7 +158,7 @@ type ConcSizeResponse struct {
 	IPM        float64        `json:"ipm"`
 	CorpusSize int64          `json:"corpusSize"`
 	ResultType rdb.ResultType `json:"resultType"`
-	Error      string         `json:"error,omitempty"`
+	Error      error          `json:"error,omitempty"`
 } // @name ConcSize
 
 type ConcSize struct {
@@ -193,7 +188,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 			IPM:        rdb.NormRound(ipm),
 			CorpusSize: res.CorpusSize,
 			ResultType: res.Type(),
-			Error:      errToStr(res.Error),
+			Error:      res.Error,
 		},
 	)
 }
@@ -202,12 +197,13 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 
 type CollocationsResponse struct {
 	CorpusSize int64               `json:"corpusSize"`
+	ConcSize   int64               `json:"concSize"`
 	SubcSize   int64               `json:"subcSize,omitempty"`
 	Colls      []*mango.GoCollItem `json:"colls"`
 	ResultType rdb.ResultType      `json:"resultType"`
 	Measure    string              `json:"measure"`
 	SrchRange  [2]int              `json:"srchRange"`
-	Error      string              `json:"error,omitempty"`
+	Error      error               `json:"error,omitempty"`
 } // @name Collocations
 
 type Collocations struct {
@@ -237,7 +233,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 			ResultType: res.Type(),
 			Measure:    res.Measure,
 			SrchRange:  res.SrchRange,
-			Error:      errToStr(res.Error),
+			Error:      res.Error,
 		},
 	)
 }
@@ -262,7 +258,7 @@ type ConcordanceResponse struct {
 	Lines      []concordance.Line `json:"lines"`
 	ConcSize   int                `json:"concSize"`
 	ResultType rdb.ResultType     `json:"resultType"`
-	Error      string             `json:"error,omitempty"`
+	Error      error              `json:"error,omitempty"`
 }
 
 type ConcordanceLines []concordance.Line
@@ -295,7 +291,7 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 			Lines:      res.Lines.alwaysAsList(),
 			ConcSize:   res.ConcSize,
 			ResultType: res.Type(),
-			Error:      errToStr(res.Error),
+			Error:      res.Error,
 		},
 	)
 }
@@ -320,11 +316,11 @@ func (res CorpusInfo) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(struct {
 		Data       baseinfo.Corpus `json:"data"`
 		ResultType rdb.ResultType  `json:"resultType"`
-		Error      string          `json:"error,omitempty"`
+		Error      error           `json:"error,omitempty"`
 	}{
 		Data:       res.Data,
 		ResultType: res.Type(),
-		Error:      errToStr(res.Error),
+		Error:      res.Error,
 	})
 }
 
@@ -347,10 +343,10 @@ func (res TextTypeNorms) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(struct {
 		Sizes      map[string]int64 `json:"sizes"`
 		ResultType rdb.ResultType   `json:"resultType"`
-		Error      string           `json:"error,omitempty"`
+		Error      error            `json:"error,omitempty"`
 	}{
 		Sizes:      res.Sizes,
 		ResultType: res.Type(),
-		Error:      errToStr(res.Error),
+		Error:      res.Error,
 	})
 }
