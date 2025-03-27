@@ -66,9 +66,9 @@ func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) results.CorpusInfo {
 
 func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) results.FreqDistrib {
 	ans := results.FreqDistrib{Freqs: []*results.FreqDistribItem{}}
-	if args.MaxResults <= 0 {
+	if args.MaxItems <= 0 {
 		ans.Error = merror.InputError{
-			Msg: "MaxResults must be a positive number"}
+			Msg: "maxItems must be a positive number"}
 		return ans
 	}
 	freqs, err := mango.CalcFreqDist(
@@ -98,7 +98,7 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) results.FreqDistrib {
 		}
 	}
 	mergedFreqs, err := CompileFreqResult(
-		freqs, freqs.SubcSize, args.MaxResults, norms)
+		freqs, freqs.SubcSize, args.MaxItems, norms)
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize

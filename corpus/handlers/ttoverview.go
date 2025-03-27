@@ -130,7 +130,7 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 				Crit:        fmt.Sprintf("%s 0", attr),
 				IsTextTypes: true,
 				FreqLimit:   flimit,
-				MaxResults:  textTypesInternalMaxResults,
+				MaxItems:    textTypesInternalMaxResults,
 			},
 		})
 

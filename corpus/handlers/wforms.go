@@ -90,7 +90,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 			Query:      "[" + q + "]",
 			Crit:       "word/i 0~0>0", // TODO hardcoded `word`
 			FreqLimit:  1,
-			MaxResults: MaxWordFormResultItems,
+			MaxItems:   MaxWordFormResultItems,
 		},
 	})
 	if err != nil {

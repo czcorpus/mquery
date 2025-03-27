@@ -177,7 +177,7 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 						Crit:        fmt.Sprintf("%s 0", attr),
 						IsTextTypes: true,
 						FreqLimit:   flimit,
-						MaxResults:  maxItems,
+						MaxItems:    maxItems,
 					},
 				})
 				if err != nil {
