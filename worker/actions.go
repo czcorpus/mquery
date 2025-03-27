@@ -235,3 +235,21 @@ func (w *Worker) textTypeNorms(args rdb.TextTypeNormsArgs) results.TextTypeNorms
 	ans.Sizes = norms
 	return ans
 }
+
+func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
+	var ans results.TokenContext
+	res, err := mango.GetCorpRegion(
+		args.CorpusPath,
+		args.Idx,
+		int64(args.LeftCtx),
+		int64(args.RightCtx),
+		args.Structs,
+		args.Attrs,
+	)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.Text = res.Text
+	return ans
+}

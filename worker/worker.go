@@ -163,6 +163,15 @@ func (w *Worker) runQueryProtected(query rdb.Query) (ansErr error) {
 			ansErr = w.publishResult(results.TextTypeNorms{Error: err}, query, t0)
 			return
 		}
+	case rdb.TokenContextArgs:
+		ans := w.tokenContext(tArgs)
+		if ans.Error != nil {
+			ans.Error = wrapError(ans.Error)
+		}
+		if err := w.publishResult(ans, query, t0); err != nil {
+			ansErr = w.publishResult(results.TextTypeNorms{Error: err}, query, t0)
+			return
+		}
 	default:
 		ans := rdb.ErrorResult{
 			Error: merror.InternalError{

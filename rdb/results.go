@@ -30,6 +30,7 @@ const (
 	ResultTypeMultipleFreqs            ResultType = "multipleFreqs"
 	ResultTypeCorpusInfo               ResultType = "corpusInfo"
 	ResultTypeTextTypeNorms            ResultType = "textTypeNorms"
+	ResultTypeTokenContext             ResultType = "tokenContext"
 	ResultTypeError                    ResultType = "error"
 )
 
