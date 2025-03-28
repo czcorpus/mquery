@@ -31,6 +31,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TokenContext godoc
+// @Summary      TokenContext
+// @Description  This endpoint provides a text window around a specified token number indexed by token position within a corresponding corpus.
+// @Produce      json
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        idx query int true "A token number"
+// @Param        leftCtx query int false "Left window size in tokens. Default value is corpus-dependent, but typically around 25"
+// @Param        rightCtx query int false "Right window size in tokens. Default value is corpus-dependent, but typically around 25"
+// @Param        attr query string false "Positional attributes to be returned, multiple values are supported. Default is corpus-dependend, but typically: word, lemma, tag"
+// @Param 		 struct query string false "Structure (or structure with an attribute) to be returned. E.g. 'p', 'p.id', 'doc.pubyear'"
+// @Success      200 {object} results.TokenContext
+// @Router       /token-context/{corpusId} [get]
 func (a *Actions) TokenContext(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	pos, ok := unireq.RequireURLIntArgOrFail(ctx, "idx")
