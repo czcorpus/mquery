@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/rs/zerolog/log"
 )
 
@@ -222,7 +223,10 @@ func (cs *CorpusSetup) GetPosAttr(name string) PosAttr {
 func (cs *CorpusSetup) KnownStructures() []string {
 	ans := make([]string, 0, len(cs.ConcMarkupStructures)+len(cs.ConcTextPropsAttrs))
 	ans = append(ans, cs.ConcMarkupStructures...)
-	ans = append(ans, cs.ConcTextPropsAttrs...)
+	tmp := collections.SliceMap[string, string](cs.ConcTextPropsAttrs, func(s string, i int) string {
+		return strings.Split(s, ".")[0]
+	})
+	ans = append(ans, tmp...)
 	return ans
 }
 
