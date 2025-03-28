@@ -716,3 +716,43 @@ CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name) {
     delete corp;
     return ans;
 }
+
+
+CorpRegionRetval get_corp_region(
+    const char* corpusPath,
+    PosInt fromPos,
+    PosInt toPos,
+    const char* attrs,
+    const char* structs
+) {
+    CorpRegionRetval ans;
+    ans.err = nullptr;
+    Corpus* corp = nullptr;
+    string cPath(corpusPath);
+    try {
+        corp = new Corpus(cPath);
+        CorpRegion* region = new CorpRegion(corp, attrs, structs);
+        const std::vector<std::string>& xreg = region->region(fromPos, toPos, ' ', '\x1F');
+
+        std:stringstream buff;
+        for (size_t i = 0; i < xreg.size(); i++) {
+            if (i > 0) buff << " ";
+            buff << xreg[i];
+        }
+        std::string cpp_str = buff.str();
+        char* c_str = strdup(cpp_str.c_str());
+        ans.text = c_str;
+
+        delete region;
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    delete corp;
+    return ans;
+}
+
+
+void free_string(char* str) {
+    free(str);
+}

@@ -65,6 +65,10 @@ type GoConcordance struct {
 	ConcSize int
 }
 
+type GoTokenContext struct {
+	Text string
+}
+
 type GoConcSize struct {
 	Value      int64
 	ARF        float64
@@ -380,4 +384,21 @@ func GetStructSize(corpusPath string, name string) (int, error) {
 		return 0, err
 	}
 	return int(ans.value), nil
+}
+
+func GetCorpRegion(corpusPath string, pos, lftCtx, rgtCtx int64, structs, attrs []string) (GoTokenContext, error) {
+	ans := C.get_corp_region(
+		C.CString(corpusPath),
+		C.longlong(max(0, pos-lftCtx)),
+		C.longlong(pos+rgtCtx),
+		C.CString(strings.Join(attrs, ",")),
+		C.CString(strings.Join(structs, ",")),
+	)
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return GoTokenContext{}, err
+	}
+	defer C.free_string(ans.text)
+	return GoTokenContext{Text: C.GoString(ans.text)}, nil
 }

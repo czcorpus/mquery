@@ -105,6 +105,11 @@ typedef struct KWICRowsRetval {
     int errorCode;
 } KWICRowsRetval;
 
+typedef struct CorpRegionRetval {
+    const char* err;
+    const char* text;
+} CorpRegionRetval;
+
 
 typedef struct AttrValSizes {
     const char * err;
@@ -186,6 +191,14 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     PosInt maxContext,
     const char* viewContextStruct);
 
+CorpRegionRetval get_corp_region(
+    const char* corpusPath,
+    PosInt position,
+    PosInt numTok,
+    const char* attrs,
+    const char* structs
+);
+
 CollsRetVal collocations(
     const char* corpusPath,
     const char* subcPath,
@@ -237,6 +250,7 @@ CorpusSizeRetrval get_posattr_size(const char* corpus_path, const char* name);
 
 CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name);
 
+void free_string(char* str);
 
 #ifdef __cplusplus
 }

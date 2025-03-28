@@ -128,6 +128,17 @@ type TextTypeNormsArgs struct {
 	StructAttr string
 }
 
+// ---------------
+
+type TokenContextArgs struct {
+	CorpusPath string
+	Idx        int64
+	LeftCtx    int
+	RightCtx   int
+	Structs    []string
+	Attrs      []string
+}
+
 // --------------
 
 type jobLogger interface {

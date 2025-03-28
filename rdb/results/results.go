@@ -350,3 +350,30 @@ func (res TextTypeNorms) MarshalJSON() ([]byte, error) {
 		Error:      res.Error,
 	})
 }
+
+// ----------------------------
+
+type TokenContext struct {
+	Text  concordance.Line `json:"text"`
+	Error error            `json:"error,omitempty"`
+}
+
+func (res TokenContext) Err() error {
+	return res.Error
+}
+
+func (res TokenContext) Type() rdb.ResultType {
+	return rdb.ResultTypeTokenContext
+}
+
+func (res TokenContext) MarshalJSON() ([]byte, error) {
+	return sonic.Marshal(struct {
+		Text       concordance.Line `json:"text"`
+		ResultType rdb.ResultType   `json:"resultType"`
+		Error      error            `json:"error,omitempty"`
+	}{
+		Text:       res.Text,
+		ResultType: res.Type(),
+		Error:      res.Error,
+	})
+}
