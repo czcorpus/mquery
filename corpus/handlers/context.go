@@ -23,6 +23,7 @@ import (
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -69,16 +70,16 @@ func (a *Actions) TokenContext(ctx *gin.Context) {
 	structs := ctx.Request.URL.Query()["struct"]
 	knownStructs := corpConf.KnownStructures()
 	for _, strct := range structs {
-		if !collections.SliceContains(knownStructs, strct) {
+		rawStrct := strings.Split(strct, ".")[0] // we allow structattrs (e.g. p.id, but check just structures)
+		if !collections.SliceContains(knownStructs, rawStrct) {
 			uniresp.RespondWithErrorJSON(
-				ctx, fmt.Errorf("structure %s not found", strct), http.StatusBadRequest,
+				ctx, fmt.Errorf("structure %s not found", rawStrct), http.StatusBadRequest,
 			)
 			return
 		}
 	}
 
 	corpConf.PosAttrs.GetIDs()
-
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "tokenContext",
 		Args: rdb.TokenContextArgs{
