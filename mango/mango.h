@@ -106,8 +106,8 @@ typedef struct KWICRowsRetval {
 } KWICRowsRetval;
 
 typedef struct CorpRegionRetval {
-    const char * err;
-    MVector tokens;
+    const char* err;
+    const char* text;
 } CorpRegionRetval;
 
 
@@ -250,6 +250,7 @@ CorpusSizeRetrval get_posattr_size(const char* corpus_path, const char* name);
 
 CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name);
 
+void free_string(char* str);
 
 #ifdef __cplusplus
 }

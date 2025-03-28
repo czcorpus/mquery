@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	DfltSplitChunkSize   = 100000000
-	DfltMaximumRecords   = 50
-	DfltPosAttrDelimiter = 47
+	DfltSplitChunkSize            = 100000000
+	DfltMaximumRecords            = 50
+	DfltPosAttrDelimiter          = 47
+	DfltMaximumTokenContextWindow = 50
 )
 
 type PosAttrDelimiter int

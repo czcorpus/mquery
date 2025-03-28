@@ -66,7 +66,7 @@ type GoConcordance struct {
 }
 
 type GoTokenContext struct {
-	Text []string
+	Text string
 }
 
 type GoConcSize struct {
@@ -399,6 +399,6 @@ func GetCorpRegion(corpusPath string, pos, lftCtx, rgtCtx int64, structs, attrs 
 		defer C.free(unsafe.Pointer(ans.err))
 		return GoTokenContext{}, err
 	}
-	defer C.delete_str_vector(ans.tokens)
-	return GoTokenContext{Text: StrVectorToSlice(GoVector{ans.tokens})}, nil
+	defer C.free_string(ans.text)
+	return GoTokenContext{Text: C.GoString(ans.text)}, nil
 }

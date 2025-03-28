@@ -730,14 +730,19 @@ CorpRegionRetval get_corp_region(
     Corpus* corp = nullptr;
     string cPath(corpusPath);
     try {
-
         corp = new Corpus(cPath);
         CorpRegion* region = new CorpRegion(corp, attrs, structs);
-        cout << "region: " << region << endl;
-        const std::vector<std::string>& xreg = region->region(fromPos, toPos, ' ', '/');
-        std::vector<std::string>* reg = new std::vector<std::string>(xreg);
-        ans.tokens = static_cast<void*>(reg);
-        cout << "tokens: " << reg << endl;
+        const std::vector<std::string>& xreg = region->region(fromPos, toPos, ' ', '\x1F');
+
+        std:stringstream buff;
+        for (size_t i = 0; i < xreg.size(); i++) {
+            if (i > 0) buff << " ";
+            buff << xreg[i];
+        }
+        std::string cpp_str = buff.str();
+        char* c_str = strdup(cpp_str.c_str());
+        ans.text = c_str;
+
         delete region;
 
     } catch (std::exception &e) {
@@ -745,4 +750,9 @@ CorpRegionRetval get_corp_region(
     }
     delete corp;
     return ans;
+}
+
+
+void free_string(char* str) {
+    free(str);
 }

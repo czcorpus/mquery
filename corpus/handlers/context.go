@@ -19,10 +19,12 @@
 package handlers
 
 import (
+	"fmt"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -30,20 +32,62 @@ import (
 
 func (a *Actions) TokenContext(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	pos, ok := unireq.GetURLIntArgOrFail(ctx, "idx", -1)
+	pos, ok := unireq.RequireURLIntArgOrFail(ctx, "idx")
 	if !ok {
 		return
 	}
+	corpConf := a.conf.Resources.Get(ctx.Param("corpusId"))
+	if corpConf == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("corpus not found"), http.StatusNotFound,
+		)
+		return
+	}
+	maxLft, maxRgt := corpConf.MaximumTokenContextWindow.LeftAndRight()
+	leftCtx, ok := unireq.GetURLIntArgOrFail(ctx, "leftCtx", maxLft)
+	if !ok {
+		return
+	}
+	rightCtx, ok := unireq.GetURLIntArgOrFail(ctx, "rightCtx", maxRgt)
+	if !ok {
+		return
+	}
+
+	attrs := ctx.Request.URL.Query()["attr"]
+	for _, attr := range attrs {
+		if !corpConf.PosAttrs.Contains(attr) {
+			uniresp.RespondWithErrorJSON(
+				ctx, fmt.Errorf("attribute %s not found", attr), http.StatusBadRequest,
+			)
+			return
+		}
+	}
+	if len(attrs) == 0 {
+		attrs = append(attrs, "word", "lemma") // TODO
+	}
+
+	structs := ctx.Request.URL.Query()["struct"]
+	knownStructs := corpConf.KnownStructures()
+	for _, strct := range structs {
+		if !collections.SliceContains(knownStructs, strct) {
+			uniresp.RespondWithErrorJSON(
+				ctx, fmt.Errorf("structure %s not found", strct), http.StatusBadRequest,
+			)
+			return
+		}
+	}
+
+	corpConf.PosAttrs.GetIDs()
 
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "tokenContext",
 		Args: rdb.TokenContextArgs{
 			CorpusPath: corpusPath,
 			Idx:        int64(pos),
-			LeftCtx:    5, // TODO
-			RightCtx:   5, // TODO
-			Structs:    []string{"doc"},
-			Attrs:      []string{"word", "lemma", "tag"},
+			LeftCtx:    leftCtx,
+			RightCtx:   rightCtx,
+			Structs:    structs,
+			Attrs:      attrs,
 		},
 	})
 	if err != nil {

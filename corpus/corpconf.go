@@ -60,6 +60,15 @@ func (pal PosAttrList) GetIDs() []string {
 	return ans
 }
 
+func (pal PosAttrList) Contains(ident string) bool {
+	for _, v := range pal {
+		if v.Name == ident {
+			return true
+		}
+	}
+	return false
+}
+
 // ----
 
 type StructAttr struct {
@@ -149,6 +158,17 @@ func (ttp TextTypeProperties) Attr(prop baseinfo.TextProperty) string {
 	return ttp[prop].Name
 }
 
+type ContextWindow int
+
+// LeftAndRight converts the window into the left-right intervals.
+// In case the value is an odd number, the reminder is added to the right.
+func (cw ContextWindow) LeftAndRight() (lft int, rgt int) {
+	tmp := int(cw) / 2
+	lft = tmp
+	rgt = tmp + (int(cw) - 2*tmp)
+	return
+}
+
 type CorpusSetup struct {
 	ID                   string             `json:"id"`
 	FullName             map[string]string  `json:"fullName"`
@@ -159,6 +179,11 @@ type CorpusSetup struct {
 	ConcTextPropsAttrs   []string           `json:"concTextPropsAttrs"`
 	TextProperties       TextTypeProperties `json:"textProperties"`
 	MaximumRecords       int                `json:"maximumRecords"`
+
+	// MaximumTokenContextWindow specifies the total width of token's context
+	// with the token in the middle. Odd numbers are applied in a way giving one
+	// more token to the right.
+	MaximumTokenContextWindow ContextWindow `json:"MaximumTokenContextWindow"`
 
 	// Subcorpora defines named transient subcorpora created as part of the query.
 	// MQuery also supports so called saved subcorpora which are files created via Manatee-open
@@ -194,6 +219,13 @@ func (cs *CorpusSetup) GetPosAttr(name string) PosAttr {
 	return PosAttr{}
 }
 
+func (cs *CorpusSetup) KnownStructures() []string {
+	ans := make([]string, 0, len(cs.ConcMarkupStructures)+len(cs.ConcTextPropsAttrs))
+	ans = append(ans, cs.ConcMarkupStructures...)
+	ans = append(ans, cs.ConcTextPropsAttrs...)
+	return ans
+}
+
 func (cs *CorpusSetup) ValidateAndDefaults() error {
 	if cs.IsDynamic() {
 		for _, variant := range cs.Variants {
@@ -224,6 +256,12 @@ func (cs *CorpusSetup) ValidateAndDefaults() error {
 		if !prop.Validate() {
 			return fmt.Errorf("invalid text property %s", prop)
 		}
+	}
+	if cs.MaximumTokenContextWindow == 0 {
+		log.Warn().
+			Int("value", DfltMaximumTokenContextWindow).
+			Msg("`maximumTokenContextWindow` not specified, using default")
+		cs.MaximumTokenContextWindow = DfltMaximumTokenContextWindow
 	}
 	return nil
 }
