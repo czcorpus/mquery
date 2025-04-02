@@ -253,7 +253,7 @@ func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 	parser := concordance.NewLineParser(args.Attrs)
 	tmp := parser.Parse([]string{res.Text})
 	if len(tmp) > 0 {
-		ans.Text = tmp[0]
+		ans.Context = tmp[0]
 	}
 	return ans
 }
