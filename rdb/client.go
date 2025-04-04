@@ -133,8 +133,9 @@ type TextTypeNormsArgs struct {
 type TokenContextArgs struct {
 	CorpusPath string
 	Idx        int64
-	LeftCtx    int
-	RightCtx   int
+	KWICLen    int64
+	LeftCtx    int64
+	RightCtx   int64
 	Structs    []string
 	Attrs      []string
 }
