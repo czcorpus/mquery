@@ -37,6 +37,7 @@ import (
 // @Produce      json
 // @Param        corpusId path string true "An ID of a corpus to search in"
 // @Param        idx query int true "A token number"
+// @Param        kwicLen query int false "How many long is the KWIC (in tokens)" default(1)
 // @Param        leftCtx query int false "Left window size in tokens. Default value is corpus-dependent, but typically around 25"
 // @Param        rightCtx query int false "Right window size in tokens. Default value is corpus-dependent, but typically around 25"
 // @Param        attr query string false "Positional attributes to be returned, multiple values are supported. Default is corpus-dependend, but typically: word, lemma, tag"
@@ -62,6 +63,11 @@ func (a *Actions) TokenContext(ctx *gin.Context) {
 		return
 	}
 	rightCtx, ok := unireq.GetURLIntArgOrFail(ctx, "rightCtx", maxRgt)
+	if !ok {
+		return
+	}
+
+	kwicLen, ok := unireq.GetURLIntArgOrFail(ctx, "kwicLen", 1)
 	if !ok {
 		return
 	}
@@ -97,8 +103,9 @@ func (a *Actions) TokenContext(ctx *gin.Context) {
 		Args: rdb.TokenContextArgs{
 			CorpusPath: corpusPath,
 			Idx:        int64(pos),
-			LeftCtx:    leftCtx,
-			RightCtx:   rightCtx,
+			KWICLen:    int64(kwicLen),
+			LeftCtx:    int64(leftCtx),
+			RightCtx:   int64(rightCtx),
 			Structs:    structs,
 			Attrs:      attrs,
 		},

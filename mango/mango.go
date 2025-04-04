@@ -386,11 +386,11 @@ func GetStructSize(corpusPath string, name string) (int, error) {
 	return int(ans.value), nil
 }
 
-func GetCorpRegion(corpusPath string, pos, lftCtx, rgtCtx int64, structs, attrs []string) (GoTokenContext, error) {
+func GetCorpRegion(corpusPath string, lftCtx, rgtCtx int64, structs, attrs []string) (GoTokenContext, error) {
 	ans := C.get_corp_region(
 		C.CString(corpusPath),
-		C.longlong(max(0, pos-lftCtx)),
-		C.longlong(pos+rgtCtx),
+		C.longlong(lftCtx),
+		C.longlong(rgtCtx),
 		C.CString(strings.Join(attrs, ",")),
 		C.CString(strings.Join(structs, ",")),
 	)

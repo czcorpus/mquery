@@ -238,11 +238,10 @@ func (w *Worker) textTypeNorms(args rdb.TextTypeNormsArgs) results.TextTypeNorms
 
 func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 	var ans results.TokenContext
-	res, err := mango.GetCorpRegion(
+	res1, err := mango.GetCorpRegion(
 		args.CorpusPath,
-		args.Idx,
-		int64(args.LeftCtx),
-		int64(args.RightCtx),
+		int64(max(0, args.Idx-args.LeftCtx)),
+		int64(max(0, args.Idx)),
 		args.Structs,
 		args.Attrs,
 	)
@@ -251,9 +250,48 @@ func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 		return ans
 	}
 	parser := concordance.NewLineParser(args.Attrs)
-	tmp := parser.Parse([]string{res.Text})
+	tmp := parser.Parse([]string{res1.Text})
 	if len(tmp) > 0 {
 		ans.Context = tmp[0]
 	}
+
+	res2, err := mango.GetCorpRegion(
+		args.CorpusPath,
+		int64(args.Idx),
+		int64(args.Idx+args.KWICLen),
+		args.Structs,
+		args.Attrs,
+	)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	tmp = parser.Parse([]string{res2.Text})
+	for _, v := range tmp[0].Text {
+		if vt, ok := v.(*concordance.Token); ok {
+			vt.Strong = true
+		}
+	}
+	if len(tmp) > 0 {
+		ans.Context.Text = append(ans.Context.Text, tmp[0].Text...)
+	}
+
+	res3, err := mango.GetCorpRegion(
+		args.CorpusPath,
+		int64(args.Idx+args.KWICLen+1),
+		int64(args.Idx+args.RightCtx+args.KWICLen),
+		args.Structs,
+		args.Attrs,
+	)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	tmp = parser.Parse([]string{res3.Text})
+	if len(tmp) > 0 {
+		ans.Context.Text = append(ans.Context.Text, tmp[0].Text...)
+	}
+
+	ans.Context.Ref = fmt.Sprintf("#%d", args.Idx)
 	return ans
 }
