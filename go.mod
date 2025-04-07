@@ -10,7 +10,6 @@ require (
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/mquery-common v0.4.6
-	github.com/davecgh/go-spew v1.1.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.7.3

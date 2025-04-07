@@ -142,12 +142,6 @@ type TokenContextArgs struct {
 
 // --------------
 
-type jobLogger interface {
-	Log(rec JobLog)
-}
-
-// --------------
-
 func DecodeQuery(q string) (Query, error) {
 	var ans Query
 	var buf bytes.Buffer
@@ -169,7 +163,6 @@ type Adapter struct {
 	channelQuery        string
 	channelResultPrefix string
 	queryAnswerTimeout  time.Duration
-	jobLogger           jobLogger
 }
 
 func (a *Adapter) TestConnection(timeout time.Duration) error {
@@ -279,13 +272,6 @@ func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 						}
 
 					} else {
-						a.jobLogger.Log(JobLog{
-							WorkerID: wr.ID,
-							Func:     string(wr.Value.Type()),
-							Begin:    wr.ProcBegin,
-							End:      wr.ProcEnd,
-							Err:      wr.Value.Err(),
-						})
 						ans <- wr
 					}
 					tmr.Stop()
@@ -362,7 +348,7 @@ func (a *Adapter) Subscribe() <-chan *redis.Message {
 
 // NewAdapter is a recommended factory function
 // for creating new `Adapter` instances
-func NewAdapter(conf *Conf, ctx context.Context, jobLogger jobLogger) *Adapter {
+func NewAdapter(conf *Conf, ctx context.Context) *Adapter {
 	chRes := conf.ChannelResultPrefix
 	chQuery := conf.ChannelQuery
 	if chRes == "" {
@@ -395,7 +381,6 @@ func NewAdapter(conf *Conf, ctx context.Context, jobLogger jobLogger) *Adapter {
 		channelQuery:        chQuery,
 		channelResultPrefix: chRes,
 		queryAnswerTimeout:  queryAnswerTimeout,
-		jobLogger:           jobLogger,
 	}
 	return ans
 }
