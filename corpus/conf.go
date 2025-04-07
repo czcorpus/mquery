@@ -72,6 +72,7 @@ type CorporaSetup struct {
 	ConfFilesDir       string    `json:"confFilesDir"`
 	Resources          Resources `json:"resources"`
 	SavedSubcorporaDir string    `json:"savedSubcorporaDir"`
+	AudioFilesDir      string    `json:"audioFilesDir"`
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {

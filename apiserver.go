@@ -24,8 +24,6 @@ import (
 	"mquery/cnf"
 	corpusActions "mquery/corpus/handlers"
 	"mquery/corpus/infoload"
-	"mquery/monitoring"
-	monitoringActions "mquery/monitoring/handlers"
 	"mquery/proxied"
 	"mquery/rdb"
 	"net/http"
@@ -48,7 +46,6 @@ type apiServer struct {
 	conf         *cnf.Conf
 	radapter     *rdb.Adapter
 	infoProvider *infoload.Manatee
-	jobLogger    *monitoring.WorkerJobLogger
 }
 
 //go:embed docs/swagger.json
@@ -153,6 +150,14 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
 
+	if api.conf.CorporaSetup.AudioFilesDir != "" {
+		engine.GET(
+			"/audio/:corpusId", ceActions.Audio)
+
+	} else {
+		log.Warn().Msg("the audio files location not specified, endpoint /audio/:corpusId will be disabled")
+	}
+
 	if api.conf.CQLTranslatorURL != "" {
 		ctActions := proxied.NewActions(api.conf.CQLTranslatorURL)
 		engine.GET("/translate", ctActions.RemoteQueryTranslator)
@@ -161,17 +166,6 @@ func (api *apiServer) Start(ctx context.Context) {
 	} else {
 		log.Info().Msg("CQL translator proxy not specified - /translate endpoint will be disabled")
 	}
-
-	monitoringActions := monitoringActions.NewActions(api.jobLogger, api.conf.TimezoneLocation())
-
-	engine.GET(
-		"/monitoring/workers", monitoringActions.WorkersLoad)
-
-	engine.GET(
-		"/monitoring/worker/:workerId", monitoringActions.SingleWorkerLoad)
-
-	engine.GET(
-		"/monitoring/recent-records", monitoringActions.RecentRecords)
 
 	log.Info().Msgf("starting to listen at %s:%d", api.conf.ListenAddress, api.conf.ListenPort)
 	api.server = &http.Server{
@@ -199,40 +193,16 @@ func runApiServer(
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var statusWriter monitoring.StatusWriter
-	var err error
-
-	if conf.Monitoring != nil {
-		statusWriter, err = monitoring.NewTimescaleDBWriter(
-			ctx,
-			conf.Monitoring.DB,
-			conf.TimezoneLocation(),
-			func(err error) {
-				// TODO
-			},
-		)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to initialize status writer")
-			return
-		}
-		log.Warn().Str("host", conf.Monitoring.DB.Host).Msg("initialized status writer")
-
-	} else {
-		log.Warn().Msg("status writer not specified - NullStatusWriter will be used")
-		statusWriter = new(NullStatusWriter)
-	}
-
-	logger := monitoring.NewWorkerJobLogger(statusWriter, conf.TimezoneLocation())
-	radapter := rdb.NewAdapter(conf.Redis, ctx, logger)
-	err = radapter.TestConnection(redisConnectionTestTimeout)
+	radapter := rdb.NewAdapter(conf.Redis, ctx)
+	err := radapter.TestConnection(redisConnectionTestTimeout)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to Redis")
 		return
 	}
 	infoProvider := infoload.NewManatee(radapter, conf.CorporaSetup)
-	server := newAPIServer(conf, radapter, infoProvider, logger)
+	server := newAPIServer(conf, radapter, infoProvider)
 
-	services := []service{statusWriter, logger, server}
+	services := []service{server}
 	for _, m := range services {
 		m.Start(ctx)
 	}
@@ -271,12 +241,10 @@ func newAPIServer(
 	conf *cnf.Conf,
 	radapter *rdb.Adapter,
 	infoProvider *infoload.Manatee,
-	jobLogger *monitoring.WorkerJobLogger,
 ) *apiServer {
 	return &apiServer{
 		conf:         conf,
 		radapter:     radapter,
 		infoProvider: infoProvider,
-		jobLogger:    jobLogger,
 	}
 }
