@@ -197,6 +197,7 @@ type CorpusSetup struct {
 	Variants          map[string]CorpusVariant `json:"variants"`
 	SrchKeywords      []string                 `json:"srchKeywords"`
 	WebURL            string                   `json:"webUrl"`
+	HasPublicAudio    bool                     `json:"hasPublicAudio"`
 }
 
 func (cs *CorpusSetup) LocaleDescription(lang string) string {

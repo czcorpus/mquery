@@ -150,6 +150,14 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.GET(
 		"/sentences/:corpusId", ceActions.Sentences)
 
+	if api.conf.CorporaSetup.AudioFilesDir != "" {
+		engine.GET(
+			"/audio/:corpusId", ceActions.Audio)
+
+	} else {
+		log.Warn().Msg("the audio files location not specified, endpoint /audio/:corpusId will be disabled")
+	}
+
 	if api.conf.CQLTranslatorURL != "" {
 		ctActions := proxied.NewActions(api.conf.CQLTranslatorURL)
 		engine.GET("/translate", ctActions.RemoteQueryTranslator)
