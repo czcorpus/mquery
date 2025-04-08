@@ -59,12 +59,13 @@ func (a *Actions) Audio(ctx *gin.Context) {
 	}
 
 	chunk := ctx.Request.URL.Query().Get("chunk")
-	fPath := filepath.Join(
-		a.conf.AudioFilesDir,
-		corpusID,
-		chunk[:2],
-		chunk,
-	)
+	var fPath string
+	if strings.Contains(chunk, "/") {
+		fPath = filepath.Join(a.conf.AudioFilesDir, chunk)
+
+	} else {
+		fPath = filepath.Join(a.conf.AudioFilesDir, corpusID, chunk)
+	}
 	fPath = filepath.Clean(fPath)
 	fPath, err := filepath.EvalSymlinks(fPath)
 	if err != nil {
