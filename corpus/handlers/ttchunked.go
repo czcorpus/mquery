@@ -56,9 +56,9 @@ type streamedFreqsBaseArgs struct {
 	MaxItems int
 
 	// Event is an optional argument specifying that
-	// a clients wants data to be returned with a specific
+	// a client wants data to be returned with a specific
 	// event name (EventSource API). This is mostly used
-	// in case the streamed freqs. are part of multiple data
+	// in case the streamed freqs are part of multiple data
 	// stream (e.g. in WaG). Otherwise, MQuery will expect
 	// the client to have an exclusive event stream opened
 	// for the data (it returns just the `data` label).

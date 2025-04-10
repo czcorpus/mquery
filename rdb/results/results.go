@@ -25,6 +25,7 @@ import (
 	"mquery/rdb"
 
 	"github.com/bytedance/sonic"
+	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 )
 
@@ -257,6 +258,8 @@ func (res CollFreqData) Type() rdb.ResultType {
 type ConcordanceResponse struct {
 	Lines      []concordance.Line `json:"lines"`
 	ConcSize   int                `json:"concSize"`
+	CorpusSize int                `json:"corpusSize"`
+	IPM        float64            `json:"ipm"`
 	ResultType rdb.ResultType     `json:"resultType"`
 	Error      error              `json:"error,omitempty"`
 }
@@ -272,9 +275,11 @@ func (cl ConcordanceLines) alwaysAsList() ConcordanceLines {
 
 // @name Concordance
 type Concordance struct {
-	Lines    ConcordanceLines
-	ConcSize int
-	Error    error
+	Lines      ConcordanceLines
+	ConcSize   int
+	CorpusSize int
+	IPM        float64
+	Error      error
 }
 
 func (res Concordance) Err() error {
@@ -290,6 +295,8 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 		ConcordanceResponse{
 			Lines:      res.Lines.alwaysAsList(),
 			ConcSize:   res.ConcSize,
+			CorpusSize: res.CorpusSize,
+			IPM:        util.Ternary(res.CorpusSize > 0, float64(res.ConcSize)/float64(res.CorpusSize)*1e6, 0),
 			ResultType: res.Type(),
 			Error:      res.Error,
 		},

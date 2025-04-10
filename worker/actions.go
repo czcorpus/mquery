@@ -196,6 +196,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	parser := concordance.NewLineParser(args.Attrs)
 	ans.Lines = parser.Parse(concEx.Lines)
 	ans.ConcSize = concEx.ConcSize
+	ans.CorpusSize = concEx.CorpusSize
 	return ans
 }
 

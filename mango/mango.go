@@ -61,9 +61,12 @@ type Freqs struct {
 // ---
 
 type GoConcordance struct {
-	Lines    []string
-	ConcSize int
+	Lines      []string
+	ConcSize   int
+	CorpusSize int
 }
+
+// --------------------------
 
 type GoTokenContext struct {
 	Text string
@@ -148,6 +151,7 @@ func GetConcordance(
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
+	ret.CorpusSize = int(ans.corpusSize)
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))

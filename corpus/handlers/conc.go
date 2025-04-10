@@ -122,34 +122,38 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		return
 	}
 
+	var collLftCtx, collRgtCtx int
 	collQuery := ctx.Request.URL.Query().Get("coll")
 	rng := ctx.Request.URL.Query().Get("collRange")
-	rngItems := strings.Split(rng, ",")
-	if len(rngItems) != 2 {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("invalid collocate range format (should be 'left,right')"),
-			http.StatusBadRequest,
-		)
-		return
-	}
-	collLftCtx, err := strconv.Atoi(rngItems[0])
-	if err != nil {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("invalid collocate left range value %s: %w", rngItems[0], err),
-			http.StatusBadRequest,
-		)
-		return
-	}
-	collRgtCtx, err := strconv.Atoi(rngItems[1])
-	if err != nil {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("invalid collocate right range value %s: %w", rngItems[1], err),
-			http.StatusBadRequest,
-		)
-		return
+	if collQuery != "" && rng != "" {
+		var err error
+		rngItems := strings.Split(rng, ",")
+		if len(rngItems) != 2 {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("invalid collocate range format (should be 'left,right')"),
+				http.StatusBadRequest,
+			)
+			return
+		}
+		collLftCtx, err = strconv.Atoi(rngItems[0])
+		if err != nil {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("invalid collocate left range value %s: %w", rngItems[0], err),
+				http.StatusBadRequest,
+			)
+			return
+		}
+		collRgtCtx, err = strconv.Atoi(rngItems[1])
+		if err != nil {
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("invalid collocate right range value %s: %w", rngItems[1], err),
+				http.StatusBadRequest,
+			)
+			return
+		}
 	}
 
 	a.anyConcordance(
