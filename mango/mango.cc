@@ -245,12 +245,14 @@ KWICRowsRetval conc_examples(
     string cPath(corpusPath);
     try {
         Corpus* corp = new Corpus(cPath);
+        PosInt corpSize = corp->size();
         Concordance* conc = new Concordance(
             corp, corp->filter_query(eval_cqpquery(query, corp)));
         conc->sync();
         if (conc->size() == 0 && fromLine == 0) {
             KWICRowsRetval ans {
                 nullptr,
+                0,
                 0,
                 0,
                 nullptr
@@ -263,6 +265,7 @@ KWICRowsRetval conc_examples(
             strcpy(dynamicStr, msg);
             KWICRowsRetval ans {
                 nullptr,
+                0,
                 0,
                 0,
                 dynamicStr,
@@ -337,6 +340,7 @@ KWICRowsRetval conc_examples(
             lines,
             limit,
             concSize,
+            corpSize,
             nullptr,
             0
         };
@@ -345,6 +349,7 @@ KWICRowsRetval conc_examples(
     } catch (std::exception &e) {
         KWICRowsRetval ans {
             nullptr,
+            0,
             0,
             0,
             strdup(e.what()),
@@ -371,12 +376,14 @@ KWICRowsRetval conc_examples_with_coll_phrase(
         string cPath(corpusPath);
         try {
             Corpus* corp = new Corpus(cPath);
+            PosInt corpSize = corp->size();
             Concordance* conc = new Concordance(
                 corp, corp->filter_query(eval_cqpquery(query, corp)));
             conc->sync();
             if (conc->size() == 0 && fromLine == 0) {
                 KWICRowsRetval ans {
                     nullptr,
+                    0,
                     0,
                     0,
                     nullptr
@@ -389,6 +396,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 strcpy(dynamicStr, msg);
                 KWICRowsRetval ans {
                     nullptr,
+                    0,
                     0,
                     0,
                     dynamicStr,
@@ -465,10 +473,12 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             }
             delete conc;
             delete corp;
+
             KWICRowsRetval ans {
                 lines,
                 limit,
                 concSize,
+                corpSize,
                 nullptr,
                 0
             };
@@ -477,6 +487,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
         } catch (std::exception &e) {
             KWICRowsRetval ans {
                 nullptr,
+                0,
                 0,
                 0,
                 strdup(e.what()),

@@ -101,6 +101,7 @@ typedef struct KWICRowsRetval {
     KWICRowsV value;
     PosInt size;
     PosInt concSize;
+    PosInt corpusSize;
     const char * err;
     int errorCode;
 } KWICRowsRetval;
