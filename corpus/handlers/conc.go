@@ -30,6 +30,7 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -93,6 +94,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
 // @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
+// @Param        maxRows query int false "Max. number of concordance lines to return. Default is corpus-dependent but mostly around 50"
 // @Param        coll query string false "Optional collocate query (CQL)"
 // @Param        collRange query string false "Specifies where to search the collocate. I.e. this only applies if the `coll` is filled. Format: left,right where negative numbers are on the left side of the KWIC."
 // @Success      200 {object} results.ConcordanceResponse
@@ -119,6 +121,11 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 			fmt.Errorf("invalid contextWidth - max value is %d", ConcordanceMaxWidth),
 			http.StatusBadRequest,
 		)
+		return
+	}
+
+	maxRows, ok := unireq.GetURLIntArgOrFail(ctx, "maxRows", 0) // default will be added later below
+	if !ok {
 		return
 	}
 
@@ -179,7 +186,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				ShowStructs:       showStructs,
 				ShowRefs:          showRefs,
 				StartLine:         0, // TODO
-				MaxItems:          conf.MaximumRecords,
+				MaxItems:          util.Ternary(maxRows > 0, maxRows, conf.MaximumRecords),
 				MaxContext:        contextWidth,
 				ViewContextStruct: "",
 			}
