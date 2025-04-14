@@ -68,7 +68,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 				Attrs:             conf.SyntaxConcordance.ResultAttrs,
 				ShowRefs:          []string{},
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
-				StartLine:         0, // TODO
+				RowsOffset:        0, // TODO
 				MaxItems:          conf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
 				ViewContextStruct: conf.ViewContextStruct,
@@ -94,6 +94,8 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
 // @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
+// @Param        contextStruct query string false "By default, tokens are used for specifying context window. Setting this value may change the units to structs (typically a sentence) "
+// @Param        rowsOffset query int false "Take results starting from this row number (first row = 0)"
 // @Param        maxRows query int false "Max. number of concordance lines to return. Default is corpus-dependent but mostly around 50"
 // @Param        coll query string false "Optional collocate query (CQL)"
 // @Param        collRange query string false "Specifies where to search the collocate. I.e. this only applies if the `coll` is filled. Format: left,right where negative numbers are on the left side of the KWIC."
@@ -128,6 +130,13 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+
+	rowsOffset, ok := unireq.GetURLIntArgOrFail(ctx, "rowsOffset", 0)
+	if !ok {
+		return
+	}
+
+	contextStruct := ctx.Query("contextStruct")
 
 	var collLftCtx, collRgtCtx int
 	collQuery := ctx.Request.URL.Query().Get("coll")
@@ -185,10 +194,10 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
 				ShowStructs:       showStructs,
 				ShowRefs:          showRefs,
-				StartLine:         0, // TODO
 				MaxItems:          util.Ternary(maxRows > 0, maxRows, conf.MaximumRecords),
+				RowsOffset:        rowsOffset,
 				MaxContext:        contextWidth,
-				ViewContextStruct: "",
+				ViewContextStruct: contextStruct,
 			}
 		},
 		func(args *rdb.ConcordanceArgs) error { return nil },
@@ -237,7 +246,7 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 				ShowStructs:       showStructs,
 				ShowRefs:          showRefs,
 				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
-				StartLine:         0, // TODO
+				RowsOffset:        0, // TODO
 				MaxItems:          conf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
 				ViewContextStruct: conf.ViewContextStruct,
@@ -329,7 +338,7 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 			Query:             q,
 			Attrs:             conf.PosAttrs.GetIDs(),
 			ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
-			StartLine:         0, // TODO
+			RowsOffset:        0, // TODO
 			MaxItems:          1,
 			MaxContext:        termFreqContext,
 			ViewContextStruct: conf.ViewContextStruct,
