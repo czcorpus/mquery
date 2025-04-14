@@ -134,6 +134,15 @@ func GetConcordance(
 	fromLine, maxItems, maxContext int,
 	viewContextStruct string,
 ) (GoConcordance, error) {
+	if fromLine < 0 {
+		panic("GetConcordance - invalid fromLine value")
+	}
+	if maxItems < 0 {
+		panic("GetConcordance - invalid maxItems value")
+	}
+	if maxContext < 0 {
+		panic("GetConcordance - invalid maxContext value")
+	}
 	if !collections.SliceContains(refs, "#") {
 		refs = append([]string{"#"}, refs...)
 	}

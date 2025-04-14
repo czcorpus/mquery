@@ -101,7 +101,7 @@ type ConcordanceArgs struct {
 	ShowStructs       []string
 	ShowRefs          []string
 	MaxItems          int
-	StartLine         int
+	RowsOffset        int
 	MaxContext        int
 	ViewContextStruct string
 	ParentIdxAttr     string

@@ -151,7 +151,7 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 					ShowStructs:       []string{}, // TODO
 					ShowRefs:          []string{},
 					MaxItems:          examplesPerColl,
-					StartLine:         0,  // TODO
+					RowsOffset:        0,
 					MaxContext:        40, // TODO
 					ViewContextStruct: "word",
 				},
