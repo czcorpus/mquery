@@ -142,18 +142,18 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 			wait, err := a.radapter.PublishQuery(rdb.Query{
 				Func: "concordance",
 				Args: rdb.ConcordanceArgs{
-					CorpusPath:        corpusPath,
-					Query:             collArgs.queryProps.query,
-					CollQuery:         fmt.Sprintf("[%s=\"%s\"]", srchAttr, collItem.Word),
-					CollLftCtx:        -collArgs.srchLeft,
-					CollRgtCtx:        collArgs.srchRight,
-					Attrs:             corpusConf.PosAttrs.GetIDs(),
-					ShowStructs:       []string{}, // TODO
-					ShowRefs:          []string{},
-					MaxItems:          examplesPerColl,
-					RowsOffset:        0,
-					MaxContext:        40, // TODO
-					ViewContextStruct: "word",
+					CorpusPath:  corpusPath,
+					Query:       collArgs.queryProps.query,
+					CollQuery:   fmt.Sprintf("[%s=\"%s\"]", srchAttr, collItem.Word),
+					CollLftCtx:  -collArgs.srchLeft,
+					CollRgtCtx:  collArgs.srchRight,
+					Attrs:       corpusConf.PosAttrs.GetIDs(),
+					ShowStructs: []string{}, // TODO
+					ShowRefs:    []string{},
+					MaxItems:    examplesPerColl,
+					RowsOffset:  0,
+					//MaxContext:        1,
+					ViewContextStruct: "s",
 				},
 			})
 			if err != nil {
