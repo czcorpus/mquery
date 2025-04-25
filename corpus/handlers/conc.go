@@ -94,7 +94,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
 // @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
-// @Param        contextStruct query string false "By default, tokens are used for specifying context window. Setting this value may change the units to structs (typically a sentence) "
+// @Param        contextStruct query string false "By default, tokens are used for specifying context window. Setting this value will change the units to structs (typically a sentence) "
 // @Param        rowsOffset query int false "Take results starting from this row number (first row = 0)"
 // @Param        maxRows query int false "Max. number of concordance lines to return. Default is corpus-dependent but mostly around 50"
 // @Param        coll query string false "Optional collocate query (CQL)"
