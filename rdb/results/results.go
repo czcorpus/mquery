@@ -226,11 +226,15 @@ func (res Collocations) Type() rdb.ResultType {
 }
 
 func (res *Collocations) MarshalJSON() ([]byte, error) {
+	colls := res.Colls
+	if colls == nil {
+		colls = []*mango.GoCollItem{}
+	}
 	return sonic.Marshal(
 		CollocationsResponse{
 			CorpusSize: res.CorpusSize,
 			SubcSize:   res.SubcSize,
-			Colls:      res.Colls,
+			Colls:      colls,
 			ResultType: res.Type(),
 			Measure:    res.Measure,
 			SrchRange:  res.SrchRange,

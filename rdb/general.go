@@ -58,5 +58,5 @@ func NormRound(val float64) float64 {
 }
 
 func IsUserErrorMsg(msg string) bool {
-	return strings.HasPrefix(strings.ToLower(msg), "syntax error")
+	return strings.Contains(strings.ToLower(msg), "syntax error,")
 }

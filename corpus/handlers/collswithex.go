@@ -25,6 +25,7 @@ import (
 	"mquery/rdb/results"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -139,12 +140,15 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 	for _, coll := range result.Colls {
 		go func(collItem *mango.GoCollItem) {
 			defer wg.Done()
+			escapedWord := strings.ReplaceAll(collItem.Word, "\"", "\\\"")
 			wait, err := a.radapter.PublishQuery(rdb.Query{
 				Func: "concordance",
 				Args: rdb.ConcordanceArgs{
-					CorpusPath:        corpusPath,
-					Query:             collArgs.queryProps.query,
-					CollQuery:         fmt.Sprintf("[%s=\"%s\"]", srchAttr, collItem.Word),
+					CorpusPath: corpusPath,
+					Query:      collArgs.queryProps.query,
+					// note - below, we can 'simple text match ==' as the
+					// inserted value is always an exact value and not a pattern
+					CollQuery:         fmt.Sprintf("[%s==\"%s\"]", srchAttr, escapedWord),
 					CollLftCtx:        -collArgs.srchLeft,
 					CollRgtCtx:        collArgs.srchRight,
 					Attrs:             corpusConf.PosAttrs.GetIDs(),
