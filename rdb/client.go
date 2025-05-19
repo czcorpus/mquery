@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"mquery/merror"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -105,6 +106,17 @@ type ConcordanceArgs struct {
 	MaxContext        int
 	ViewContextStruct string
 	ParentIdxAttr     string
+}
+
+// AsDescription provides a human-readable representation
+// suitable e.g. for reporting, error messages etc.
+func (args *ConcordanceArgs) AsDescription() string {
+	var ans strings.Builder
+	ans.WriteString(args.Query)
+	if args.CollQuery != "" {
+		ans.WriteString(fmt.Sprintf(" (coll: %s)", args.CollQuery))
+	}
+	return ans.String()
 }
 
 // --------------

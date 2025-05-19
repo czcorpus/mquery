@@ -190,7 +190,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 		)
 	}
 	if err != nil {
-		ans.Error = err
+		ans.Error = fmt.Errorf("query %s: %w", args.AsDescription(), err)
 		return ans
 	}
 	parser := concordance.NewLineParser(args.Attrs)
