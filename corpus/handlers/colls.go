@@ -45,6 +45,7 @@ type collArgs struct {
 	srchRight   int
 	minCollFreq int
 	maxItems    int
+	event       string
 }
 
 func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
@@ -104,6 +105,9 @@ func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
 	if !ok {
 		return ans, false
 	}
+
+	ans.event = ctx.Query("event")
+
 	return ans, true
 }
 
