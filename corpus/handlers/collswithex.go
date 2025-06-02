@@ -28,7 +28,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/czcorpus/cnc-gokit/unireq"
+	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -39,11 +39,28 @@ const (
 )
 
 type extendedCollItem struct {
-	Word     string                   `json:"word"`
-	Score    float64                  `json:"score"`
-	Freq     int64                    `json:"freq"`
-	Examples results.ConcordanceLines `json:"examples"`
-	Err      error                    `json:"error,omitempty"`
+	ResultIdx int
+	Word      string
+	Score     float64
+	Freq      int64
+	Examples  results.ConcordanceLines
+	Err       error
+}
+
+func (ecItem extendedCollItem) MarshalJSON() ([]byte, error) {
+	return sonic.Marshal(struct {
+		Word     string                   `json:"word"`
+		Score    float64                  `json:"score"`
+		Freq     int64                    `json:"freq"`
+		Examples results.ConcordanceLines `json:"examples"`
+		Err      error                    `json:"error,omitempty"`
+	}{
+		Word:     ecItem.Word,
+		Score:    ecItem.Score,
+		Freq:     ecItem.Freq,
+		Examples: ecItem.Examples,
+		Err:      ecItem.Err,
+	})
 }
 
 type endpointResult struct {
@@ -61,6 +78,24 @@ type wordBindConc struct {
 	Word  string
 }
 
+// writeStreamedData writes `res` as a server-side event.
+// The function also calls flush() on an underlying ctx writer to make
+// sure the data is immediately sent.
+func writeStreamedData(ctx *gin.Context, collArgs *collArgs, res *endpointResult) {
+	messageJSON, err := sonic.Marshal(res)
+	if err != nil {
+		WriteStreamingError(ctx, err)
+		return
+	}
+	if collArgs.event != "" {
+		ctx.String(http.StatusOK, "event: %s\ndata: %s\n\n", collArgs.event, messageJSON)
+
+	} else {
+		ctx.String(http.StatusOK, "data: %s\n\n", messageJSON)
+	}
+	ctx.Writer.Flush()
+}
+
 // CollocationsWithExamples godoc
 // @Summary      CollocationsWithExamples
 // @Description  Calculate a defined collocation profile of a searched expression. Values are sorted in descending order by their collocation score.
@@ -75,6 +110,7 @@ type wordBindConc struct {
 // @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
 // @Param        maxItems query int false "maximum number of result items" default(20)
 // @Param        examplesPerColl query int false "number of concordance lines per collocation" default(5)
+// @Param        event query string false "an event id used in response data stream; if omitted then just `data` line are returned"
 // @Success      200 {object} results.CollocationsResponse
 // @Router       /collocations-with-examples/{corpusId} [get]
 func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
@@ -82,6 +118,12 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+
+	defer ctx.Writer.Flush()
+
+	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
+	ctx.Writer.Header().Set("Cache-Control", "no-cache")
+	ctx.Writer.Header().Set("Connection", "keep-alive")
 
 	corpusPath := a.conf.GetRegistryPath(collArgs.queryProps.corpus)
 
@@ -113,10 +155,10 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 		return
 	}
 	rawResult := <-wait
-	if ok := HandleWorkerError(ctx, rawResult); !ok {
+	if ok := HandleWorkerErrorStreaming(ctx, rawResult); !ok {
 		return
 	}
-	result, ok := TypedOrRespondError[results.Collocations](ctx, rawResult)
+	result, ok := TypedOrRespondErrorStreaming[results.Collocations](ctx, rawResult)
 	if !ok {
 		return
 	}
@@ -128,8 +170,19 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 		SrchRange:  result.SrchRange,
 		ResultType: rdb.ResultTypeCOllocationsWithExamples,
 	}
+	ans.Colls = make([]*extendedCollItem, len(result.Colls))
+	for i, v := range result.Colls {
+		ans.Colls[i] = &extendedCollItem{
+			Word:     v.Word,
+			Score:    v.Score,
+			Freq:     v.Freq,
+			Examples: results.ConcordanceLines{},
+		}
+	}
+	// let's write colls without actual examples first
+	writeStreamedData(ctx, &collArgs, &ans)
 
-	examplesPerColl, ok := unireq.GetURLIntArgOrFail(ctx, "examplesPerColl", defaultExamplesPerColl)
+	examplesPerColl, ok := GetURLIntArgOrFailStreaming(ctx, "examplesPerColl", defaultExamplesPerColl)
 	if !ok {
 		return
 	}
@@ -137,68 +190,68 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 	resultsChan := make(chan *extendedCollItem)
 	var wg sync.WaitGroup
 	wg.Add(len(result.Colls))
-	for _, coll := range result.Colls {
-		go func(collItem *mango.GoCollItem) {
-			defer wg.Done()
-			escapedWord := strings.ReplaceAll(collItem.Word, "\"", "\\\"")
-			wait, err := a.radapter.PublishQuery(rdb.Query{
-				Func: "concordance",
-				Args: rdb.ConcordanceArgs{
-					CorpusPath: corpusPath,
-					Query:      collArgs.queryProps.query,
-					// note - below, we can 'simple text match ==' as the
-					// inserted value is always an exact value and not a pattern
-					CollQuery:         fmt.Sprintf("[%s==\"%s\"]", srchAttr, escapedWord),
-					CollLftCtx:        -collArgs.srchLeft,
-					CollRgtCtx:        collArgs.srchRight,
-					Attrs:             corpusConf.PosAttrs.GetIDs(),
-					ShowStructs:       []string{}, // TODO
-					ShowRefs:          []string{},
-					MaxItems:          examplesPerColl,
-					RowsOffset:        0,
-					ViewContextStruct: corpusConf.ViewContextStruct,
-				},
-			})
-			if err != nil {
-				resultsChan <- &extendedCollItem{
-					Word:  collItem.Word,
-					Score: collItem.Score,
-					Freq:  collItem.Freq,
-					Err:   result.Error,
-				}
-				return
-			}
-			rawResult := <-wait
-			if ok := HandleWorkerError(ctx, rawResult); !ok {
-				return
-			}
-			if result, ok := TypedOrRespondError[results.Concordance](ctx, rawResult); ok {
-				resultsChan <- &extendedCollItem{
-					Word:     collItem.Word,
-					Score:    collItem.Score,
-					Freq:     collItem.Freq,
-					Examples: result.Lines,
-					Err:      result.Error,
-				}
-			}
-			if !ok {
-				log.Error().
-					Str("type", reflect.TypeOf(rawResult).Name()).
-					Str("coll", collItem.Word).
-					Msg("CollocationsWithExamples - failed to typecast rawResult")
-				return
-			}
-		}(coll)
-	}
-
 	go func() {
-		for item := range resultsChan {
-			ans.Colls = append(ans.Colls, item)
+		for resultIdx, coll := range result.Colls {
+			go func(collItem *mango.GoCollItem) {
+				defer wg.Done()
+				escapedWord := strings.ReplaceAll(collItem.Word, "\"", "\\\"")
+				wait, err := a.radapter.PublishQuery(rdb.Query{
+					Func: "concordance",
+					Args: rdb.ConcordanceArgs{
+						CorpusPath: corpusPath,
+						Query:      collArgs.queryProps.query,
+						// note - below, we can 'simple text match ==' as the
+						// inserted value is always an exact value and not a pattern
+						CollQuery:         fmt.Sprintf("[%s==\"%s\"]", srchAttr, escapedWord),
+						CollLftCtx:        -collArgs.srchLeft,
+						CollRgtCtx:        collArgs.srchRight,
+						Attrs:             corpusConf.PosAttrs.GetIDs(),
+						ShowStructs:       []string{}, // TODO
+						ShowRefs:          []string{},
+						MaxItems:          examplesPerColl,
+						RowsOffset:        0,
+						ViewContextStruct: corpusConf.ViewContextStruct,
+					},
+				})
+				if err != nil {
+					resultsChan <- &extendedCollItem{
+						ResultIdx: resultIdx,
+						Word:      collItem.Word,
+						Score:     collItem.Score,
+						Freq:      collItem.Freq,
+						Err:       result.Error,
+					}
+					return
+				}
+				rawResult := <-wait
+				if ok := HandleWorkerError(ctx, rawResult); !ok {
+					return
+				}
+				if result, ok := TypedOrRespondError[results.Concordance](ctx, rawResult); ok {
+					resultsChan <- &extendedCollItem{
+						ResultIdx: resultIdx,
+						Word:      collItem.Word,
+						Score:     collItem.Score,
+						Freq:      collItem.Freq,
+						Examples:  result.Lines,
+						Err:       result.Error,
+					}
+				}
+				if !ok {
+					log.Error().
+						Str("type", reflect.TypeOf(rawResult).Name()).
+						Str("coll", collItem.Word).
+						Msg("CollocationsWithExamples - failed to typecast rawResult")
+					return
+				}
+			}(coll)
 		}
+		wg.Wait()
+		close(resultsChan)
 	}()
 
-	wg.Wait()
-	close(resultsChan)
-
-	uniresp.WriteJSONResponse(ctx.Writer, ans)
+	for item := range resultsChan {
+		ans.Colls[item.ResultIdx] = item
+		writeStreamedData(ctx, &collArgs, &ans)
+	}
 }

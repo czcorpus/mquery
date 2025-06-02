@@ -26,7 +26,9 @@ import (
 	"mquery/rdb"
 	"net/http"
 	"reflect"
+	"strconv"
 
+	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
@@ -168,4 +170,55 @@ func HandleWorkerError(ctx *gin.Context, result rdb.WorkerResult) bool {
 		return false
 	}
 	return true
+}
+
+func WriteStreamingError(ctx *gin.Context, err error) {
+	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
+	if err2 != nil {
+		messageJSON = []byte(fmt.Sprintf(`{"error": "failed to encode error: %s"}`, err2))
+	}
+	// We use status 200 here deliberately as we don't want to trigger
+	// the error handler.
+	ctx.String(http.StatusOK, fmt.Sprintf("data: %s\n\n", messageJSON))
+}
+
+func HandleWorkerErrorStreaming(ctx *gin.Context, result rdb.WorkerResult) bool {
+	if err := result.Value.Err(); err != nil {
+		WriteStreamingError(ctx, err)
+		return false
+	}
+	return true
+}
+
+func TypedOrRespondErrorStreaming[T any](ctx *gin.Context, w rdb.WorkerResult) (T, bool) {
+	if w.Value == nil {
+		var ans T
+		return ans, false
+	}
+	vt, ok := w.Value.(T)
+	if !ok {
+		var n T
+		WriteStreamingError(
+			ctx,
+			fmt.Errorf(
+				"unexpected type for %s: %s",
+				reflect.TypeOf(n), reflect.TypeOf(w.Value),
+			),
+		)
+		return n, false
+	}
+	return vt, true
+}
+
+func GetURLIntArgOrFailStreaming(ctx *gin.Context, name string, dflt int) (int, bool) {
+	if !ctx.Request.URL.Query().Has(name) {
+		return dflt, true
+	}
+	tmp := ctx.Request.URL.Query().Get(name)
+	value, err := strconv.Atoi(tmp)
+	if err != nil {
+		WriteStreamingError(ctx, err)
+		return 0, false
+	}
+	return value, true
 }

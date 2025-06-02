@@ -226,17 +226,6 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 	return messageChannel, nil
 }
 
-func (a *Actions) writeStreamingError(ctx *gin.Context, err error) {
-	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
-	if err2 != nil {
-		ctx.String(http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-	// We use status 200 here deliberately as we don't want to trigger
-	// the error handler.
-	ctx.String(http.StatusOK, fmt.Sprintf("data: %s\n\n", messageJSON))
-}
-
 // ttStreamedBase performs common actions for both
 // general streamed text types and "by year" freqs (which is
 // in fact also based on text types)
@@ -309,7 +298,7 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 
 	calc, err := a.streamCalc(args.Q, args.Attr, ctx.Param("corpusId"), args.Flimit, args.MaxItems)
 	if err != nil {
-		a.writeStreamingError(ctx, err)
+		WriteStreamingError(ctx, err)
 		return
 	}
 	for message := range calc {
@@ -323,7 +312,7 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 			}
 
 		} else {
-			a.writeStreamingError(ctx, err)
+			WriteStreamingError(ctx, err)
 			return
 		}
 		ctx.Writer.Flush()
@@ -350,7 +339,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 
 	calc, err := a.streamCalc(args.Q, args.Attr, corpusID, args.Flimit, args.MaxItems)
 	if err != nil {
-		a.writeStreamingError(ctx, err)
+		WriteStreamingError(ctx, err)
 		return
 	}
 	calc = a.filterByYearRange(calc, fromYear, toYear)
@@ -366,7 +355,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 			}
 
 		} else {
-			a.writeStreamingError(ctx, err)
+			WriteStreamingError(ctx, err)
 			return
 		}
 		ctx.Writer.Flush()
