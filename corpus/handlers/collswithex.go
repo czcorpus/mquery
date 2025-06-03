@@ -29,8 +29,11 @@ import (
 	"sync"
 
 	"github.com/bytedance/sonic"
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -38,28 +41,45 @@ const (
 	defaultExamplesPerColl = 5
 )
 
+type extendedConcLine struct {
+	concordance.Line
+	InteractionID string `json:"interactionId"`
+}
+
+type extendedConcLines []extendedConcLine
+
+func (cl extendedConcLines) alwaysAsList() extendedConcLines {
+	if cl == nil {
+		return []extendedConcLine{}
+	}
+	return cl
+}
+
 type extendedCollItem struct {
-	ResultIdx int
-	Word      string
-	Score     float64
-	Freq      int64
-	Examples  results.ConcordanceLines
-	Err       error
+	ResultIdx     int
+	Word          string
+	Score         float64
+	Freq          int64
+	InteractionID string
+	Examples      extendedConcLines
+	Err           error
 }
 
 func (ecItem extendedCollItem) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(struct {
-		Word     string                   `json:"word"`
-		Score    float64                  `json:"score"`
-		Freq     int64                    `json:"freq"`
-		Examples results.ConcordanceLines `json:"examples"`
-		Err      error                    `json:"error,omitempty"`
+		Word          string            `json:"word"`
+		Score         float64           `json:"score"`
+		Freq          int64             `json:"freq"`
+		InteractionID string            `json:"interactionId"`
+		Examples      extendedConcLines `json:"examples"`
+		Err           error             `json:"error,omitempty"`
 	}{
-		Word:     ecItem.Word,
-		Score:    ecItem.Score,
-		Freq:     ecItem.Freq,
-		Examples: ecItem.Examples,
-		Err:      ecItem.Err,
+		Word:          ecItem.Word,
+		Score:         ecItem.Score,
+		Freq:          ecItem.Freq,
+		InteractionID: ecItem.InteractionID,
+		Examples:      ecItem.Examples,
+		Err:           ecItem.Err,
 	})
 }
 
@@ -176,7 +196,7 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 			Word:     v.Word,
 			Score:    v.Score,
 			Freq:     v.Freq,
-			Examples: results.ConcordanceLines{},
+			Examples: extendedConcLines{},
 		}
 	}
 	// let's write colls without actual examples first
@@ -228,13 +248,23 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 					return
 				}
 				if result, ok := TypedOrRespondError[results.Concordance](ctx, rawResult); ok {
+					interactionID := uuid.New().String()
 					resultsChan <- &extendedCollItem{
-						ResultIdx: resultIdx,
-						Word:      collItem.Word,
-						Score:     collItem.Score,
-						Freq:      collItem.Freq,
-						Examples:  result.Lines,
-						Err:       result.Error,
+						ResultIdx:     resultIdx,
+						Word:          collItem.Word,
+						Score:         collItem.Score,
+						Freq:          collItem.Freq,
+						InteractionID: interactionID,
+						Examples: collections.SliceMap(
+							result.Lines,
+							func(cline concordance.Line, idx int) extendedConcLine {
+								return extendedConcLine{
+									Line:          cline,
+									InteractionID: interactionID,
+								}
+							},
+						),
+						Err: result.Error,
 					}
 				}
 				if !ok {
