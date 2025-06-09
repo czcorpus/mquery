@@ -61,9 +61,10 @@ type Freqs struct {
 // ---
 
 type GoConcordance struct {
-	Lines      []string
-	ConcSize   int
-	CorpusSize int
+	Lines        []string
+	AlignedLines []string
+	ConcSize     int
+	CorpusSize   int
 }
 
 // --------------------------
@@ -171,6 +172,9 @@ func GetConcordance(
 
 	} else {
 		defer C.conc_examples_free(ans.value, C.int(ans.size))
+		if ans.aligned != nil {
+			defer C.conc_examples_free(ans.aligned, C.int(ans.size))
+		}
 	}
 	tmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.value))
 	for i := 0; i < int(ans.size); i++ {
@@ -181,6 +185,19 @@ func GetConcordance(
 			ret.Lines = append(ret.Lines, str)
 		}
 	}
+
+	// Process aligned lines if available
+	if ans.aligned != nil {
+		ret.AlignedLines = make([]string, 0, maxItems)
+		alignedTmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.aligned))
+		for i := 0; i < int(ans.size); i++ {
+			str := C.GoString(alignedTmp[i])
+			if len(str) > 0 {
+				ret.AlignedLines = append(ret.AlignedLines, str)
+			}
+		}
+	}
+
 	return ret, nil
 }
 
@@ -223,6 +240,9 @@ func GetConcordanceWithCollPhrase(
 
 	} else {
 		defer C.conc_examples_free(ans.value, C.int(ans.size))
+		if ans.aligned != nil {
+			defer C.conc_examples_free(ans.aligned, C.int(ans.size))
+		}
 	}
 	tmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.value))
 	for i := 0; i < int(ans.size); i++ {
@@ -233,6 +253,19 @@ func GetConcordanceWithCollPhrase(
 			ret.Lines = append(ret.Lines, str)
 		}
 	}
+
+	// Process aligned lines if available
+	if ans.aligned != nil {
+		ret.AlignedLines = make([]string, 0, maxItems)
+		alignedTmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.aligned))
+		for i := 0; i < int(ans.size); i++ {
+			str := C.GoString(alignedTmp[i])
+			if len(str) > 0 {
+				ret.AlignedLines = append(ret.AlignedLines, str)
+			}
+		}
+	}
+
 	return ret, nil
 }
 

@@ -195,6 +195,11 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	}
 	parser := concordance.NewLineParser(args.Attrs)
 	ans.Lines = parser.Parse(concEx.Lines)
+	if len(concEx.AlignedLines) > 0 {
+		for i := range ans.Lines {
+			parser.ParseAlignedLine(concEx.AlignedLines[i], &ans.Lines[i])
+		}
+	}
 	ans.ConcSize = concEx.ConcSize
 	ans.CorpusSize = concEx.CorpusSize
 	return ans
