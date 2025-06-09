@@ -222,6 +222,89 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
 }
 
 /**
+ * @brief Process KWIC lines and create formatted output lines
+ *
+ * @param corp Corpus object
+ * @param conc Concordance object
+ * @param fromLine Starting line number
+ * @param limit Maximum number of lines to process
+ * @param maxContext Maximum context size
+ * @param attrs Positional attributes
+ * @param structs Structure attributes
+ * @param refs Reference attributes
+ * @param refsSplitter Reference splitter string
+ * @param viewContextStruct Context structure for viewing
+ * @return char** Array of formatted lines
+ */
+char** process_kwic_lines(
+    Corpus* corp,
+    Concordance* conc,
+    PosInt fromLine,
+    PosInt limit,
+    PosInt maxContext,
+    const char* attrs,
+    const char* structs,
+    const char* refs,
+    const char* refsSplitter,
+    const char* viewContextStruct) {
+
+    std::string cppContextStruct(viewContextStruct);
+    std::string halfLeft = "-" + std::to_string(int(std::floor(maxContext / 2.0)));
+    std::string halfRight = std::to_string(int(std::ceil(maxContext / 2.0)));
+
+    KWICLines* kl = new KWICLines(
+        corp,
+        conc->RS(true, fromLine, fromLine+limit),
+        cppContextStruct.empty() ? halfLeft.c_str() : ("-1:"+cppContextStruct).c_str(),
+        cppContextStruct.empty() ? halfRight.c_str() : ("1:"+cppContextStruct).c_str(),
+        attrs,
+        attrs,
+        structs,
+        refs,
+        maxContext,
+        false
+    );
+    if (conc->size() < limit) {
+        limit = conc->size();
+    }
+    char** lines = (char**)malloc(limit * sizeof(char*));
+    int i = 0;
+    while (kl->nextline()) {
+        auto lft = kl->get_left();
+        auto kwc = kl->get_kwic();
+        auto rgt = kl->get_right();
+        std::ostringstream buffer;
+
+        buffer << kl->get_refs() << refsSplitter;
+
+        for (size_t i = 0; i < lft.size(); ++i) {
+            if (i > 0) {
+                buffer << " ";
+            }
+            buffer << lft.at(i);
+        }
+        for (size_t i = 0; i < kwc.size(); ++i) {
+            if (i > 0) {
+                buffer << " ";
+            }
+            buffer << kwc.at(i);
+        }
+        for (size_t i = 0; i < rgt.size(); ++i) {
+            if (i > 0) {
+                buffer << " ";
+            }
+            buffer << rgt.at(i);
+        }
+        lines[i] = strdup(buffer.str().c_str());
+        i++;
+        if (i == limit) {
+            break;
+        }
+    }
+    return lines;
+}
+
+/**
  * @brief Based on provided query, return at most `limit` sentences matching the query.
  *
  * @param corpusPath
@@ -252,6 +335,7 @@ KWICRowsRetval conc_examples(
         if (conc->size() == 0 && fromLine == 0) {
             KWICRowsRetval ans {
                 nullptr,
+                nullptr,
                 0,
                 0,
                 0,
@@ -265,6 +349,7 @@ KWICRowsRetval conc_examples(
             strcpy(dynamicStr, msg);
             KWICRowsRetval ans {
                 nullptr,
+                nullptr,
                 0,
                 0,
                 0,
@@ -275,55 +360,28 @@ KWICRowsRetval conc_examples(
         }
         conc->shuffle();
         PosInt concSize = conc->size();
-        std::string cppContextStruct(viewContextStruct);
-        std::string halfLeft = "-" + std::to_string(int(std::floor(maxContext / 2.0)));
-        std::string halfRight = std::to_string(int(std::ceil(maxContext / 2.0)));
-        KWICLines* kl = new KWICLines(
-            corp,
-            conc->RS(true, fromLine, fromLine+limit),
-            cppContextStruct.empty() ? halfLeft.c_str() : ("-1:"+cppContextStruct).c_str(),
-            cppContextStruct.empty() ? halfRight.c_str() : ("1:"+cppContextStruct).c_str(),
-            attrs,
-            attrs,
-            structs,
-            refs,
-            maxContext,
-            false
-        );
+
+        std::vector<std::string> aligned_corps;
+        conc->get_aligned(aligned_corps);
+
+        char** lines = process_kwic_lines(
+            corp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
+
+        char** alignedLines = nullptr;
+        if (aligned_corps.size() == 2) {
+            conc->switch_aligned(aligned_corps[1].c_str());
+            alignedLines = process_kwic_lines(
+                corp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
+        }
+
         if (conc->size() < limit) {
             limit = conc->size();
         }
-        char** lines = (char**)malloc(limit * sizeof(char*));
-        int i = 0;
-        while (kl->nextline()) {
-            auto lft = kl->get_left();
-            auto kwc = kl->get_kwic();
-            auto rgt = kl->get_right();
-            std::ostringstream buffer;
-
-            buffer << kl->get_refs() << refsSplitter;
-
-            for (size_t i = 0; i < lft.size(); ++i) {
-                if (i > 0) {
-                    buffer << " ";
-                }
-                buffer << lft.at(i);
-            }
-            for (size_t i = 0; i < kwc.size(); ++i) {
-                if (i > 0) {
-                    buffer << " ";
-                }
-                buffer << kwc.at(i);
-            }
-            for (size_t i = 0; i < rgt.size(); ++i) {
-                if (i > 0) {
-                    buffer << " ";
-                }
-                buffer << rgt.at(i);
-            }
-            lines[i] = strdup(buffer.str().c_str());
-            i++;
-            if (i == limit) {
+        int i = limit;
+        for (int idx = 0; idx < limit; idx++) {
+            if (lines[idx] != nullptr && strlen(lines[idx]) > 0) {
+                i = idx + 1;
+            } else {
                 break;
             }
         }
@@ -334,10 +392,18 @@ KWICRowsRetval conc_examples(
         for (int i2 = i; i2 < limit; i2++) {
             lines[i2] = strdup("");
         }
+        if (alignedLines != nullptr) {
+            for (int i2 = i; i2 < limit; i2++) {
+                if (alignedLines[i2] == nullptr) {
+                    alignedLines[i2] = strdup("");
+                }
+            }
+        }
         delete conc;
         delete corp;
         KWICRowsRetval ans {
             lines,
+            alignedLines,
             limit,
             concSize,
             corpSize,
@@ -348,6 +414,7 @@ KWICRowsRetval conc_examples(
 
     } catch (std::exception &e) {
         KWICRowsRetval ans {
+            nullptr,
             nullptr,
             0,
             0,
@@ -383,6 +450,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             if (conc->size() == 0 && fromLine == 0) {
                 KWICRowsRetval ans {
                     nullptr,
+                    nullptr,
                     0,
                     0,
                     0,
@@ -395,6 +463,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 char* dynamicStr = static_cast<char*>(malloc(strlen(msg) + 1));
                 strcpy(dynamicStr, msg);
                 KWICRowsRetval ans {
+                    nullptr,
                     nullptr,
                     0,
                     0,
@@ -476,6 +545,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
 
             KWICRowsRetval ans {
                 lines,
+                nullptr,
                 limit,
                 concSize,
                 corpSize,
@@ -486,6 +556,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
 
         } catch (std::exception &e) {
             KWICRowsRetval ans {
+                nullptr,
                 nullptr,
                 0,
                 0,

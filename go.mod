@@ -9,7 +9,7 @@ require (
 	github.com/czcorpus/cnc-gokit v0.13.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/manabuild v0.1.3
-	github.com/czcorpus/mquery-common v0.4.7
+	github.com/czcorpus/mquery-common v0.5.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.7.3

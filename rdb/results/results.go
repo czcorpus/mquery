@@ -19,7 +19,6 @@
 package results
 
 import (
-	"fmt"
 	"mquery/corpus/baseinfo"
 	"mquery/mango"
 	"mquery/rdb"
@@ -112,7 +111,6 @@ func (res FreqDistrib) Type() rdb.ResultType {
 }
 
 func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
-	fmt.Printf("marshaling: %#v\n", res.Error)
 	return sonic.Marshal(FreqDistribResponse{
 		ConcSize:         res.ConcSize,
 		CorpusSize:       res.CorpusSize,

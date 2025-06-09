@@ -85,7 +85,6 @@ func (a *Actions) Audio(ctx *gin.Context) {
 		return
 	}
 	fileSize, err := fs.FileSize(fPath)
-	fmt.Println("FILE: ", fPath, ", size: ", fileSize)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,

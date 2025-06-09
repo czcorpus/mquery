@@ -99,6 +99,7 @@ typedef struct CollsRetVal {
 
 typedef struct KWICRowsRetval {
     KWICRowsV value;
+    KWICRowsV aligned;
     PosInt size;
     PosInt concSize;
     PosInt corpusSize;
