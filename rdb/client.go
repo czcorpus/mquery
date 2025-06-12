@@ -330,6 +330,7 @@ func (a *Adapter) DequeueQuery() (Query, error) {
 // it.
 func (a *Adapter) PublishResult(channelName string, value WorkerResult) error {
 	log.Debug().
+		AnErr("error", value.Value.Err()).
 		Str("channel", channelName).
 		Str("resultType", string(value.Value.Type())).
 		Msg("publishing result")
