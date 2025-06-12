@@ -369,7 +369,7 @@ KWICRowsRetval conc_examples(
 
         char** alignedLines = nullptr;
         if (aligned_corps.size() == 2) {
-            conc->switch_aligned(aligned_corps[1].c_str());
+            conc->switch_aligned(aligned_corps[0].c_str());
             alignedLines = process_kwic_lines(
                 corp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
         }

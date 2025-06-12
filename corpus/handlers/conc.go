@@ -136,8 +136,6 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 		return
 	}
 
-	contextStruct := ctx.Query("contextStruct")
-
 	var collLftCtx, collRgtCtx int
 	collQuery := ctx.Request.URL.Query().Get("coll")
 	rng := ctx.Request.URL.Query().Get("collRange")
@@ -184,6 +182,8 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 			if ctx.Query("showTextProps") == "1" {
 				showRefs = conf.ConcTextPropsAttrs
 			}
+			contextStruct := ctx.DefaultQuery("contextStruct", conf.ViewContextStruct)
+
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 				Query:             q,
