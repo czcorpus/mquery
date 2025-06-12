@@ -370,8 +370,18 @@ KWICRowsRetval conc_examples(
         char** alignedLines = nullptr;
         if (aligned_corps.size() == 2) {
             conc->switch_aligned(aligned_corps[0].c_str());
+
+            // Construct full path to aligned corpus using directory from corpusPath
+            string corpusPathStr(corpusPath);
+            size_t lastSlash = corpusPathStr.find_last_of('/');
+            string corpusDir = (lastSlash != string::npos) ? corpusPathStr.substr(0, lastSlash + 1) : "";
+            string alignedCorpusPath = corpusDir + aligned_corps[0];
+
+            // Get the aligned corpus object after switching
+            Corpus* alignedCorp = new Corpus(alignedCorpusPath);
             alignedLines = process_kwic_lines(
-                corp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
+                alignedCorp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
+            delete alignedCorp;
         }
 
         if (conc->size() < limit) {
