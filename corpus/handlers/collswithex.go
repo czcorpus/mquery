@@ -227,7 +227,7 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 						CollRgtCtx:        collArgs.srchRight,
 						Attrs:             corpusConf.PosAttrs.GetIDs(),
 						ShowStructs:       []string{}, // TODO
-						ShowRefs:          []string{},
+						ShowRefs:          corpusConf.ConcTextPropsAttrs,
 						MaxItems:          examplesPerColl,
 						RowsOffset:        0,
 						ViewContextStruct: corpusConf.ViewContextStruct,
