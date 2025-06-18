@@ -54,3 +54,11 @@ type WorkerResult struct {
 	ProcBegin    time.Time
 	ProcEnd      time.Time
 }
+
+// WorkerResult is a flag equivalent
+// to res.Value == nil - i.e. the result
+// has no value at all (which is not the
+// same as e.g. a concordance with zero lines).
+func (res WorkerResult) IsEmpty() bool {
+	return res.Value == nil
+}

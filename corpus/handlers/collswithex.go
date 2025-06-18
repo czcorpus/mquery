@@ -55,6 +55,12 @@ func (cl extendedConcLines) alwaysAsList() extendedConcLines {
 	return cl
 }
 
+type comparison struct {
+	Word  string  `json:"word"`
+	Score float64 `json:"score"`
+	Freq  int64   `json:"freq"`
+}
+
 type extendedCollItem struct {
 	ResultIdx     int
 	Word          string
@@ -62,6 +68,7 @@ type extendedCollItem struct {
 	Freq          int64
 	InteractionID string
 	Examples      extendedConcLines
+	Comparison    comparison
 	Err           error
 }
 
@@ -83,20 +90,27 @@ func (ecItem extendedCollItem) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// ---------
+
 type endpointResult struct {
 	CorpusSize int64               `json:"corpusSize"`
 	SubcSize   int64               `json:"subcSize,omitempty"`
 	Colls      []*extendedCollItem `json:"colls"`
+	CmpColls   []*mango.GoCollItem `json:"cmpColls"`
 	ResultType rdb.ResultType      `json:"resultType"`
 	Measure    string              `json:"measure"`
 	SrchRange  [2]int              `json:"srchRange"`
 	Error      string              `json:"error,omitempty"`
 }
 
+// --------
+
 type wordBindConc struct {
 	Lines results.ConcordanceLines
 	Word  string
 }
+
+// ----
 
 // writeStreamedData writes `res` as a server-side event.
 // The function also calls flush() on an underlying ctx writer to make
@@ -116,11 +130,22 @@ func writeStreamedData(ctx *gin.Context, collArgs *collArgs, res *endpointResult
 	ctx.Writer.Flush()
 }
 
-// CollocationsWithExamples godoc
-// @Summary      CollocationsWithExamples
+func mkEmptyResult() (<-chan rdb.WorkerResult, error) {
+	ch := make(chan rdb.WorkerResult)
+	go func() {
+		close(ch)
+	}()
+	return ch, nil
+}
+
+// --------------------------
+
+// CollocationsExtended godoc
+// @Summary      CollocationsExtended
 // @Description  Calculate a defined collocation profile of a searched expression. Values are sorted in descending order by their collocation score.
 // @Produce      json
 // @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        cmpCorp query string false "A different corpus to search "
 // @Param        q query string true "The translated query"
 // @Param        subcorpus query string false "An ID of a subcorpus"
 // @Param        measure query string false "a collocation measure" enums(absFreq, logLikelihood, logDice, minSensitivity, mutualInfo, mutualInfo3, mutualInfoLogF, relFreq, tScore) default(logDice)
@@ -132,8 +157,8 @@ func writeStreamedData(ctx *gin.Context, collArgs *collArgs, res *endpointResult
 // @Param        examplesPerColl query int false "number of concordance lines per collocation" default(5)
 // @Param        event query string false "an event id used in response data stream; if omitted then just `data` line are returned"
 // @Success      200 {object} results.CollocationsResponse
-// @Router       /collocations-with-examples/{corpusId} [get]
-func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
+// @Router       /collocations-extended/{corpusId} [get]
+func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 	collArgs, ok := a.fetchCollActionArgs(ctx)
 	if !ok {
 		return
@@ -145,17 +170,17 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Cache-Control", "no-cache")
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 
-	corpusPath := a.conf.GetRegistryPath(collArgs.queryProps.corpus)
+	corpus1Path := a.conf.GetRegistryPath(collArgs.queryProps.corpus)
 
 	srchAttr := ctx.Request.URL.Query().Get("srchAttr")
 	if srchAttr == "" {
 		srchAttr = CollDefaultAttr
 	}
 
-	wait, err := a.radapter.PublishQuery(rdb.Query{
+	wait1, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "collocations",
 		Args: rdb.CollocationsArgs{
-			CorpusPath: corpusPath,
+			CorpusPath: corpus1Path,
 			Query:      collArgs.queryProps.query,
 			Attr:       srchAttr,
 			Measure:    collArgs.measure,
@@ -174,24 +199,74 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 		)
 		return
 	}
-	rawResult := <-wait
-	if ok := HandleWorkerErrorStreaming(ctx, rawResult); !ok {
+
+	// now we handle (optional) search in a "comparison" corpus
+	cmpCorp := ctx.Query("cmpCorp")
+	var wait2 <-chan rdb.WorkerResult
+	var err2 error
+	if cmpCorp == "" {
+		wait2, err2 = mkEmptyResult()
+
+	} else {
+		corpus2Path := a.conf.GetRegistryPath(cmpCorp)
+		wait2, err2 = a.radapter.PublishQuery(rdb.Query{
+			Func: "collocations",
+			Args: rdb.CollocationsArgs{
+				CorpusPath: corpus2Path,
+				Query:      collArgs.queryProps.query,
+				Attr:       srchAttr,
+				Measure:    collArgs.measure,
+				// Note: see the range below and note that the left context
+				// is published differently (as a positive number) in contrast
+				// with the "internals" where a negative number is required
+				SrchRange: [2]int{-collArgs.srchLeft, collArgs.srchRight},
+				MinFreq:   int64(collArgs.minCollFreq),
+				MaxItems:  collArgs.maxItems,
+			}})
+	}
+	if err2 != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
 		return
 	}
-	result, ok := TypedOrRespondErrorStreaming[results.Collocations](ctx, rawResult)
+
+	// fetch both results
+
+	rawResult1 := <-wait1
+	if ok := HandleWorkerErrorStreaming(ctx, rawResult1); !ok {
+		return
+	}
+	result1, ok := TypedOrRespondErrorStreaming[results.Collocations](ctx, rawResult1)
 	if !ok {
 		return
 	}
-	result.SrchRange[0] = -1 * result.SrchRange[0] // note: HTTP and internal API are different
+	fmt.Println("RESULT1: ", result1)
+	result1.SrchRange[0] = -1 * result1.SrchRange[0] // note: HTTP and internal API are different
+
+	rawResult2 := <-wait2
+	colls2 := []*mango.GoCollItem{}
+	if !rawResult2.IsEmpty() {
+		if ok := HandleWorkerErrorStreaming(ctx, rawResult2); !ok {
+			return
+		}
+		result2, ok := TypedOrRespondErrorStreaming[results.Collocations](ctx, rawResult2)
+		if !ok {
+			return
+		}
+		colls2 = result2.Colls
+	}
 
 	ans := endpointResult{
-		CorpusSize: result.CorpusSize,
-		Measure:    result.Measure,
-		SrchRange:  result.SrchRange,
+		CorpusSize: result1.CorpusSize,
+		Measure:    result1.Measure,
+		SrchRange:  result1.SrchRange,
 		ResultType: rdb.ResultTypeCOllocationsWithExamples,
 	}
-	ans.Colls = make([]*extendedCollItem, len(result.Colls))
-	for i, v := range result.Colls {
+	ans.Colls = make([]*extendedCollItem, len(result1.Colls))
+	for i, v := range result1.Colls {
 		ans.Colls[i] = &extendedCollItem{
 			Word:     v.Word,
 			Score:    v.Score,
@@ -199,6 +274,16 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 			Examples: extendedConcLines{},
 		}
 	}
+
+	ans.CmpColls = make([]*mango.GoCollItem, len(colls2))
+	for i, v := range colls2 {
+		ans.CmpColls[i] = &mango.GoCollItem{
+			Word:  v.Word,
+			Score: v.Score,
+			Freq:  v.Freq,
+		}
+	}
+
 	// let's write colls without actual examples first
 	writeStreamedData(ctx, &collArgs, &ans)
 
@@ -209,16 +294,16 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 	corpusConf := a.conf.Resources.Get(collArgs.queryProps.corpus)
 	resultsChan := make(chan *extendedCollItem)
 	var wg sync.WaitGroup
-	wg.Add(len(result.Colls))
+	wg.Add(len(result1.Colls))
 	go func() {
-		for resultIdx, coll := range result.Colls {
+		for resultIdx, coll := range result1.Colls {
 			go func(collItem *mango.GoCollItem) {
 				defer wg.Done()
 				escapedWord := strings.ReplaceAll(collItem.Word, "\"", "\\\"")
 				wait, err := a.radapter.PublishQuery(rdb.Query{
 					Func: "concordance",
 					Args: rdb.ConcordanceArgs{
-						CorpusPath: corpusPath,
+						CorpusPath: corpus1Path,
 						Query:      collArgs.queryProps.query,
 						// note - below, we can 'simple text match ==' as the
 						// inserted value is always an exact value and not a pattern
@@ -239,7 +324,7 @@ func (a *Actions) CollocationsWithExamples(ctx *gin.Context) {
 						Word:      collItem.Word,
 						Score:     collItem.Score,
 						Freq:      collItem.Freq,
-						Err:       result.Error,
+						Err:       result1.Error,
 					}
 					return
 				}

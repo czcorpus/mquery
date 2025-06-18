@@ -133,7 +133,7 @@ func (api *apiServer) Start(ctx context.Context) {
 		"/collocations/:corpusId", ceActions.Collocations)
 
 	engine.GET(
-		"/collocations-with-examples/:corpusId", ceActions.CollocationsWithExamples)
+		"/collocations-extended/:corpusId", ceActions.CollocationsExtended)
 
 	engine.GET(
 		"/word-forms/:corpusId", ceActions.WordForms)
