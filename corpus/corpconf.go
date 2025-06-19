@@ -327,7 +327,6 @@ func (rscs Resources) Get(name string) *CorpusSetup {
 						return &merged
 					}
 				}
-				return v
 			}
 
 		} else if v.ID == name {
