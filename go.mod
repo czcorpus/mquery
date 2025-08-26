@@ -1,12 +1,12 @@
 module mquery
 
-go 1.22.0
+go 1.23
 
-toolchain go1.23.0
+toolchain go1.23.4
 
 require (
 	github.com/bytedance/sonic v1.12.5
-	github.com/czcorpus/cnc-gokit v0.11.1
+	github.com/czcorpus/cnc-gokit v0.17.0
 	github.com/czcorpus/hltscl v0.0.6
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/mquery-common v0.4.0

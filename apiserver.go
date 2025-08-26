@@ -62,7 +62,10 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(additionalLogEvents())
-	engine.Use(logging.GinMiddleware())
+	engine.Use(logging.GinMiddleware(
+		logging.GinMiddlewareWithMonitoringIPs(api.conf.LoggingMonitoringIPs),
+		logging.GinMiddlewareWithMonitoringUASubstr(api.conf.LoggingMonitoringUASubstr),
+	))
 	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.Use(CORSMiddleware(api.conf))
 	engine.NoMethod(uniresp.NoMethodHandler)

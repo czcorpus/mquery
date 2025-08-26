@@ -89,21 +89,23 @@ type Conf struct {
 	// PublicURLs specifies which URLs are used to access the server.
 	// For more flexibility, we allow for more public URLs where
 	// a concrete variant is inferred based on client's request.
-	PublicURLs             []string             `json:"publicUrls"`
-	ListenPort             int                  `json:"listenPort"`
-	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
-	CorsAllowedOrigins     []string             `json:"corsAllowedOrigins"`
-	CorporaSetup           *corpus.CorporaSetup `json:"corpora"`
-	CQLTranslatorURL       string               `json:"cqlTranslatorURL"`
-	Redis                  *rdb.Conf            `json:"redis"`
-	Logging                logging.LoggingConf  `json:"logging"`
-	Locales                LocalesConf          `json:"locales"`
-	TimeZone               string               `json:"timeZone"`
-	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
-	AuthHeaderName         string               `json:"authHeaderName"`
-	AuthTokens             []string             `json:"authTokens"`
-	Monitoring             *monitoring.Conf     `json:"monitoring"`
+	PublicURLs                []string             `json:"publicUrls"`
+	ListenPort                int                  `json:"listenPort"`
+	ServerReadTimeoutSecs     int                  `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs    int                  `json:"serverWriteTimeoutSecs"`
+	CorsAllowedOrigins        []string             `json:"corsAllowedOrigins"`
+	CorporaSetup              *corpus.CorporaSetup `json:"corpora"`
+	CQLTranslatorURL          string               `json:"cqlTranslatorURL"`
+	Redis                     *rdb.Conf            `json:"redis"`
+	Logging                   logging.LoggingConf  `json:"logging"`
+	LoggingMonitoringIPs      []string             `json:"loggingMonitoringIPs"`
+	LoggingMonitoringUASubstr string               `json:"loggingMonitoringUASubstr"`
+	Locales                   LocalesConf          `json:"locales"`
+	TimeZone                  string               `json:"timeZone"`
+	PrivacyPolicy             PrivacyPolicy        `json:"privacyPolicy"`
+	AuthHeaderName            string               `json:"authHeaderName"`
+	AuthTokens                []string             `json:"authTokens"`
+	Monitoring                *monitoring.Conf     `json:"monitoring"`
 
 	srcPath string
 }
