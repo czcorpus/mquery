@@ -121,7 +121,7 @@ func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
 		ConcSize:         res.ConcSize,
 		CorpusSize:       res.CorpusSize,
 		SubcSize:         res.SubcSize,
-		Freqs:            res.Freqs,
+		Freqs:            res.Freqs.AlwaysAsList(),
 		Fcrit:            res.Fcrit,
 		ExamplesQueryTpl: res.ExamplesQueryTpl,
 		ResultType:       res.Type(),

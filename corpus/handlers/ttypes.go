@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
@@ -42,6 +43,7 @@ const (
 // @Param        q query string true "The translated query"
 // @Param        subcorpus query string false "An ID of a subcorpus"
 // @Param        attr query string false "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)"
+// @Param        maxItems query int 20 "maximum result size"
 // @Success      200 {object} results.FreqDistribResponse
 // @Router       /text-types/{corpusId} [get]
 func (a *Actions) TextTypes(ctx *gin.Context) {
@@ -69,6 +71,11 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		}
 	}
 
+	maxResults, ok := unireq.GetURLIntArgOrFail(ctx, "maxItems", textTypesInternalMaxResults)
+	if !ok {
+		return
+	}
+
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	freqArgs := rdb.FreqDistribArgs{
 		CorpusPath:  corpusPath,
@@ -76,7 +83,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		Crit:        fmt.Sprintf("%s 0", attr),
 		IsTextTypes: true,
 		FreqLimit:   flimit,
-		MaxResults:  textTypesInternalMaxResults,
+		MaxResults:  maxResults,
 	}
 	// TODO this probably needs some work
 	if ctx.Request.URL.Query().Has("subc") {

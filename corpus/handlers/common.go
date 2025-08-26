@@ -32,11 +32,12 @@ import (
 )
 
 type queryProps struct {
-	corpus     string
-	query      string
-	err        error
-	corpusConf *corpus.CorpusSetup
-	status     int
+	corpus         string
+	savedSubcorpus string
+	query          string
+	err            error
+	corpusConf     *corpus.CorpusSetup
+	status         int
 }
 
 func (qp queryProps) hasError() bool {
@@ -70,9 +71,15 @@ func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProp
 	if subc != "" {
 		ttCQL = corpus.SubcorpusToCQL(corpusConf.Subcorpora[subc].TextTypes)
 		if ttCQL == "" {
-			ans.err = errors.New("invalid subcorpus specification")
-			ans.status = http.StatusUnprocessableEntity
-			return ans
+			savedSubcPath, ok := corpus.CheckSavedSubcorpus(cConf.SavedSubcorporaDir, ans.corpus, subc)
+			if ok {
+				ans.savedSubcorpus = savedSubcPath
+
+			} else {
+				ans.err = fmt.Errorf("invalid subcorpus specification: %s", savedSubcPath)
+				ans.status = http.StatusUnprocessableEntity
+				return ans
+			}
 		}
 	}
 	ans.query = userQuery + ttCQL

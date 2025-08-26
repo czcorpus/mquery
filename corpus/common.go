@@ -24,11 +24,16 @@ import (
 	"mquery/rdb"
 	"os"
 	"path/filepath"
+
+	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/rs/zerolog/log"
 )
 
 var (
 	ErrNotFound = errors.New("corpus not found")
 )
+
+// ------------------ split corpus (into multiple subcorpora) -------------------------
 
 type SplitCorpus struct {
 	CorpusPath string
@@ -58,6 +63,20 @@ func OpenSplitCorpus(subcBaseDir, corpPath string) (*SplitCorpus, error) {
 	}
 	return ans, nil
 }
+
+// --------------- saved subcorpus ----------------------------
+
+func CheckSavedSubcorpus(baseDir, corp, subcID string) (string, bool) {
+	path := filepath.Join(baseDir, subcID[:2], subcID, "data.subc")
+	isf, err := fs.IsFile(path)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to check saved subcorpus path")
+		return path, false
+	}
+	return path, isf
+}
+
+// ------------------------------------------------------------
 
 type QueryHandler interface {
 	PublishQuery(query rdb.Query) (<-chan rdb.WorkerResult, error)
