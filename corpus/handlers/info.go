@@ -21,11 +21,11 @@ package handlers
 import (
 	"fmt"
 	"mquery/corpus"
-	"mquery/corpus/baseinfo"
 	"mquery/rdb/results"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -79,7 +79,7 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
-	info, err := a.infoProvider.LoadCorpusInfo(corpusID, lang)
+	cinfo, err := a.infoProvider.LoadCorpusInfo(corpusID, lang)
 	if err == corpus.ErrNotFound {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
@@ -99,15 +99,15 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		)
 		return
 	}
-	info.Data.TextProperties = make([]baseinfo.TextProperty, len(corpusConf.TextProperties))
+	cinfo.Data.TextProperties = make([]corp.TextProperty, len(corpusConf.TextProperties))
 	var i int
 	for prop := range corpusConf.TextProperties {
-		info.Data.TextProperties[i] = prop
+		cinfo.Data.TextProperties[i] = prop
 		i++
 	}
 	ans := &corpusInfoResponse{
 		Locale: lang,
-		Corpus: info,
+		Corpus: cinfo,
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }

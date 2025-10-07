@@ -19,13 +19,13 @@
 package results
 
 import (
-	"mquery/corpus/baseinfo"
 	"mquery/mango"
 	"mquery/rdb"
 
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
+	"github.com/czcorpus/mquery-common/corp"
 )
 
 type FreqDistribItemList []*FreqDistribItem
@@ -308,7 +308,7 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 // --------
 
 type CorpusInfo struct {
-	Data  baseinfo.Corpus
+	Data  corp.Overview
 	Error error
 }
 
@@ -323,9 +323,9 @@ func (res CorpusInfo) Type() rdb.ResultType {
 
 func (res CorpusInfo) MarshalJSON() ([]byte, error) {
 	return sonic.Marshal(struct {
-		Data       baseinfo.Corpus `json:"data"`
-		ResultType rdb.ResultType  `json:"resultType"`
-		Error      error           `json:"error,omitempty"`
+		Data       corp.Overview  `json:"data"`
+		ResultType rdb.ResultType `json:"resultType"`
+		Error      error          `json:"error,omitempty"`
 	}{
 		Data:       res.Data,
 		ResultType: res.Type(),

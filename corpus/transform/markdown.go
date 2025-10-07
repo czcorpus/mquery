@@ -27,7 +27,7 @@ import (
 	"github.com/czcorpus/mquery-common/concordance"
 )
 
-func expandKWIC(tk *concordance.Token, conf *corpus.CorpusSetup) string {
+func expandKWIC(tk *concordance.Token, conf *corpus.MQCorpusSetup) string {
 	var tmp strings.Builder
 	if tk.Strong {
 		tmp.WriteString(fmt.Sprintf("**%s** *{", tk.Word))
@@ -48,7 +48,7 @@ func expandKWIC(tk *concordance.Token, conf *corpus.CorpusSetup) string {
 	return tk.Word
 }
 
-func getAttrs(tk *concordance.Token, conf *corpus.CorpusSetup) string {
+func getAttrs(tk *concordance.Token, conf *corpus.MQCorpusSetup) string {
 	ans := make([]string, 0, len(conf.PosAttrs)-1)
 	for _, v := range conf.PosAttrs {
 		if v.Name != "word" {
@@ -76,7 +76,7 @@ func exportTextProps(props map[string]string, buff *strings.Builder) {
 	}
 }
 
-func ConcToMarkdown(data *results.Concordance, conf *corpus.CorpusSetup, textProps bool) string {
+func ConcToMarkdown(data *results.Concordance, conf *corpus.MQCorpusSetup, textProps bool) string {
 	var ans strings.Builder
 	if textProps {
 		ans.WriteString("|left context | KWIC | right context | text properties |\n")

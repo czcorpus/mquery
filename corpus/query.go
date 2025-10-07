@@ -21,9 +21,11 @@ package corpus
 import (
 	"fmt"
 	"strings"
+
+	"github.com/czcorpus/mquery-common/corp"
 )
 
-func SubcorpusToCQL(tt TextTypes) string {
+func SubcorpusToCQL(tt corp.TextTypes) string {
 	var buff strings.Builder
 	for attr, values := range tt {
 		pAttr := strings.Split(attr, ".")

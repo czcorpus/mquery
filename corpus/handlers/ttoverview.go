@@ -21,7 +21,6 @@ package handlers
 
 import (
 	"fmt"
-	"mquery/corpus/baseinfo"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -46,7 +46,7 @@ type ttOverviewResult struct {
 	error string
 }
 
-func (tto *ttOverviewResult) set(attr baseinfo.TextProperty, v results.FreqDistrib) {
+func (tto *ttOverviewResult) set(attr corp.TextProperty, v results.FreqDistrib) {
 	tto.freqs[attr.String()] = v
 }
 
@@ -140,7 +140,7 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 			wg.Done()
 
 		} else {
-			go func(attrx baseinfo.TextProperty) {
+			go func(attrx corp.TextProperty) {
 				defer wg.Done()
 				tmp := <-wait
 				if tmp.Value.Err() != nil {

@@ -20,12 +20,14 @@ package corpus
 
 import (
 	"mquery/rdb/results"
+
+	"github.com/czcorpus/mquery-common/corp"
 )
 
 // ApplyTextPropertiesMapping replaces corpus-specific structural attributes
 // with mapped text properties - if defined. Structural attributes not mapped
 // by corpus `textProperties` are keeped in their original form.
-func ApplyTextPropertiesMapping(res results.Concordance, propsConf TextTypeProperties) {
+func ApplyTextPropertiesMapping(res results.Concordance, propsConf corp.TextTypeProperties) {
 	for _, line := range res.Lines {
 		for attr, value := range line.Props {
 			prop := propsConf.Prop(attr)

@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"mquery/corpus"
-	"mquery/corpus/baseinfo"
 	"mquery/rdb"
 	"net/http"
 	"reflect"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,7 +38,7 @@ type queryProps struct {
 	savedSubcorpus string
 	query          string
 	err            error
-	corpusConf     *corpus.CorpusSetup
+	corpusConf     *corpus.MQCorpusSetup
 	status         int
 }
 
@@ -92,8 +92,8 @@ func (a *Actions) DecodeTextTypeAttrOrFail(
 	ctx *gin.Context,
 	corpusID string,
 ) (string, bool) {
-	corp := ctx.Param("corpusId")
-	attr := baseinfo.TextProperty(ctx.Query("attr"))
+	corpus := ctx.Param("corpusId")
+	attr := corp.TextProperty(ctx.Query("attr"))
 	tProp := ctx.Query("textProperty")
 	if attr != "" && tProp != "" {
 		uniresp.RespondWithErrorJSON(
@@ -107,7 +107,7 @@ func (a *Actions) DecodeTextTypeAttrOrFail(
 		return attr.String(), true
 	}
 	if tProp != "" {
-		corpConf := a.conf.Resources.Get(corp)
+		corpConf := a.conf.Resources.Get(corpus)
 		if corpConf == nil {
 			uniresp.RespondWithErrorJSON(
 				ctx,
@@ -116,7 +116,7 @@ func (a *Actions) DecodeTextTypeAttrOrFail(
 			)
 			return "", false
 		}
-		tp, ok := corpConf.TextProperties[baseinfo.TextProperty(tProp)]
+		tp, ok := corpConf.TextProperties[corp.TextProperty(tProp)]
 		if !ok {
 			uniresp.RespondWithErrorJSON(
 				ctx,
