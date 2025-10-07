@@ -20,7 +20,6 @@ package worker
 
 import (
 	"fmt"
-	"mquery/corpus/baseinfo"
 	"mquery/corpus/infoload"
 	"mquery/mango"
 	"mquery/merror"
@@ -30,12 +29,13 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/mquery-common/concordance"
+	"github.com/czcorpus/mquery-common/corp"
 	"github.com/rs/zerolog/log"
 )
 
 func (w *Worker) corpusInfo(args rdb.CorpusInfoArgs) results.CorpusInfo {
 	var ans results.CorpusInfo
-	ans.Data = baseinfo.Corpus{Corpname: filepath.Base(args.CorpusPath)}
+	ans.Data = corp.Overview{Corpname: filepath.Base(args.CorpusPath)}
 	t, err := fs.IsFile(args.CorpusPath)
 	if err != nil {
 		ans.Error = err

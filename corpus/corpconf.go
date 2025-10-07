@@ -20,253 +20,59 @@ package corpus
 
 import (
 	"fmt"
-	"mquery/corpus/baseinfo"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/bytedance/sonic"
-	"github.com/czcorpus/cnc-gokit/collections"
+	"github.com/czcorpus/mquery-common/corp"
 	"github.com/rs/zerolog/log"
 )
 
 // Single corpus configuration types
 // ----------------------------------------
 
-type PosAttr struct {
-	Name        string            `json:"name"`
-	Description map[string]string `json:"description"`
+type MQCorpusSetup struct {
+	corp.CorpusSetup
 }
 
-func (p PosAttr) IsZero() bool {
-	return p.Name == ""
-}
-
-func (p PosAttr) LocaleDescription(lang string) string {
-	d := p.Description[lang]
-	if d != "" {
-		return d
-	}
-	return p.Description["en"]
-}
-
-type PosAttrList []PosAttr
-
-func (pal PosAttrList) GetIDs() []string {
-	ans := make([]string, len(pal))
-	for i, v := range pal {
-		ans[i] = v.Name
-	}
-	return ans
-}
-
-func (pal PosAttrList) Contains(ident string) bool {
-	for _, v := range pal {
-		if v.Name == ident {
-			return true
-		}
-	}
-	return false
-}
-
-// ----
-
-type StructAttr struct {
-	Name        string            `json:"name"`
-	Description map[string]string `json:"description"`
-}
-
-func (s StructAttr) LocaleDescription(lang string) string {
-	d := s.Description[lang]
-	if d != "" {
-		return d
-	}
-	return s.Description["en"]
-}
-
-func (s StructAttr) IsZero() bool {
-	return s.Name == ""
-}
-
-// ----
-
-type SyntaxConcordance struct {
-	ParentAttr string `json:"parentAttr"`
-
-	// ResultAttrs is a list of positional attributes
-	// we need to provide all the required information about
-	// syntax in for the "syntax-conc-examples" endpoint
-	ResultAttrs []string `json:"resultAttrs"`
-}
-
-type TextTypes map[string][]string
-
-type Subcorpus struct {
-	ID          string            `json:"id"`
-	TextTypes   TextTypes         `json:"textTypes"`
-	Description map[string]string `json:"description"`
-}
-
-type CorpusVariant struct {
-	ID          string            `json:"id"`
-	FullName    map[string]string `json:"fullName"`
-	Description map[string]string `json:"description"`
-}
-
-type TTPropertyConf struct {
-	Name         string `json:"name"`
-	IsInOverview bool   `json:"isInOverview"`
-}
-
-// TextTypeProperties maps between generalized text properties
-// and specific corpus structural attributes.
-type TextTypeProperties map[baseinfo.TextProperty]TTPropertyConf
-
-// Prop returns a generalized property based on provided struct. attribute
-// If nothing is found, empty TextProperty is returned
-func (ttp TextTypeProperties) Prop(attr string) baseinfo.TextProperty {
-	for k, v := range ttp {
-		if v.Name == attr {
-			return k
-		}
-	}
-	return ""
-}
-
-func (ttp TextTypeProperties) List() []baseinfo.TextProperty {
-	ans := make([]baseinfo.TextProperty, len(ttp))
-	var i int
-	for k := range ttp {
-		ans[i] = k
-	}
-	return ans
-}
-
-func (ttp TextTypeProperties) ListOverviewProps() []baseinfo.TextProperty {
-	ans := make([]baseinfo.TextProperty, 0, len(ttp))
-	for _, v := range ttp {
-		if v.IsInOverview {
-			ans = append(ans, baseinfo.TextProperty(v.Name))
-		}
-	}
-	return ans
-}
-
-// Attr returns a struct. attribute name based on generalized property.
-// If nothing is found, empty string is returned.
-func (ttp TextTypeProperties) Attr(prop baseinfo.TextProperty) string {
-	return ttp[prop].Name
-}
-
-type ContextWindow int
-
-// LeftAndRight converts the window into the left-right intervals.
-// In case the value is an odd number, the reminder is added to the right.
-func (cw ContextWindow) LeftAndRight() (lft int, rgt int) {
-	tmp := int(cw) / 2
-	lft = tmp
-	rgt = tmp + (int(cw) - 2*tmp)
-	return
-}
-
-type CorpusSetup struct {
-	ID                   string             `json:"id"`
-	FullName             map[string]string  `json:"fullName"`
-	Description          map[string]string  `json:"description"`
-	SyntaxConcordance    SyntaxConcordance  `json:"syntaxConcordance"`
-	PosAttrs             PosAttrList        `json:"posAttrs"`
-	ConcMarkupStructures []string           `json:"concMarkupStructures"`
-	ConcTextPropsAttrs   []string           `json:"concTextPropsAttrs"`
-	TextProperties       TextTypeProperties `json:"textProperties"`
-	MaximumRecords       int                `json:"maximumRecords"`
-
-	// MaximumTokenContextWindow specifies the total width of token's context
-	// with the token in the middle. Odd numbers are applied in a way giving one
-	// more token to the right.
-	MaximumTokenContextWindow ContextWindow `json:"MaximumTokenContextWindow"`
-
-	// Subcorpora defines named transient subcorpora created as part of the query.
-	// MQuery also supports so called saved subcorpora which are files created via Manatee-open
-	// (or in a more user-friendly way using KonText or NoSkE).
-	Subcorpora map[string]Subcorpus `json:"subcorpora"`
-	// ViewContextStruct is a structure used to specify "units"
-	// for KWIC left and right context. Typically, this is
-	// a structure representing a sentence or a speach.
-	ViewContextStruct string                   `json:"viewContextStruct"`
-	Variants          map[string]CorpusVariant `json:"variants"`
-	SrchKeywords      []string                 `json:"srchKeywords"`
-	WebURL            string                   `json:"webUrl"`
-	HasPublicAudio    bool                     `json:"hasPublicAudio"`
-}
-
-func (cs *CorpusSetup) LocaleDescription(lang string) string {
-	d := cs.Description[lang]
-	if d != "" {
-		return d
-	}
-	return cs.Description["en"]
-}
-
-func (cs *CorpusSetup) IsDynamic() bool {
-	return strings.Contains(cs.ID, "*")
-}
-
-func (cs *CorpusSetup) GetPosAttr(name string) PosAttr {
-	for _, v := range cs.PosAttrs {
-		if v.Name == name {
-			return v
-		}
-	}
-	return PosAttr{}
-}
-
-func (cs *CorpusSetup) KnownStructures() []string {
-	ans := make([]string, 0, len(cs.ConcMarkupStructures)+len(cs.ConcTextPropsAttrs))
-	ans = append(ans, cs.ConcMarkupStructures...)
-	tmp := collections.SliceMap[string, string](cs.ConcTextPropsAttrs, func(s string, i int) string {
-		return strings.Split(s, ".")[0]
-	})
-	ans = append(ans, tmp...)
-	return ans
-}
-
-func (cs *CorpusSetup) ValidateAndDefaults() error {
-	if cs.IsDynamic() {
-		for _, variant := range cs.Variants {
+func (cs *MQCorpusSetup) ValidateAndDefaults() error {
+	if cs.CorpusSetup.IsDynamic() {
+		for _, variant := range cs.CorpusSetup.Variants {
 			if len(variant.FullName) == 0 || variant.FullName["en"] == "" {
 				return fmt.Errorf("missing corpus variant `fullName`, at least `en` value must be set")
 			}
 		}
 
 	} else {
-		if len(cs.FullName) == 0 || cs.FullName["en"] == "" {
+		if len(cs.CorpusSetup.FullName) == 0 || cs.CorpusSetup.FullName["en"] == "" {
 			return fmt.Errorf("missing corpus `fullName`, at least `en` value must be set")
 		}
 	}
-	if len(cs.PosAttrs) == 0 {
+	if len(cs.CorpusSetup.PosAttrs) == 0 {
 		return fmt.Errorf("at least one positional attribute in `posAttrs` must be defined")
 	}
-	if cs.MaximumRecords == 0 {
-		cs.MaximumRecords = DfltMaximumRecords
+	if cs.CorpusSetup.MaximumRecords == 0 {
+		cs.CorpusSetup.MaximumRecords = DfltMaximumRecords
 		log.Warn().
-			Int("value", cs.MaximumRecords).
+			Int("value", cs.CorpusSetup.MaximumRecords).
 			Msg("missing or zero `maximumRecords`, using default")
 	}
-	if len(cs.TextProperties.ListOverviewProps()) == 0 {
+	if len(cs.CorpusSetup.TextProperties.ListOverviewProps()) == 0 {
 		log.Warn().
 			Msg("no `ttOverviewAttrs` defined, some freq. function will be disabled")
 	}
-	for prop := range cs.TextProperties {
+	for prop := range cs.CorpusSetup.TextProperties {
 		if !prop.Validate() {
 			return fmt.Errorf("invalid text property %s", prop)
 		}
 	}
-	if cs.MaximumTokenContextWindow == 0 {
+	if cs.CorpusSetup.MaximumTokenContextWindow == 0 {
 		log.Warn().
 			Int("value", DfltMaximumTokenContextWindow).
 			Msg("`maximumTokenContextWindow` not specified, using default")
-		cs.MaximumTokenContextWindow = DfltMaximumTokenContextWindow
+		cs.CorpusSetup.MaximumTokenContextWindow = DfltMaximumTokenContextWindow
 	}
 	return nil
 }
@@ -274,7 +80,7 @@ func (cs *CorpusSetup) ValidateAndDefaults() error {
 // Multiple corpora configuration types
 // -------------------------------------
 
-type Resources []*CorpusSetup
+type Resources []*MQCorpusSetup
 
 func (rscs *Resources) Load(directory string) error {
 	files, err := os.ReadDir(directory)
@@ -291,7 +97,7 @@ func (rscs *Resources) Load(directory string) error {
 				Msg("encountered invalid corpus configuration file, skipping")
 			continue
 		}
-		var conf CorpusSetup
+		var conf MQCorpusSetup
 		err = sonic.Unmarshal(tmp, &conf)
 		if err != nil {
 			log.Warn().
@@ -306,11 +112,12 @@ func (rscs *Resources) Load(directory string) error {
 	return nil
 }
 
-func (rscs Resources) Get(name string) *CorpusSetup {
+func (rscs Resources) Get(name string) *MQCorpusSetup {
 	for _, v := range rscs {
 		if strings.Contains(v.ID, "*") {
 			ptrn := regexp.MustCompile(strings.ReplaceAll(v.ID, "*", ".*"))
 			if ptrn.MatchString(name) {
+				fmt.Printf(">>>>>>>>>> %s >>> %#v\n", name, v)
 				if v.Variants != nil {
 					variant, ok := v.Variants[name]
 					if ok {
@@ -336,8 +143,8 @@ func (rscs Resources) Get(name string) *CorpusSetup {
 	return nil
 }
 
-func (rscs Resources) GetAllCorpora() []*CorpusSetup {
-	ans := make([]*CorpusSetup, 0, len(rscs)*3)
+func (rscs Resources) GetAllCorpora() []*MQCorpusSetup {
+	ans := make([]*MQCorpusSetup, 0, len(rscs)*3)
 	for _, v := range rscs {
 		if len(v.Variants) > 0 {
 			for _, variant := range v.Variants {

@@ -19,12 +19,13 @@ package infoload
 
 import (
 	"mquery/corpus"
-	"mquery/corpus/baseinfo"
 	"mquery/mango"
 	"strings"
+
+	"github.com/czcorpus/mquery-common/corp"
 )
 
-func FillStructAndAttrs(corpPath string, info *baseinfo.Corpus) error {
+func FillStructAndAttrs(corpPath string, cinfo *corp.Overview) error {
 	attrs, err := mango.GetCorpusConf(corpPath, "ATTRLIST")
 	if err != nil {
 		return err
@@ -34,7 +35,7 @@ func FillStructAndAttrs(corpPath string, info *baseinfo.Corpus) error {
 		if err != nil {
 			return err
 		}
-		info.AttrList = append(info.AttrList, baseinfo.Item{
+		cinfo.AttrList = append(cinfo.AttrList, corp.Attr{
 			Name: v,
 			Size: size,
 		})
@@ -48,7 +49,7 @@ func FillStructAndAttrs(corpPath string, info *baseinfo.Corpus) error {
 		if err != nil {
 			return err
 		}
-		info.StructList = append(info.StructList, baseinfo.Item{
+		cinfo.StructList = append(cinfo.StructList, corp.Attr{
 			Name: v,
 			Size: size,
 		})
@@ -63,7 +64,7 @@ type AttributeFiller struct {
 	conf *corpus.CorporaSetup
 }
 
-func (mp *AttributeFiller) FillStructAndAttrs(corpPath string, info *baseinfo.Corpus) error {
+func (mp *AttributeFiller) FillStructAndAttrs(corpPath string, info *corp.Overview) error {
 	return FillStructAndAttrs(corpPath, info)
 }
 

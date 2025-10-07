@@ -51,7 +51,7 @@ func (cf concFormat) Validate() error {
 	return fmt.Errorf("unknown concordance format type: %s", cf)
 }
 
-type ConcArgsBuilder func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs
+type ConcArgsBuilder func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs
 
 type ConcArgsValidator func(args *rdb.ConcordanceArgs) error
 
@@ -59,7 +59,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
 		concFormatJSON,
-		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+		func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs {
 
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
@@ -173,7 +173,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
 		format,
-		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+		func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs {
 			showStructs := []string{}
 			if ctx.Query("showMarkup") == "1" {
 				showStructs = conf.ConcMarkupStructures
@@ -230,7 +230,7 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
 		format,
-		func(conf *corpus.CorpusSetup, q string) rdb.ConcordanceArgs {
+		func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs {
 			showStructs := []string{}
 			if ctx.Query("showMarkup") == "1" {
 				showStructs = conf.ConcMarkupStructures
@@ -332,7 +332,7 @@ func (a *Actions) anyConcordance(
 // @Router       /term-frequency/{corpusId} [get]
 func (a *Actions) TermFrequency(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
-	argsBuilder := func(conf *corpus.CorpusSetup, q string) rdb.TermFrequencyArgs {
+	argsBuilder := func(conf *corpus.MQCorpusSetup, q string) rdb.TermFrequencyArgs {
 		return rdb.TermFrequencyArgs{
 			CorpusPath:        a.conf.GetRegistryPath(conf.ID),
 			Query:             q,

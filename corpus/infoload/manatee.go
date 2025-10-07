@@ -20,11 +20,11 @@ package infoload
 import (
 	"fmt"
 	"mquery/corpus"
-	"mquery/corpus/baseinfo"
 	"mquery/rdb"
 	"mquery/rdb/results"
 
 	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/czcorpus/mquery-common/corp"
 )
 
 type Manatee struct {
@@ -33,23 +33,23 @@ type Manatee struct {
 	cache        map[string]*results.CorpusInfo
 }
 
-func mergeConfigInfo(conf *corpus.CorpusSetup, info *results.CorpusInfo, lang string) {
-	newAttrList := make([]baseinfo.Item, len(info.Data.AttrList))
-	for i, attr := range info.Data.AttrList {
+func mergeConfigInfo(conf *corpus.MQCorpusSetup, cinfo *results.CorpusInfo, lang string) {
+	newAttrList := make([]corp.Attr, len(cinfo.Data.AttrList))
+	for i, attr := range cinfo.Data.AttrList {
 		srch := conf.GetPosAttr(attr.Name)
 		if !srch.IsZero() {
 			attr.Description = srch.LocaleDescription(lang)
 		}
 		newAttrList[i] = attr
 	}
-	info.Data.AttrList = newAttrList
+	cinfo.Data.AttrList = newAttrList
 	desc := conf.LocaleDescription(lang)
 	if desc != "" {
-		info.Data.Description = desc
+		cinfo.Data.Description = desc
 	}
-	info.Data.SrchKeywords = conf.SrchKeywords
-	if info.Data.SrchKeywords == nil {
-		info.Data.SrchKeywords = []string{}
+	cinfo.Data.SrchKeywords = conf.SrchKeywords
+	if cinfo.Data.SrchKeywords == nil {
+		cinfo.Data.SrchKeywords = []string{}
 	}
 }
 

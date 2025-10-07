@@ -28,8 +28,8 @@ import (
 
 const (
 	DfltSplitChunkSize            = 100000000
-	DfltMaximumRecords            = 50
 	DfltPosAttrDelimiter          = 47
+	DfltMaximumRecords            = 50
 	DfltMaximumTokenContextWindow = 50
 )
 
