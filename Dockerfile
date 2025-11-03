@@ -18,4 +18,4 @@ RUN git config --global --add safe.directory /opt/mquery \
     && ./configure --with-pcre2 \
     && make build
 
-CMD ["./mquery", "server", "conf-docker.json"]
+CMD ["./mquery", "server", "conf.docker.json"]
