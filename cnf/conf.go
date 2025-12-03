@@ -90,6 +90,7 @@ type Conf struct {
 	// For more flexibility, we allow for more public URLs where
 	// a concrete variant is inferred based on client's request.
 	PublicURLs             []string             `json:"publicUrls"`
+	APIDocsURLPath         string               `json:"apiDocsUrlPath"`
 	ListenPort             int                  `json:"listenPort"`
 	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`

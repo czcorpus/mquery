@@ -24,6 +24,7 @@ import (
 	"mquery/cnf"
 	corpusActions "mquery/corpus/handlers"
 	"mquery/corpus/infoload"
+	"mquery/docs"
 	"mquery/proxied"
 	"mquery/rdb"
 	"net/http"
@@ -73,6 +74,10 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.GET("/", mkServerInfo(api.conf))
 
 	engine.GET("/privacy-policy", mkPrivacyPolicy(api.conf))
+
+	if api.conf.APIDocsURLPath == "" {
+		docs.SwaggerInfo.BasePath = api.conf.APIDocsURLPath
+	}
 
 	engine.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
