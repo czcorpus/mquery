@@ -75,8 +75,9 @@ func (api *apiServer) Start(ctx context.Context) {
 
 	engine.GET("/privacy-policy", mkPrivacyPolicy(api.conf))
 
-	if api.conf.APIDocsURLPath == "" {
+	if api.conf.APIDocsURLPath != "" {
 		docs.SwaggerInfo.BasePath = api.conf.APIDocsURLPath
+		log.Info().Str("prefix", docs.SwaggerInfo.BasePath).Msg("using custom path prefix for API Docs")
 	}
 
 	engine.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
