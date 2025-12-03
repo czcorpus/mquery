@@ -117,7 +117,6 @@ func (rscs Resources) Get(name string) *MQCorpusSetup {
 		if strings.Contains(v.ID, "*") {
 			ptrn := regexp.MustCompile(strings.ReplaceAll(v.ID, "*", ".*"))
 			if ptrn.MatchString(name) {
-				fmt.Printf(">>>>>>>>>> %s >>> %#v\n", name, v)
 				if v.Variants != nil {
 					variant, ok := v.Variants[name]
 					if ok {
