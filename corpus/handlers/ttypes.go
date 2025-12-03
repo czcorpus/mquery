@@ -44,6 +44,7 @@ const (
 // @Param        subcorpus query string false "An ID of a subcorpus"
 // @Param        attr query string false "a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)"
 // @Param        maxItems query int 20 "maximum result size"
+// @Param        flimit query int 1 "minimum accepted frequency"
 // @Success      200 {object} results.FreqDistribResponse
 // @Router       /text-types/{corpusId} [get]
 func (a *Actions) TextTypes(ctx *gin.Context) {
