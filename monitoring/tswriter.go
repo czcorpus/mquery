@@ -37,15 +37,25 @@ create table mquery_operations_stats (
   num_errors int,
   duration_secs float
 );
-
 select create_hypertable('mquery_operations_stats', 'time');
+
+create table mquery_called_funcs (
+	"time" timestamp with time zone NOT NULL,
+	func text,
+	num_calls int
+);
+select create_hypertable('mquery_called_funcs', 'time');
+
 */
 
 type TimescaleDBWriter struct {
-	tableWriter *hltscl.TableWriter
-	opsDataCh   chan<- hltscl.Entry
-	errCh       <-chan hltscl.WriteError
-	location    *time.Location
+	tableWriter   *hltscl.TableWriter
+	opsDataCh     chan<- hltscl.Entry
+	errCh         <-chan hltscl.WriteError
+	fnTableWriter *hltscl.TableWriter
+	fnDataCh      chan<- hltscl.Entry
+	fnErrCh       <-chan hltscl.WriteError
+	location      *time.Location
 }
 
 func (sw *TimescaleDBWriter) Start(ctx context.Context) {
@@ -81,6 +91,10 @@ func (sw *TimescaleDBWriter) Write(item rdb.JobLog) {
 			Int("num_jobs", 1).
 			Int("num_errors", numErr).
 			Float("duration_secs", item.TimeSpent().Seconds())
+
+		sw.fnDataCh <- *sw.fnTableWriter.NewEntry(time.Now().In(sw.location)).
+			Str("func", item.Func).
+			Int("num_calls", 1)
 	}
 }
 
@@ -101,10 +115,19 @@ func NewTimescaleDBWriter(
 		hltscl.WithTimeout(20*time.Second),
 	)
 
+	fnwriter := hltscl.NewTableWriter(conn, "mquery_called_funcs", "time", tz)
+	fnDataCh, fnErrCh := fnwriter.Activate(
+		ctx,
+		hltscl.WithTimeout(20*time.Second),
+	)
+
 	return &TimescaleDBWriter{
-		tableWriter: twriter,
-		opsDataCh:   opsDataCh,
-		errCh:       errCh,
-		location:    tz,
+		tableWriter:   twriter,
+		opsDataCh:     opsDataCh,
+		errCh:         errCh,
+		fnTableWriter: fnwriter,
+		fnDataCh:      fnDataCh,
+		fnErrCh:       fnErrCh,
+		location:      tz,
 	}, nil
 }
