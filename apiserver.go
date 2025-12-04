@@ -25,6 +25,7 @@ import (
 	corpusActions "mquery/corpus/handlers"
 	"mquery/corpus/infoload"
 	"mquery/docs"
+	"mquery/monitoring"
 	"mquery/proxied"
 	"mquery/rdb"
 	"net/http"
@@ -47,6 +48,7 @@ type apiServer struct {
 	conf         *cnf.Conf
 	radapter     *rdb.Adapter
 	infoProvider *infoload.Manatee
+	jobLogger    *monitoring.WorkerJobLogger
 }
 
 //go:embed docs/swagger.json
@@ -199,16 +201,40 @@ func runApiServer(
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	radapter := rdb.NewAdapter(conf.Redis, ctx)
-	err := radapter.TestConnection(redisConnectionTestTimeout)
+	var statusWriter monitoring.StatusWriter
+	var err error
+
+	if conf.Monitoring != nil {
+		statusWriter, err = monitoring.NewTimescaleDBWriter(
+			ctx,
+			conf.Monitoring.DB,
+			conf.TimezoneLocation(),
+			func(err error) {
+				// TODO
+			},
+		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize status writer")
+			return
+		}
+		log.Warn().Str("host", conf.Monitoring.DB.Host).Msg("initialized status writer")
+
+	} else {
+		log.Warn().Msg("status writer not specified - NullStatusWriter will be used")
+		statusWriter = new(NullStatusWriter)
+	}
+
+	logger := monitoring.NewWorkerJobLogger(statusWriter, conf.TimezoneLocation())
+	radapter := rdb.NewAdapter(conf.Redis, ctx, logger)
+	err = radapter.TestConnection(redisConnectionTestTimeout)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to Redis")
 		return
 	}
 	infoProvider := infoload.NewManatee(radapter, conf.CorporaSetup)
-	server := newAPIServer(conf, radapter, infoProvider)
+	server := newAPIServer(conf, radapter, infoProvider, logger)
 
-	services := []service{server}
+	services := []service{statusWriter, logger, server}
 	for _, m := range services {
 		m.Start(ctx)
 	}
@@ -247,10 +273,12 @@ func newAPIServer(
 	conf *cnf.Conf,
 	radapter *rdb.Adapter,
 	infoProvider *infoload.Manatee,
+	jobLogger *monitoring.WorkerJobLogger,
 ) *apiServer {
 	return &apiServer{
 		conf:         conf,
 		radapter:     radapter,
 		infoProvider: infoProvider,
+		jobLogger:    jobLogger,
 	}
 }

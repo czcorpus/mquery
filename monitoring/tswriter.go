@@ -41,12 +41,6 @@ create table mquery_operations_stats (
 select create_hypertable('mquery_operations_stats', 'time');
 */
 
-type Conf struct {
-	DB hltscl.PgConf `json:"db"`
-}
-
-// -----------------------------------
-
 type TimescaleDBWriter struct {
 	tableWriter *hltscl.TableWriter
 	opsDataCh   chan<- hltscl.Entry
