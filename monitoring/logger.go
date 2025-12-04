@@ -94,15 +94,6 @@ func (w *WorkerJobLogger) RecentLoad() WorkerLoad {
 	return ans
 }
 
-func (w *WorkerJobLogger) RecentRecords() []rdb.JobLog {
-	ans := make([]rdb.JobLog, w.recentLog.Len())
-	w.recentLog.ForEach(func(i int, item rdb.JobLog) bool {
-		ans[i] = item
-		return true
-	})
-	return ans
-}
-
 func (w *WorkerJobLogger) TotalWorkerLoad(workerID string) (WorkerLoad, error) {
 	w.dataLock.RLock()
 	defer w.dataLock.RUnlock()
