@@ -20,7 +20,6 @@ package monitoring
 
 import (
 	"context"
-	"fmt"
 	"mquery/rdb"
 	"time"
 
@@ -69,8 +68,14 @@ func (sw *TimescaleDBWriter) Start(ctx context.Context) {
 				log.Error().
 					Err(err.Err).
 					Str("entry", err.Entry.String()).
+					Str("table", "mquery_operations_stats").
 					Msg("error writing data to TimescaleDB")
-				fmt.Println("reporting timescale write err: ", err.Err)
+			case err := <-sw.fnErrCh:
+				log.Error().
+					Err(err.Err).
+					Str("entry", err.Entry.String()).
+					Str("table", "mquery_called_funcs").
+					Msg("error writing data to TimescaleDB")
 			}
 		}
 	}()
