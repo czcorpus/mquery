@@ -154,8 +154,8 @@ type TokenContextArgs struct {
 
 // --------------
 
-type jobLogger interface {
-	Log(rec JobLog)
+type StatusWriter interface {
+	Write(rec JobLog)
 }
 
 // --------------
@@ -181,7 +181,7 @@ type Adapter struct {
 	channelQuery        string
 	channelResultPrefix string
 	queryAnswerTimeout  time.Duration
-	jobLogger           jobLogger
+	statusWriter        StatusWriter
 }
 
 func (a *Adapter) TestConnection(timeout time.Duration) error {
@@ -289,29 +289,40 @@ func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 								Error: err,
 							},
 						}
+						a.statusWriter.Write(JobLog{
+							WorkerID: "-",
+							Func:     query.Func,
+							Err:      fmt.Errorf("undecodable worker response: %w", err),
+						})
 
 					} else {
-						a.jobLogger.Log(JobLog{
+						ans <- wr
+						a.statusWriter.Write(JobLog{
 							WorkerID: wr.ID,
 							Func:     string(wr.Value.Type()),
 							Begin:    wr.ProcBegin,
 							End:      wr.ProcEnd,
 							Err:      wr.Value.Err(),
 						})
-						ans <- wr
 					}
 					tmr.Stop()
 				}
 				return
 			case <-tmr.C:
+				err := merror.TimeoutError{
+					Msg: fmt.Sprintf("worker result timeouted (%v)", DefaultQueryAnswerTimeout),
+				}
 				ans <- WorkerResult{
 					Value: ErrorResult{
-						Func: query.Func,
-						Error: merror.TimeoutError{
-							Msg: fmt.Sprintf("worker result timeouted (%v)", DefaultQueryAnswerTimeout),
-						},
+						Func:  query.Func,
+						Error: err,
 					},
 				}
+				a.statusWriter.Write(JobLog{
+					WorkerID: "-",
+					Func:     query.Func,
+					Err:      err,
+				})
 				return
 			}
 		}
@@ -375,7 +386,7 @@ func (a *Adapter) Subscribe() <-chan *redis.Message {
 
 // NewAdapter is a recommended factory function
 // for creating new `Adapter` instances
-func NewAdapter(conf *Conf, ctx context.Context, jobLogger jobLogger) *Adapter {
+func NewAdapter(conf *Conf, ctx context.Context, statusWriter StatusWriter) *Adapter {
 	chRes := conf.ChannelResultPrefix
 	chQuery := conf.ChannelQuery
 	if chRes == "" {
@@ -408,7 +419,7 @@ func NewAdapter(conf *Conf, ctx context.Context, jobLogger jobLogger) *Adapter {
 		channelQuery:        chQuery,
 		channelResultPrefix: chRes,
 		queryAnswerTimeout:  queryAnswerTimeout,
-		jobLogger:           jobLogger,
+		statusWriter:        statusWriter,
 	}
 	return ans
 }

@@ -20,7 +20,6 @@ package main
 import (
 	"context"
 	"mquery/cnf"
-	"mquery/monitoring"
 	"mquery/rdb"
 	"mquery/worker"
 	"os"
@@ -53,10 +52,6 @@ type NullStatusWriter struct{}
 
 func (n *NullStatusWriter) Write(rec rdb.JobLog) {}
 
-func (n *NullStatusWriter) Start(ctx context.Context) {}
-
-func (n *NullStatusWriter) Stop(ctx context.Context) error { return nil }
-
 // -------
 
 func runWorker(conf *cnf.Conf) {
@@ -65,7 +60,7 @@ func runWorker(conf *cnf.Conf) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	radapter := rdb.NewAdapter(conf.Redis, ctx, &NullLogger{})
+	radapter := rdb.NewAdapter(conf.Redis, ctx, &NullStatusWriter{})
 
 	err := radapter.TestConnection(redisConnectionTestTimeout)
 	if err != nil {
@@ -73,10 +68,9 @@ func runWorker(conf *cnf.Conf) {
 	}
 
 	ch := radapter.Subscribe()
-	logger := monitoring.NewWorkerJobLogger(new(NullStatusWriter), conf.TimezoneLocation())
 	wrk := worker.NewWorker(workerID, radapter, ch)
 
-	services := []service{logger, wrk}
+	services := []service{wrk}
 	for _, m := range services {
 		m.Start(ctx)
 	}

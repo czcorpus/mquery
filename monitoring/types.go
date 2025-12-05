@@ -20,18 +20,10 @@
 package monitoring
 
 import (
-	"context"
-	"mquery/rdb"
 	"time"
 
 	"github.com/bytedance/sonic"
 )
-
-type StatusWriter interface {
-	Start(ctx context.Context)
-	Stop(ctx context.Context) error
-	Write(rec rdb.JobLog)
-}
 
 // ---
 
@@ -81,35 +73,4 @@ func (wl WorkerLoad) MarshalJSON() ([]byte, error) {
 			AvgLoad:       wl.AvgLoad(),
 		},
 	)
-}
-
-// ----------------
-
-type WorkersLoad map[string]WorkerLoad
-
-func (wl WorkersLoad) SumLoad(tz *time.Location) WorkerLoad {
-	var ans WorkerLoad
-	firstUpdate := time.Now().In(tz)
-	for _, item := range wl {
-		if item.LastUpdate.After(ans.LastUpdate) {
-			ans.LastUpdate = item.LastUpdate
-		}
-		if item.FirstUpdate.Before(firstUpdate) {
-			firstUpdate = item.FirstUpdate
-			ans.FirstUpdate = item.FirstUpdate
-		}
-		ans.NumJobs += item.NumJobs
-		ans.TotalTimeSecs += item.TotalTimeSecs
-		ans.NumErrors += item.NumErrors
-		ans.NumWorkers = len(wl)
-	}
-	return ans
-}
-
-func (wl WorkersLoad) cleanOldRecords() {
-	for k, v := range wl {
-		if time.Since(v.LastUpdate) > StaleWorkerLoadTTL {
-			delete(wl, k)
-		}
-	}
 }
