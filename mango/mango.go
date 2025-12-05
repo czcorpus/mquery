@@ -95,7 +95,7 @@ type GoColls struct {
 func GetCorpusSize(corpusPath string) (int64, error) {
 	ans := C.get_corpus_size(C.CString(corpusPath))
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return 0, err
 	}
@@ -106,7 +106,7 @@ func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 	ans := C.concordance_size(C.CString(corpusPath), C.CString(query))
 	var ret GoConcSize
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return ret, err
 	}
@@ -119,7 +119,7 @@ func GetConcSize(corpusPath, query string) (GoConcSize, error) {
 func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
 	ans := C.compile_subc_freqs(C.CString(corpusPath), C.CString(subcPath), C.CString(attr))
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return err
 	}
@@ -163,7 +163,7 @@ func GetConcordance(
 	ret.ConcSize = int(ans.concSize)
 	ret.CorpusSize = int(ans.corpusSize)
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		if ans.errorCode == 1 {
 			return ret, ErrRowsRangeOutOfConc
@@ -231,7 +231,7 @@ func GetConcordanceWithCollPhrase(
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		if ans.errorCode == 1 {
 			return ret, ErrRowsRangeOutOfConc
@@ -278,7 +278,7 @@ func CalcFreqDist(corpusID, subcID, query, fcrit string, flimit int) (*Freqs, er
 		C.delete_str_vector(ans.words)
 	}()
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return &ret, err
 	}
@@ -344,7 +344,7 @@ func GetCollcations(
 		C.char(measure), C.char(measure), C.longlong(minFreq), C.longlong(minFreq),
 		C.int(srchRange[0]), C.int(srchRange[1]), C.int(maxItems))
 	if colls.err != nil {
-		err := fmt.Errorf(C.GoString(colls.err))
+		err := errors.New(C.GoString(colls.err))
 		defer C.free(unsafe.Pointer(colls.err))
 		return GoColls{}, err
 	}
@@ -381,7 +381,7 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 	norms := C.get_attr_values_sizes(
 		C.CString(corpusPath), C.CString(attrSplit[0]), C.CString(attrSplit[1]))
 	if norms.err != nil {
-		err := fmt.Errorf(C.GoString(norms.err))
+		err := errors.New(C.GoString(norms.err))
 		defer C.free(unsafe.Pointer(norms.err))
 		return ans, err
 	}
@@ -405,7 +405,7 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 func GetCorpusConf(corpusPath string, prop string) (string, error) {
 	ans := (C.get_corpus_conf(C.open_corpus(C.CString(corpusPath)).value, C.CString(prop)))
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return "", err
 	}
@@ -415,7 +415,7 @@ func GetCorpusConf(corpusPath string, prop string) (string, error) {
 func GetPosAttrSize(corpusPath string, name string) (int, error) {
 	ans := C.get_posattr_size(C.CString(corpusPath), C.CString(name))
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return 0, err
 	}
@@ -425,7 +425,7 @@ func GetPosAttrSize(corpusPath string, name string) (int, error) {
 func GetStructSize(corpusPath string, name string) (int, error) {
 	ans := C.get_struct_size(C.CString(corpusPath), C.CString(name))
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return 0, err
 	}
@@ -441,7 +441,7 @@ func GetCorpRegion(corpusPath string, lftCtx, rgtCtx int64, structs, attrs []str
 		C.CString(strings.Join(structs, ",")),
 	)
 	if ans.err != nil {
-		err := fmt.Errorf(C.GoString(ans.err))
+		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return GoTokenContext{}, err
 	}
