@@ -48,7 +48,7 @@ type apiServer struct {
 	conf         *cnf.Conf
 	radapter     *rdb.Adapter
 	infoProvider *infoload.Manatee
-	jobLogger    *monitoring.WorkerJobLogger
+	statusWriter rdb.StatusWriter
 }
 
 //go:embed docs/swagger.json
@@ -201,7 +201,7 @@ func runApiServer(
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var statusWriter monitoring.StatusWriter
+	var statusWriter rdb.StatusWriter
 	var err error
 
 	if conf.Monitoring != nil {
@@ -224,17 +224,16 @@ func runApiServer(
 		statusWriter = new(NullStatusWriter)
 	}
 
-	logger := monitoring.NewWorkerJobLogger(statusWriter, conf.TimezoneLocation())
-	radapter := rdb.NewAdapter(conf.Redis, ctx, logger)
+	radapter := rdb.NewAdapter(conf.Redis, ctx, statusWriter)
 	err = radapter.TestConnection(redisConnectionTestTimeout)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to Redis")
 		return
 	}
 	infoProvider := infoload.NewManatee(radapter, conf.CorporaSetup)
-	server := newAPIServer(conf, radapter, infoProvider, logger)
+	server := newAPIServer(conf, radapter, infoProvider, statusWriter)
 
-	services := []service{statusWriter, logger, server}
+	services := []service{server}
 	for _, m := range services {
 		m.Start(ctx)
 	}
@@ -273,12 +272,12 @@ func newAPIServer(
 	conf *cnf.Conf,
 	radapter *rdb.Adapter,
 	infoProvider *infoload.Manatee,
-	jobLogger *monitoring.WorkerJobLogger,
+	statusWriter rdb.StatusWriter,
 ) *apiServer {
 	return &apiServer{
 		conf:         conf,
 		radapter:     radapter,
 		infoProvider: infoProvider,
-		jobLogger:    jobLogger,
+		statusWriter: statusWriter,
 	}
 }
