@@ -341,11 +341,12 @@ func GetCollcations(
 	measure byte,
 	srchRange [2]int,
 	minFreq int64,
+	minCorpFreq int64,
 	maxItems int,
 ) (GoColls, error) {
 	colls := C.collocations(
 		C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(attrName),
-		C.char(measure), C.char(measure), C.longlong(minFreq), C.longlong(minFreq),
+		C.char(measure), C.char(measure), C.longlong(minCorpFreq), C.longlong(minFreq),
 		C.int(srchRange[0]), C.int(srchRange[1]), C.int(maxItems))
 	if colls.err != nil {
 		err := errors.New(C.GoString(colls.err))

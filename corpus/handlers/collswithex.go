@@ -187,9 +187,10 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 			// Note: see the range below and note that the left context
 			// is published differently (as a positive number) in contrast
 			// with the "internals" where a negative number is required
-			SrchRange: [2]int{-collArgs.srchLeft, collArgs.srchRight},
-			MinFreq:   int64(collArgs.minCollFreq),
-			MaxItems:  collArgs.maxItems,
+			SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
+			MinFreq:     int64(collArgs.minCollFreq),
+			MinCorpFreq: int64(collArgs.minCorpFreq),
+			MaxItems:    collArgs.maxItems,
 		}})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -219,9 +220,10 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 				// Note: see the range below and note that the left context
 				// is published differently (as a positive number) in contrast
 				// with the "internals" where a negative number is required
-				SrchRange: [2]int{-collArgs.srchLeft, collArgs.srchRight},
-				MinFreq:   int64(collArgs.minCollFreq),
-				MaxItems:  collArgs.maxItems,
+				SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
+				MinFreq:     int64(collArgs.minCollFreq),
+				MinCorpFreq: int64(collArgs.minCorpFreq),
+				MaxItems:    collArgs.maxItems,
 			}})
 	}
 	if err2 != nil {
@@ -243,7 +245,6 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	fmt.Println("RESULT1: ", result1)
 	result1.SrchRange[0] = -1 * result1.SrchRange[0] // note: HTTP and internal API are different
 
 	rawResult2 := <-wait2

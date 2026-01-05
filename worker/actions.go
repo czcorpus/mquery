@@ -121,6 +121,7 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) results.Collocations {
 		msr,
 		args.SrchRange,
 		args.MinFreq,
+		args.MinCorpFreq,
 		args.MaxItems,
 	)
 	if err != nil {
@@ -131,7 +132,15 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) results.Collocations {
 	ans.ConcSize = colls.ConcSize
 	ans.CorpusSize = colls.CorpusSize
 	ans.SubcSize = colls.SubcSize
-	ans.Measure = args.Measure
+	ans.Measure, err = mango.NormalizeCollMeasureName(args.Measure)
+	if err != nil {
+		extErr := fmt.Errorf("cannot export collocation measure identifier: %w", err)
+		log.Error().Err(extErr).Send()
+		if ans.Error == nil {
+			ans.Error = extErr
+		}
+		ans.Measure = "??"
+	}
 	ans.SrchRange = args.SrchRange
 	return ans
 }

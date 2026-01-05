@@ -36,17 +36,32 @@ var (
 	ErrUnsupportedValue = errors.New("unsupported value")
 )
 
+// ImportCollMeasure transforms API defined collocation names
+// (absFreq, logLikelihood, logDice, minSensitivity, mutualInfo, mutualInfo3,
+// mutualInfoLogF, relFreq, tScore) into Manatee internal codes (f, l, d, s, m, 3, ...).
+// The function also accepts the Manatee codes directly in which case it behaves
+// like an identity (or rather string to byte conversion). This is mostly for old time
+// users of Manatee library for easier API adoption.
 func ImportCollMeasure(v string) (byte, error) {
 	imp, ok := collFunc[v]
 	if !ok {
+		for _, fnCode := range collFunc {
+			if v == string(fnCode) {
+				return fnCode, nil
+			}
+		}
 		return 0, ErrUnsupportedValue
 	}
 	return imp, nil
 }
 
-func ExportCollMeasure(v byte) (string, error) {
+func NormalizeCollMeasureName(v string) (string, error) {
+	_, ok := collFunc[v]
+	if ok {
+		return v, nil
+	}
 	for k, v2 := range collFunc {
-		if v == v2 {
+		if len(v) == 1 && v[0] == v2 {
 			return k, nil
 		}
 	}

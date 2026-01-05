@@ -44,6 +44,7 @@ type collArgs struct {
 	srchLeft    int
 	srchRight   int
 	minCollFreq int
+	minCorpFreq int
 	maxItems    int
 	event       string
 }
@@ -101,6 +102,12 @@ func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
 	if !ok {
 		return ans, false
 	}
+
+	ans.minCorpFreq, ok = unireq.GetURLIntArgOrFail(ctx, "minCorpFreq", ans.minCollFreq)
+	if !ok {
+		return ans, false
+	}
+
 	ans.maxItems, ok = unireq.GetURLIntArgOrFail(ctx, "maxItems", DefaultCollMaxItems)
 	if !ok {
 		return ans, false
@@ -149,9 +156,10 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 			// Note: see the range below and note that the left context
 			// is published differently (as a positive number) in contrast
 			// with the "internals" where a negative number is required
-			SrchRange: [2]int{-collArgs.srchLeft, collArgs.srchRight},
-			MinFreq:   int64(collArgs.minCollFreq),
-			MaxItems:  collArgs.maxItems,
+			SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
+			MinFreq:     int64(collArgs.minCollFreq),
+			MinCorpFreq: int64(collArgs.minCorpFreq),
+			MaxItems:    collArgs.maxItems,
 		}})
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
