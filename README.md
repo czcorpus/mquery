@@ -2,7 +2,65 @@
 
 MQuery is an HTTP API server for mining language corpora using Manatee-Open engine.
 
-## Requirements
+## Running with Docker (Easiest Method)
+
+The simplest way to run MQuery is using Docker Compose, which automatically sets up the server, worker, and Redis:
+
+### Prerequisites
+
+* [Docker](https://docs.docker.com/get-docker/)
+* [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/czcorpus/mquery.git
+   cd mquery
+   ```
+
+2. Create a Docker configuration file `conf-docker.json` based on `conf.sample.json`:
+   ```bash
+   cp conf.sample.json conf-docker.json
+   ```
+
+3. Edit `conf-docker.json` to match your setup:
+   * Set `listenAddress` to `0.0.0.0` (to accept connections from outside the container)
+   * Set `listenPort` to `8989`
+   * Set Redis host to `redis` (the service name in docker-compose.yml)
+   * Configure your corpora paths:
+     * `registryDir`: `/var/lib/manatee/registry`
+     * `splitCorporaDir`: `/var/lib/manatee/split`
+
+4. Place your corpus data and registry files in directories that will be mounted:
+   * The docker-compose setup creates volumes for corpus data at `/var/lib/manatee`
+   * You can modify the volume mounts in `docker-compose.yml` to point to your existing corpus directories
+
+5. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+6. Access the API at `http://localhost:8989`
+
+### Docker Architecture
+
+The Docker Compose setup includes:
+* **mquery-server**: HTTP API server (port 8989)
+* **mquery-worker**: Background worker for processing corpus queries
+* **redis**: Redis database for job queuing and results caching
+
+### Managing the Services
+
+* View logs: `docker-compose logs -f`
+* Stop services: `docker-compose down`
+* Rebuild after code changes: `docker-compose up -d --build`
+
+## Manual Installation
+
+If you prefer to install MQuery manually without Docker:
+
+### Requirements
 
 * a working Linux server with installed [Manatee-open](https://nlp.fi.muni.cz/trac/noske) library
 * [Redis](https://redis.io/) database
