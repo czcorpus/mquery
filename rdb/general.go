@@ -22,8 +22,8 @@ import (
 	"math"
 	"strings"
 	"time"
+	"encoding/json"
 
-	"github.com/bytedance/sonic"
 )
 
 const (
@@ -43,7 +43,7 @@ func (jl *JobLog) TimeSpent() time.Duration {
 }
 
 func (jl *JobLog) ToJSON() (string, error) {
-	ans, err := sonic.Marshal(jl)
+	ans, err := json.Marshal(jl)
 	if err != nil {
 		return "", err
 	}

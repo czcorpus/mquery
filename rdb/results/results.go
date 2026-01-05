@@ -21,8 +21,8 @@ package results
 import (
 	"mquery/mango"
 	"mquery/rdb"
+	"encoding/json"
 
-	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/czcorpus/mquery-common/corp"
@@ -111,7 +111,7 @@ func (res FreqDistrib) Type() rdb.ResultType {
 }
 
 func (res *FreqDistrib) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(FreqDistribResponse{
+	return json.Marshal(FreqDistribResponse{
 		ConcSize:         res.ConcSize,
 		CorpusSize:       res.CorpusSize,
 		SubcSize:         res.SubcSize,
@@ -180,7 +180,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 	if res.CorpusSize > 0 {
 		ipm = float64(res.Total) / float64(res.CorpusSize) * 1000000
 	}
-	return sonic.Marshal(
+	return json.Marshal(
 		ConcSizeResponse{
 			Total:      res.Total,
 			ARF:        rdb.NormRound(res.ARF),
@@ -228,7 +228,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 	if colls == nil {
 		colls = []*mango.GoCollItem{}
 	}
-	return sonic.Marshal(
+	return json.Marshal(
 		CollocationsResponse{
 			CorpusSize: res.CorpusSize,
 			SubcSize:   res.SubcSize,
@@ -293,7 +293,7 @@ func (res Concordance) Type() rdb.ResultType {
 }
 
 func (res Concordance) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(
+	return json.Marshal(
 		ConcordanceResponse{
 			Lines:      res.Lines.alwaysAsList(),
 			ConcSize:   res.ConcSize,
@@ -322,7 +322,7 @@ func (res CorpusInfo) Type() rdb.ResultType {
 }
 
 func (res CorpusInfo) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(struct {
+	return json.Marshal(struct {
 		Data       corp.Overview  `json:"data"`
 		ResultType rdb.ResultType `json:"resultType"`
 		Error      error          `json:"error,omitempty"`
@@ -349,7 +349,7 @@ func (res TextTypeNorms) Type() rdb.ResultType {
 }
 
 func (res TextTypeNorms) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(struct {
+	return json.Marshal(struct {
 		Sizes      map[string]int64 `json:"sizes"`
 		ResultType rdb.ResultType   `json:"resultType"`
 		Error      error            `json:"error,omitempty"`
@@ -376,7 +376,7 @@ func (res TokenContext) Type() rdb.ResultType {
 }
 
 func (res TokenContext) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(struct {
+	return json.Marshal(struct {
 		Context    concordance.Line `json:"context"`
 		ResultType rdb.ResultType   `json:"resultType"`
 		Error      error            `json:"error,omitempty"`

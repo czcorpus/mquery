@@ -21,8 +21,7 @@ package monitoring
 
 import (
 	"time"
-
-	"github.com/bytedance/sonic"
+	"encoding/json"
 )
 
 // ---
@@ -56,7 +55,7 @@ func (wl WorkerLoad) MarshalJSON() ([]byte, error) {
 	if !wl.LastUpdate.IsZero() {
 		t1 = &wl.LastUpdate
 	}
-	return sonic.Marshal(
+	return json.Marshal(
 		struct {
 			NumJobs       int        `json:"numJobs"`
 			TotalTimeSecs float64    `json:"totalTimeSecs"`

@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"encoding/json"
 
-	"github.com/bytedance/sonic"
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/rs/zerolog/log"
 )
@@ -98,7 +98,7 @@ func (rscs *Resources) Load(directory string) error {
 			continue
 		}
 		var conf MQCorpusSetup
-		err = sonic.Unmarshal(tmp, &conf)
+		err = json.Unmarshal(tmp, &conf)
 		if err != nil {
 			log.Warn().
 				Err(err).
