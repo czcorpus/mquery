@@ -19,6 +19,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"mquery/corpus"
@@ -30,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -302,7 +302,7 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 		return
 	}
 	for message := range calc {
-		messageJSON, err := sonic.Marshal(message)
+		messageJSON, err := json.Marshal(message)
 		if err == nil {
 			if args.Event != "" {
 				ctx.String(http.StatusOK, "event: %s\ndata: %s\n\n", args.Event, messageJSON)
@@ -345,7 +345,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 	calc = a.filterByYearRange(calc, fromYear, toYear)
 
 	for message := range calc {
-		messageJSON, err := sonic.Marshal(message)
+		messageJSON, err := json.Marshal(message)
 		if err == nil {
 			if args.Event != "" {
 				ctx.String(http.StatusOK, "event: %s\ndata: %s\n\n", args.Event, messageJSON)

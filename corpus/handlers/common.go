@@ -19,6 +19,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mquery/corpus"
@@ -27,7 +28,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
@@ -173,7 +173,7 @@ func HandleWorkerError(ctx *gin.Context, result rdb.WorkerResult) bool {
 }
 
 func WriteStreamingError(ctx *gin.Context, err error) {
-	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
+	messageJSON, err2 := json.Marshal(streamingError{err.Error()})
 	if err2 != nil {
 		messageJSON = []byte(fmt.Sprintf(`{"error": "failed to encode error: %s"}`, err2))
 	}

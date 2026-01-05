@@ -20,6 +20,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"mquery/rdb"
 	"mquery/rdb/results"
@@ -28,7 +29,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
@@ -60,7 +60,7 @@ func (tto *ttOverviewResult) findError() string {
 }
 
 func (tto *ttOverviewResult) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(
+	return json.Marshal(
 		ttOverviewResponse{
 			Freqs:      tto.freqs,
 			ResultType: tto.Type(),

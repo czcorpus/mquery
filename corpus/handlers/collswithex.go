@@ -19,6 +19,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"mquery/mango"
 	"mquery/rdb"
@@ -28,7 +29,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/concordance"
@@ -73,7 +73,7 @@ type extendedCollItem struct {
 }
 
 func (ecItem extendedCollItem) MarshalJSON() ([]byte, error) {
-	return sonic.Marshal(struct {
+	return json.Marshal(struct {
 		Word          string            `json:"word"`
 		Score         float64           `json:"score"`
 		Freq          int64             `json:"freq"`
@@ -116,7 +116,7 @@ type wordBindConc struct {
 // The function also calls flush() on an underlying ctx writer to make
 // sure the data is immediately sent.
 func writeStreamedData(ctx *gin.Context, collArgs *collArgs, res *endpointResult) {
-	messageJSON, err := sonic.Marshal(res)
+	messageJSON, err := json.Marshal(res)
 	if err != nil {
 		WriteStreamingError(ctx, err)
 		return
