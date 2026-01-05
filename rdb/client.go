@@ -81,8 +81,13 @@ type CollocationsArgs struct {
 	Attr       string
 	Measure    string
 	SrchRange  [2]int
-	MinFreq    int64
-	MaxItems   int
+
+	// MinFreq is the minimum frequency of the collocate in the collocation
+	MinFreq int64
+
+	// MinCorpFreq is the minimum frequency of the collocate in corpus
+	MinCorpFreq int64
+	MaxItems    int
 }
 
 // --------------

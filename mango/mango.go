@@ -37,10 +37,6 @@ import (
 	"github.com/czcorpus/mquery-common/concordance"
 )
 
-const (
-	MaxRecordsInternalLimit = 1000
-)
-
 var (
 	ErrRowsRangeOutOfConc = errors.New("rows range is out of concordance size")
 )
@@ -176,9 +172,12 @@ func GetConcordance(
 			defer C.conc_examples_free(ans.aligned, C.int(ans.size))
 		}
 	}
-	tmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.value))
-	for i := 0; i < int(ans.size); i++ {
-		str := C.GoString(tmp[i])
+
+	actualSize := int(ans.size)
+	for i := 0; i < actualSize; i++ {
+		// Access each element directly using unsafe pointer arithmetic
+		cstr := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(ans.value)) + uintptr(i)*unsafe.Sizeof((*C.char)(nil))))
+		str := C.GoString(cstr)
 		// we must test str len as our c++ wrapper may return it
 		// e.g. in case our offset is higher than actual num of lines
 		if len(str) > 0 {
@@ -189,9 +188,10 @@ func GetConcordance(
 	// Process aligned lines if available
 	if ans.aligned != nil {
 		ret.AlignedLines = make([]string, 0, maxItems)
-		alignedTmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.aligned))
-		for i := 0; i < int(ans.size); i++ {
-			str := C.GoString(alignedTmp[i])
+		for i := 0; i < actualSize; i++ {
+			// Access each element directly using unsafe pointer arithmetic
+			cstr := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(ans.aligned)) + uintptr(i)*unsafe.Sizeof((*C.char)(nil))))
+			str := C.GoString(cstr)
 			if len(str) > 0 {
 				ret.AlignedLines = append(ret.AlignedLines, str)
 			}
@@ -244,9 +244,12 @@ func GetConcordanceWithCollPhrase(
 			defer C.conc_examples_free(ans.aligned, C.int(ans.size))
 		}
 	}
-	tmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.value))
-	for i := 0; i < int(ans.size); i++ {
-		str := C.GoString(tmp[i])
+
+	actualSize := int(ans.size)
+	for i := 0; i < actualSize; i++ {
+		// Access each element directly using unsafe pointer arithmetic
+		cstr := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(ans.value)) + uintptr(i)*unsafe.Sizeof((*C.char)(nil))))
+		str := C.GoString(cstr)
 		// we must test str len as our c++ wrapper may return it
 		// e.g. in case our offset is higher than actual num of lines
 		if len(str) > 0 {
@@ -257,9 +260,10 @@ func GetConcordanceWithCollPhrase(
 	// Process aligned lines if available
 	if ans.aligned != nil {
 		ret.AlignedLines = make([]string, 0, maxItems)
-		alignedTmp := (*[MaxRecordsInternalLimit]*C.char)(unsafe.Pointer(ans.aligned))
-		for i := 0; i < int(ans.size); i++ {
-			str := C.GoString(alignedTmp[i])
+		for i := 0; i < actualSize; i++ {
+			// Access each element directly using unsafe pointer arithmetic
+			cstr := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(ans.aligned)) + uintptr(i)*unsafe.Sizeof((*C.char)(nil))))
+			str := C.GoString(cstr)
 			if len(str) > 0 {
 				ret.AlignedLines = append(ret.AlignedLines, str)
 			}
@@ -337,11 +341,12 @@ func GetCollcations(
 	measure byte,
 	srchRange [2]int,
 	minFreq int64,
+	minCorpFreq int64,
 	maxItems int,
 ) (GoColls, error) {
 	colls := C.collocations(
 		C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(attrName),
-		C.char(measure), C.char(measure), C.longlong(minFreq), C.longlong(minFreq),
+		C.char(measure), C.char(measure), C.longlong(minCorpFreq), C.longlong(minFreq),
 		C.int(srchRange[0]), C.int(srchRange[1]), C.int(maxItems))
 	if colls.err != nil {
 		err := errors.New(C.GoString(colls.err))
