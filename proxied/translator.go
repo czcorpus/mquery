@@ -84,6 +84,6 @@ func NewActions(translatorURL string) *Actions {
 	return &Actions{
 		translatorURL:       translatorURL,
 		idleConnTimeoutSecs: 60,
-		requestTimeoutSecs:  10,
+		requestTimeoutSecs:  30,
 	}
 }
