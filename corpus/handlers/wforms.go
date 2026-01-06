@@ -117,6 +117,10 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 	lemma := ctx.Request.URL.Query().Get("lemma")
 	word := ctx.Request.URL.Query().Get("word")
 	pos := ctx.Request.URL.Query().Get("pos")
+	if ctx.Request.URL.Query().Has("subcorpus") {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("subcorpora not supported (yet) in word forms"), http.StatusBadRequest)
+		return
+	}
 	if lemma != "" {
 		wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
 		if err != nil {

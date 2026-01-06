@@ -129,7 +129,7 @@ CorpusSizeRetrval get_corpus_size(const char* corpusPath);
 
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 
-ConcSizeRetVal concordance_size(const char* corpusPath, const char* query);
+ConcSizeRetVal concordance_size(const char* corpusPath, const char* subcPath, const char* query);
 
 CompileFrqRetVal compile_subc_freqs(const char* corpusPath, const char* subcPath, const char* attr);
 
@@ -165,6 +165,7 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
  */
 KWICRowsRetval conc_examples(
     const char* corpusPath,
+    const char* subcPath,
     const char*query,
     const char* attrs,
     const char* structs,
@@ -180,6 +181,7 @@ void conc_examples_free(KWICRowsV value, int numItems);
 
 KWICRowsRetval conc_examples_with_coll_phrase(
     const char* corpusPath,
+    const char* subcPath,
     const char* query,
     const char* collQuery,
     const char* lctx,

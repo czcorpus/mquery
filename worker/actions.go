@@ -147,7 +147,7 @@ func (w *Worker) collocations(args rdb.CollocationsArgs) results.Collocations {
 
 func (w *Worker) concSize(args rdb.ConcordanceArgs) results.ConcSize {
 	var ans results.ConcSize
-	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.Query)
+	concSizeInfo, err := mango.GetConcSize(args.CorpusPath, args.SubcPath, args.Query)
 	if err != nil {
 		ans.Error = err
 		return ans
@@ -172,6 +172,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	if args.CollQuery != "" {
 		concEx, err = mango.GetConcordanceWithCollPhrase(
 			args.CorpusPath,
+			args.SubcPath,
 			args.Query,
 			args.CollQuery,
 			args.CollLftCtx,
@@ -188,6 +189,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	} else {
 		concEx, err = mango.GetConcordance(
 			args.CorpusPath,
+			args.SubcPath,
 			args.Query,
 			args.Attrs,
 			args.ShowStructs,

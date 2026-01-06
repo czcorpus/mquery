@@ -84,7 +84,7 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
     }
 }
 
-ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
+ConcSizeRetVal concordance_size(const char* corpusPath, const char* subcPath, const char* query) {
     string cPath(corpusPath);
     ConcSizeRetVal ans;
     ans.err = nullptr;
@@ -92,12 +92,19 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* query) {
     ans.corpusSize = 0;
     ans.arf = 0.0;
     Corpus* corp = nullptr;
+    SubCorpus* subc = nullptr;
     Concordance* conc = nullptr;
+
     try {
         corp = new Corpus(cPath);
         ans.corpusSize = corp->size();
-        conc = new Concordance(
-            corp, corp->filter_query(eval_cqpquery(query, corp)));
+        if (subcPath && *subcPath != '\0') {
+            subc = new SubCorpus(corp, subcPath);
+            conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
+
+        } else {
+            conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
+        }
         conc->sync();
         ans.value = conc->size();
         ans.arf = conc->compute_ARF();
@@ -315,6 +322,7 @@ char** process_kwic_lines(
  */
 KWICRowsRetval conc_examples(
     const char* corpusPath,
+    const char* subcPath,
     const char* query,
     const char* attrs,
     const char* structs,
@@ -326,11 +334,19 @@ KWICRowsRetval conc_examples(
     const char* viewContextStruct) {
 
     string cPath(corpusPath);
+    Corpus* corp = new Corpus(cPath);
+    PosInt corpSize = corp->size();
+    Concordance* conc = nullptr;
+    SubCorpus* subc = nullptr;
+
     try {
-        Corpus* corp = new Corpus(cPath);
-        PosInt corpSize = corp->size();
-        Concordance* conc = new Concordance(
-            corp, corp->filter_query(eval_cqpquery(query, corp)));
+        if (subcPath && *subcPath != '\0') {
+            subc = new SubCorpus(corp, subcPath);
+            conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
+
+        } else {
+            conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
+        }
         conc->sync();
         if (conc->size() == 0 && fromLine == 0) {
             KWICRowsRetval ans {
@@ -438,6 +454,7 @@ KWICRowsRetval conc_examples(
 
 KWICRowsRetval conc_examples_with_coll_phrase(
     const char* corpusPath,
+    const char* subcPath,
     const char* query,
     const char* collQuery,
     const char* lctx,
@@ -450,12 +467,21 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     PosInt limit,
     PosInt maxContext,
     const char* viewContextStruct) {
+
         string cPath(corpusPath);
+        Corpus* corp = new Corpus(cPath);
+        PosInt corpSize = corp->size();
+        Concordance* conc = nullptr;
+        SubCorpus* subc = nullptr;
+
         try {
-            Corpus* corp = new Corpus(cPath);
-            PosInt corpSize = corp->size();
-            Concordance* conc = new Concordance(
-                corp, corp->filter_query(eval_cqpquery(query, corp)));
+            if (subcPath && *subcPath != '\0') {
+                subc = new SubCorpus(corp, subcPath);
+                conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
+
+            } else {
+                conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
+            }
             conc->sync();
             if (conc->size() == 0 && fromLine == 0) {
                 KWICRowsRetval ans {

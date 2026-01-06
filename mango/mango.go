@@ -98,8 +98,8 @@ func GetCorpusSize(corpusPath string) (int64, error) {
 	return int64(ans.value), nil
 }
 
-func GetConcSize(corpusPath, query string) (GoConcSize, error) {
-	ans := C.concordance_size(C.CString(corpusPath), C.CString(query))
+func GetConcSize(corpusPath, subcPath, query string) (GoConcSize, error) {
+	ans := C.concordance_size(C.CString(corpusPath), C.CString(subcPath), C.CString(query))
 	var ret GoConcSize
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
@@ -124,7 +124,7 @@ func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
 }
 
 func GetConcordance(
-	corpusPath, query string,
+	corpusPath, subcPath, query string,
 	attrs []string,
 	structs []string,
 	refs []string,
@@ -145,6 +145,7 @@ func GetConcordance(
 	}
 	ans := C.conc_examples(
 		C.CString(corpusPath),
+		C.CString(subcPath),
 		C.CString(query),
 		C.CString(strings.Join(attrs, ",")),
 		C.CString(strings.Join(structs, ",")),
@@ -202,7 +203,7 @@ func GetConcordance(
 }
 
 func GetConcordanceWithCollPhrase(
-	corpusPath, query, collQuery string,
+	corpusPath, subcPath, query, collQuery string,
 	lftCtx, rgtCtx int,
 	attrs []string,
 	structs []string,
@@ -215,6 +216,7 @@ func GetConcordanceWithCollPhrase(
 	}
 	ans := C.conc_examples_with_coll_phrase(
 		C.CString(corpusPath),
+		C.CString(subcPath),
 		C.CString(query),
 		C.CString(collQuery+";"),
 		C.CString(strconv.Itoa(lftCtx)),

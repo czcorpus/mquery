@@ -80,6 +80,7 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	freqArgs := rdb.FreqDistribArgs{
 		CorpusPath:  corpusPath,
+		SubcPath:    queryProps.savedSubcorpus,
 		Query:       queryProps.query,
 		Crit:        fmt.Sprintf("%s 0", attr),
 		IsTextTypes: true,

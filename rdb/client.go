@@ -98,6 +98,7 @@ type TermFrequencyArgs ConcordanceArgs
 
 type ConcordanceArgs struct {
 	CorpusPath        string
+	SubcPath          string
 	Query             string
 	QueryLemma        string
 	CollQuery         string
