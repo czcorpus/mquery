@@ -150,6 +150,7 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		Func: "collocations",
 		Args: rdb.CollocationsArgs{
 			CorpusPath: corpusPath,
+			SubcPath:   collArgs.queryProps.savedSubcorpus,
 			Query:      collArgs.queryProps.query,
 			Attr:       srchAttr,
 			Measure:    collArgs.measure,

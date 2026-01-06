@@ -334,6 +334,7 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 	argsBuilder := func(conf *corpus.MQCorpusSetup, q string) rdb.TermFrequencyArgs {
 		return rdb.TermFrequencyArgs{
 			CorpusPath:        a.conf.GetRegistryPath(conf.ID),
+			SubcPath:          queryProps.savedSubcorpus,
 			Query:             q,
 			Attrs:             conf.PosAttrs.GetIDs(),
 			ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,

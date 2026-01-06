@@ -98,8 +98,8 @@ func GetCorpusSize(corpusPath string) (int64, error) {
 	return int64(ans.value), nil
 }
 
-func GetConcSize(corpusPath, query string) (GoConcSize, error) {
-	ans := C.concordance_size(C.CString(corpusPath), C.CString(query))
+func GetConcSize(corpusPath, subcPath, query string) (GoConcSize, error) {
+	ans := C.concordance_size(C.CString(corpusPath), C.CString(subcPath), C.CString(query))
 	var ret GoConcSize
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
