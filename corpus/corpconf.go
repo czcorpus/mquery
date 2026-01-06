@@ -19,12 +19,12 @@
 package corpus
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"encoding/json"
 
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/rs/zerolog/log"
@@ -67,6 +67,18 @@ func (cs *MQCorpusSetup) ValidateAndDefaults() error {
 		if !prop.Validate() {
 			return fmt.Errorf("invalid text property %s", prop)
 		}
+	}
+	if len(cs.ConcTextPropsAttrs) == 0 && len(cs.TextProperties) > 0 {
+		cs.ConcTextPropsAttrs = make([]string, 0, len(cs.TextProperties))
+		for _, props := range cs.TextProperties {
+			if props.IsInOverview {
+				cs.ConcTextPropsAttrs = append(cs.ConcTextPropsAttrs, props.Name)
+			}
+		}
+		log.Warn().
+			Str("corpus", cs.ID).
+			Strs("values", cs.ConcTextPropsAttrs).
+			Msg("No explicit `concTextPropsAttrs` found, using values defined in `textProperties`.")
 	}
 	if cs.CorpusSetup.MaximumTokenContextWindow == 0 {
 		log.Warn().
