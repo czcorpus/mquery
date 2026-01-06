@@ -1,6 +1,6 @@
 # MQuery
 
-MQuery is an HTTP API server for mining language corpora using Manatee-Open engine.
+MQuery is an HTTP API server for mining language corpora using Manatee-Open engine. Unlike other Manatee-based solutions, MQuery uses more fine-tuned C bindings without relying on SWIG, and naturally leverages a worker queue architecture for efficient query processing and scalability.
 
 ## Running with Docker (Easiest Method)
 
