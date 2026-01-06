@@ -447,6 +447,7 @@ KWICRowsRetval conc_examples(
 
 KWICRowsRetval conc_examples_with_coll_phrase(
     const char* corpusPath,
+    const char* subcPath,
     const char* query,
     const char* collQuery,
     const char* lctx,
@@ -459,12 +460,21 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     PosInt limit,
     PosInt maxContext,
     const char* viewContextStruct) {
+
         string cPath(corpusPath);
+        Corpus* corp = new Corpus(cPath);
+        PosInt corpSize = corp->size();
+        Concordance* conc = nullptr;
+        SubCorpus* subc = nullptr;
+
         try {
-            Corpus* corp = new Corpus(cPath);
-            PosInt corpSize = corp->size();
-            Concordance* conc = new Concordance(
-                corp, corp->filter_query(eval_cqpquery(query, corp)));
+            if (subcPath && *subcPath != '\0') {
+                subc = new SubCorpus(corp, subcPath);
+                conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
+
+            } else {
+                conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
+            }
             conc->sync();
             if (conc->size() == 0 && fromLine == 0) {
                 KWICRowsRetval ans {

@@ -172,6 +172,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	if args.CollQuery != "" {
 		concEx, err = mango.GetConcordanceWithCollPhrase(
 			args.CorpusPath,
+			args.SubcPath,
 			args.Query,
 			args.CollQuery,
 			args.CollLftCtx,

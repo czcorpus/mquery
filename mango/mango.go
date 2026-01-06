@@ -203,7 +203,7 @@ func GetConcordance(
 }
 
 func GetConcordanceWithCollPhrase(
-	corpusPath, query, collQuery string,
+	corpusPath, subcPath, query, collQuery string,
 	lftCtx, rgtCtx int,
 	attrs []string,
 	structs []string,
@@ -216,6 +216,7 @@ func GetConcordanceWithCollPhrase(
 	}
 	ans := C.conc_examples_with_coll_phrase(
 		C.CString(corpusPath),
+		C.CString(subcPath),
 		C.CString(query),
 		C.CString(collQuery+";"),
 		C.CString(strconv.Itoa(lftCtx)),
