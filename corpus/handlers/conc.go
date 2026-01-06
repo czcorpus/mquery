@@ -51,7 +51,7 @@ func (cf concFormat) Validate() error {
 	return fmt.Errorf("unknown concordance format type: %s", cf)
 }
 
-type ConcArgsBuilder func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs
+type ConcArgsBuilder func(queryProps queryProps) rdb.ConcordanceArgs
 
 type ConcArgsValidator func(args *rdb.ConcordanceArgs) error
 
@@ -59,19 +59,19 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
 		concFormatJSON,
-		func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs {
+		func(queryProps queryProps) rdb.ConcordanceArgs {
 
 			return rdb.ConcordanceArgs{
-				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
+				CorpusPath:        a.conf.GetRegistryPath(queryProps.corpusConf.ID),
 				QueryLemma:        ctx.Query("lemma"),
-				Query:             q,
-				Attrs:             conf.SyntaxConcordance.ResultAttrs,
+				Query:             queryProps.query,
+				Attrs:             queryProps.corpusConf.SyntaxConcordance.ResultAttrs,
 				ShowRefs:          []string{},
-				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				ParentIdxAttr:     queryProps.corpusConf.SyntaxConcordance.ParentAttr,
 				RowsOffset:        0, // TODO
-				MaxItems:          conf.MaximumRecords,
+				MaxItems:          queryProps.corpusConf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
-				ViewContextStruct: conf.ViewContextStruct,
+				ViewContextStruct: queryProps.corpusConf.ViewContextStruct,
 			}
 		},
 		func(args *rdb.ConcordanceArgs) error {
@@ -173,28 +173,29 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
 		format,
-		func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs {
+		func(queryProps queryProps) rdb.ConcordanceArgs {
 			showStructs := []string{}
 			if ctx.Query("showMarkup") == "1" {
-				showStructs = conf.ConcMarkupStructures
+				showStructs = queryProps.corpusConf.ConcMarkupStructures
 			}
 			showRefs := []string{}
 			if ctx.Query("showTextProps") == "1" {
-				showRefs = conf.ConcTextPropsAttrs
+				showRefs = queryProps.corpusConf.ConcTextPropsAttrs
 			}
-			contextStruct := ctx.DefaultQuery("contextStruct", conf.ViewContextStruct)
+			contextStruct := ctx.DefaultQuery("contextStruct", queryProps.corpusConf.ViewContextStruct)
 
 			return rdb.ConcordanceArgs{
-				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
-				Query:             q,
+				CorpusPath:        a.conf.GetRegistryPath(queryProps.corpusConf.ID),
+				SubcPath:          queryProps.savedSubcorpus,
+				Query:             queryProps.query,
 				CollQuery:         collQuery,
 				CollLftCtx:        collLftCtx,
 				CollRgtCtx:        collRgtCtx,
-				Attrs:             conf.PosAttrs.GetIDs(),
-				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				Attrs:             queryProps.corpusConf.PosAttrs.GetIDs(),
+				ParentIdxAttr:     queryProps.corpusConf.SyntaxConcordance.ParentAttr,
 				ShowStructs:       showStructs,
 				ShowRefs:          showRefs,
-				MaxItems:          util.Ternary(maxRows > 0, maxRows, conf.MaximumRecords),
+				MaxItems:          util.Ternary(maxRows > 0, maxRows, queryProps.corpusConf.MaximumRecords),
 				RowsOffset:        rowsOffset,
 				MaxContext:        contextWidth,
 				ViewContextStruct: contextStruct,
@@ -230,26 +231,27 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 	a.anyConcordance(
 		ctx,
 		format,
-		func(conf *corpus.MQCorpusSetup, q string) rdb.ConcordanceArgs {
+		func(queryProps queryProps) rdb.ConcordanceArgs {
 			showStructs := []string{}
 			if ctx.Query("showMarkup") == "1" {
-				showStructs = conf.ConcMarkupStructures
+				showStructs = queryProps.corpusConf.ConcMarkupStructures
 			}
 			showRefs := []string{}
 			if ctx.Query("showTextProps") == "1" {
-				showRefs = conf.ConcTextPropsAttrs
+				showRefs = queryProps.corpusConf.ConcTextPropsAttrs
 			}
 			return rdb.ConcordanceArgs{
-				CorpusPath:        a.conf.GetRegistryPath(conf.ID),
-				Query:             q,
-				Attrs:             conf.PosAttrs.GetIDs(),
+				CorpusPath:        a.conf.GetRegistryPath(queryProps.corpusConf.ID),
+				SubcPath:          queryProps.savedSubcorpus,
+				Query:             queryProps.query,
+				Attrs:             queryProps.corpusConf.PosAttrs.GetIDs(),
 				ShowStructs:       showStructs,
 				ShowRefs:          showRefs,
-				ParentIdxAttr:     conf.SyntaxConcordance.ParentAttr,
+				ParentIdxAttr:     queryProps.corpusConf.SyntaxConcordance.ParentAttr,
 				RowsOffset:        0, // TODO
-				MaxItems:          conf.MaximumRecords,
+				MaxItems:          queryProps.corpusConf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
-				ViewContextStruct: conf.ViewContextStruct,
+				ViewContextStruct: queryProps.corpusConf.ViewContextStruct,
 			}
 		},
 		func(args *rdb.ConcordanceArgs) error {
@@ -273,10 +275,7 @@ func (a *Actions) anyConcordance(
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-	args := argsBuilder(
-		queryProps.corpusConf,
-		queryProps.query,
-	)
+	args := argsBuilder(queryProps)
 	if err := validator(&args); err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 		return

@@ -165,6 +165,7 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
  */
 KWICRowsRetval conc_examples(
     const char* corpusPath,
+    const char* subcPath,
     const char*query,
     const char* attrs,
     const char* structs,

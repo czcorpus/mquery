@@ -188,6 +188,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	} else {
 		concEx, err = mango.GetConcordance(
 			args.CorpusPath,
+			args.SubcPath,
 			args.Query,
 			args.Attrs,
 			args.ShowStructs,

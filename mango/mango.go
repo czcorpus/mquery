@@ -124,7 +124,7 @@ func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
 }
 
 func GetConcordance(
-	corpusPath, query string,
+	corpusPath, subcPath, query string,
 	attrs []string,
 	structs []string,
 	refs []string,
@@ -145,6 +145,7 @@ func GetConcordance(
 	}
 	ans := C.conc_examples(
 		C.CString(corpusPath),
+		C.CString(subcPath),
 		C.CString(query),
 		C.CString(strings.Join(attrs, ",")),
 		C.CString(strings.Join(structs, ",")),
