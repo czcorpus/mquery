@@ -71,6 +71,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 				RowsOffset:        0, // TODO
 				MaxItems:          queryProps.corpusConf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
+				Shuffle:           true,
 				ViewContextStruct: queryProps.corpusConf.ViewContextStruct,
 			}
 		},
@@ -99,6 +100,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 // @Param        maxRows query int false "Max. number of concordance lines to return. Default is corpus-dependent but mostly around 50"
 // @Param        coll query string false "Optional collocate query (CQL)"
 // @Param        collRange query string false "Specifies where to search the collocate. I.e. this only applies if the `coll` is filled. Format: left,right where negative numbers are on the left side of the KWIC."
+// @Param        noShuffle query int false "if 1, then the order of matches will be the same as in the source corpus"
 // @Success      200 {object} results.ConcordanceResponse
 // @Success      200 {string} text/markdown
 // @Router       /concordance/{corpusId} [get]
@@ -135,6 +137,8 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+
+	noShuffle := ctx.Query("noShuffle") == "1"
 
 	var collLftCtx, collRgtCtx int
 	collQuery := ctx.Request.URL.Query().Get("coll")
@@ -198,6 +202,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				MaxItems:          util.Ternary(maxRows > 0, maxRows, queryProps.corpusConf.MaximumRecords),
 				RowsOffset:        rowsOffset,
 				MaxContext:        contextWidth,
+				Shuffle:           !noShuffle,
 				ViewContextStruct: contextStruct,
 			}
 		},
@@ -215,6 +220,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 // @Param        format query string false "For a concordance formatted in Markdown, `markdown` value can be passed" enums(json,markdown) default(json)
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
 // @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
+// @Param        noShuffle query int false "if 1, then the order of matches will be the same as in the source corpus"
 // @Success      200 {object} results.ConcordanceResponse
 // @Success      200 {string} text/markdown
 // @Router       /sentences/{corpusId} [get]
@@ -240,6 +246,7 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 			if ctx.Query("showTextProps") == "1" {
 				showRefs = queryProps.corpusConf.ConcTextPropsAttrs
 			}
+			noShuffle := ctx.Query("noShuffle") == "1"
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(queryProps.corpusConf.ID),
 				SubcPath:          queryProps.savedSubcorpus,
@@ -251,6 +258,7 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 				RowsOffset:        0, // TODO
 				MaxItems:          queryProps.corpusConf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
+				Shuffle:           !noShuffle,
 				ViewContextStruct: queryProps.corpusConf.ViewContextStruct,
 			}
 		},

@@ -183,6 +183,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 			args.RowsOffset,
 			args.MaxItems,
 			args.MaxContext,
+			args.Shuffle,
 			args.ViewContextStruct,
 		)
 
@@ -197,6 +198,7 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 			args.RowsOffset,
 			args.MaxItems,
 			args.MaxContext,
+			args.Shuffle,
 			args.ViewContextStruct,
 		)
 	}

@@ -331,6 +331,7 @@ KWICRowsRetval conc_examples(
     PosInt fromLine,
     PosInt limit,
     PosInt maxContext,
+    int shuffle,
     const char* viewContextStruct) {
 
     string cPath(corpusPath);
@@ -374,7 +375,9 @@ KWICRowsRetval conc_examples(
             };
             return ans;
         }
-        conc->shuffle();
+        if (shuffle) {
+            conc->shuffle();
+        }
         PosInt concSize = conc->size();
 
         std::vector<std::string> aligned_corps;
@@ -466,6 +469,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     PosInt fromLine,
     PosInt limit,
     PosInt maxContext,
+    int shuffle,
     const char* viewContextStruct) {
 
         string cPath(corpusPath);
@@ -515,7 +519,9 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             conc->set_collocation(currColl, collQuery, lctx, rctx, 1); // TODO `rank` arg.
             conc->delete_pnfilter(currColl, true);
 
-            conc->shuffle();
+            if (shuffle) {
+                conc->shuffle();
+            }
             PosInt concSize = conc->size();
             std::string cppContextStruct(viewContextStruct);
             std::string halfLeft = "-" + std::to_string(int(std::floor(maxContext / 2.0)));

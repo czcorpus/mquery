@@ -108,6 +108,7 @@ type ConcordanceArgs struct {
 	ShowStructs       []string
 	ShowRefs          []string
 	MaxItems          int
+	Shuffle           bool
 	RowsOffset        int
 	MaxContext        int
 	ViewContextStruct string

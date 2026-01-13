@@ -315,6 +315,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 						ShowStructs:       []string{}, // TODO
 						ShowRefs:          corpusConf.ConcTextPropsAttrs,
 						MaxItems:          examplesPerColl,
+						Shuffle:           true,
 						RowsOffset:        0,
 						ViewContextStruct: corpusConf.ViewContextStruct,
 					},

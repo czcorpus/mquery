@@ -174,6 +174,7 @@ KWICRowsRetval conc_examples(
     PosInt fromLine,
     PosInt limit,
     PosInt maxContext,
+    int shuffle,
     const char* viewContextStruct);
 
 void conc_examples_free(KWICRowsV value, int numItems);
@@ -193,6 +194,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     PosInt fromLine,
     PosInt limit,
     PosInt maxContext,
+    int shuffle,
     const char* viewContextStruct);
 
 CorpRegionRetval get_corp_region(
