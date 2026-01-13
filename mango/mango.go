@@ -129,6 +129,7 @@ func GetConcordance(
 	structs []string,
 	refs []string,
 	fromLine, maxItems, maxContext int,
+	shuffle bool,
 	viewContextStruct string,
 ) (GoConcordance, error) {
 	if fromLine < 0 {
@@ -143,6 +144,13 @@ func GetConcordance(
 	if !collections.SliceContains(refs, "#") {
 		refs = append([]string{"#"}, refs...)
 	}
+	var shuffleInt C.int
+	if shuffle {
+		shuffleInt = 1
+
+	} else {
+		shuffleInt = 0
+	}
 	ans := C.conc_examples(
 		C.CString(corpusPath),
 		C.CString(subcPath),
@@ -154,6 +162,7 @@ func GetConcordance(
 		C.longlong(fromLine),
 		C.longlong(maxItems),
 		C.longlong(maxContext),
+		shuffleInt,
 		C.CString(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
@@ -209,10 +218,17 @@ func GetConcordanceWithCollPhrase(
 	structs []string,
 	refs []string,
 	fromLine, maxItems, maxContext int,
+	shuffle bool,
 	viewContextStruct string,
 ) (GoConcordance, error) {
 	if !collections.SliceContains(refs, "#") {
 		refs = append([]string{"#"}, refs...)
+	}
+	var shuffleInt C.int
+	if shuffle {
+		shuffleInt = 1
+	} else {
+		shuffleInt = 0
 	}
 	ans := C.conc_examples_with_coll_phrase(
 		C.CString(corpusPath),
@@ -228,6 +244,7 @@ func GetConcordanceWithCollPhrase(
 		C.longlong(fromLine),
 		C.longlong(maxItems),
 		C.longlong(maxContext),
+		shuffleInt,
 		C.CString(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
