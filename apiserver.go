@@ -144,7 +144,10 @@ func (api *apiServer) Start(ctx context.Context) {
 		"/collocations-extended/:corpusId", ceActions.CollocationsExtended)
 
 	engine.GET(
-		"/word-forms/:corpusId", ceActions.WordForms)
+		"/word-forms/:corpusId/:lemma", ceActions.WordForms)
+
+	engine.GET(
+		"/other-forms/:corpusId/:wordForm", ceActions.OtherForms)
 
 	engine.GET(
 		"/conc-examples/:corpusId", ceActions.SyntaxConcordance) // TODO rename API endpoint (where is `syntax`?)

@@ -19,9 +19,9 @@
 package results
 
 import (
+	"encoding/json"
 	"mquery/mango"
 	"mquery/rdb"
-	"encoding/json"
 
 	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
@@ -56,9 +56,10 @@ type FreqDistribItem struct {
 }
 
 type WordFormsItem struct {
-	Lemma string              `json:"lemma"`
-	POS   string              `json:"pos"`
-	Forms FreqDistribItemList `json:"forms"`
+	Lemma    string              `json:"lemma"`
+	Sublemma string              `json:"sublemma,omitempty"`
+	POS      string              `json:"pos"`
+	Forms    FreqDistribItemList `json:"forms"`
 }
 
 // ----

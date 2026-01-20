@@ -3,7 +3,7 @@ module mquery
 go 1.24.0
 
 require (
-	github.com/czcorpus/cnc-gokit v0.21.0
+	github.com/czcorpus/cnc-gokit v0.22.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/mquery-common v0.6.3

@@ -17,8 +17,8 @@ github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XL
 github.com/cloudwego/base64x v0.1.6 h1:t11wG9AECkCDk5fMSoxmufanudBtJ+/HemLstXDLI2M=
 github.com/cloudwego/base64x v0.1.6/go.mod h1:OFcloc187FXDaYHvrNIjxSe8ncn0OOM8gEHfghB2IPU=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/czcorpus/cnc-gokit v0.21.0 h1:Jt8wAPv3H+tRMEA7Picp6zhwkHwNzms46uHIMD+iyng=
-github.com/czcorpus/cnc-gokit v0.21.0/go.mod h1:RjGGNvSdtgUGnAcVTy/WHUFL7UuNez7YaBnVulj6PTM=
+github.com/czcorpus/cnc-gokit v0.22.0 h1:/VSvr2Voa4y6AOOeGzhsF585SXZ1Go8O5xIDWnrV/58=
+github.com/czcorpus/cnc-gokit v0.22.0/go.mod h1:RjGGNvSdtgUGnAcVTy/WHUFL7UuNez7YaBnVulj6PTM=
 github.com/czcorpus/hltscl v0.2.0 h1:Rz4zNKGKHS/RchgXWnEobXTnvkHb+Cz63/JneBHroMo=
 github.com/czcorpus/hltscl v0.2.0/go.mod h1:qoi+22q0mRV5UPHNkda2PoTwZ2gaOKlt2U/7eCCzYoY=
 github.com/czcorpus/manabuild v0.1.3 h1:dcTMpRtUUHhm1H+7532MeNFID0WyRVDorydROgbbo4w=
