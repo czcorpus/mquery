@@ -35,13 +35,18 @@ const (
 
 type lemmaItem struct {
 	Lemma string `json:"lemma"`
+	Sublemma string `json:"sublemma"`
 	POS   string `json:"pos"`
 }
 
-func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*lemmaItem, error) {
+func (a *Actions) findLemmas(corpusID string, word, pos string, exportSublemmas bool) ([]*lemmaItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
+	}
+	crit := "lemma 0~0>0 pos 0~0>0"
+	if exportSublemmas {
+		crit := crit + " sublemma 0~0>0"
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
@@ -49,7 +54,7 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*lemma
 		Args: rdb.FreqDistribArgs{
 			CorpusPath: corpusPath,
 			Query:      "[" + q + "]",
-			Crit:       "lemma 0~0>0 pos 0~0>0",
+			Crit:       crit,
 			FreqLimit:  1,
 		},
 	})
@@ -73,14 +78,20 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*lemma
 			Lemma: wordSplit[0],
 			POS:   wordSplit[1],
 		}
+		if exportSublemmas && len(wordSplit) > 2 {
+			ans[i].Sublemma = wordSplit[2]
+		}
 	}
 	return ans, nil
 }
 
-func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*results.WordFormsItem, error) {
+func (a *Actions) findWordForms(corpusID string, lemma, sublemma, pos string) (*results.WordFormsItem, error) {
 	q := "lemma=\"" + lemma + "\"" // TODO hardcoded `lemma`
-	if len(pos) > 0 {
+	if pos != "" {
 		q += " & pos=\"" + pos + "\"" // TODO hardcoded `pos`
+	}
+	if sublemma != "" {
+		q += " & sublemma=\"" + pos + "\""
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
@@ -115,6 +126,7 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 func (a *Actions) WordForms(ctx *gin.Context) {
 	var ans []*results.WordFormsItem
 	lemma := ctx.Request.URL.Query().Get("lemma")
+	sublemma := ctx.Request.URL.Query().Get("sublemma")
 	word := ctx.Request.URL.Query().Get("word")
 	pos := ctx.Request.URL.Query().Get("pos")
 	if ctx.Request.URL.Query().Has("subcorpus") {
@@ -143,9 +155,9 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 			)
 			return
 		}
-
+		a.conf.Resources.Get(ctx.Param("corpusId")) // ......
 		for _, v := range lemmas {
-			wordForms, err := a.findWordForms(ctx.Param("corpusId"), v.Lemma, v.POS)
+			wordForms, err := a.findWordForms(ctx.Param("corpusId"), v.Lemma, v.POS, v.)
 			if err != nil {
 				uniresp.WriteJSONErrorResponse(
 					ctx.Writer,
