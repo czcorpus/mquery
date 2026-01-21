@@ -283,11 +283,19 @@ func (a *Actions) ttStreamedBase(ctx *gin.Context) (streamedFreqsBaseArgs, bool)
 	return args, true
 }
 
-// TextTypesStreamed provides parallel calculation
-// of text types frequencies with an output based
-// on "server-sent events".
-// The endpoint allows either `attr` or `fcrit`
-// arguments in URL but in case of '
+// TextTypesStreamed godoc
+// @Summary      TextTypesStreamed
+// @Description  provides parallel text types frequencies based across multiple subcorpora
+// @Description returned SSE stream produces gradually growing data in results.FreqDistrib
+// (i.e. it is not necessary to accumulate the result)
+// @Produce json
+// @Produce text/event-stream
+// @Param        corpusId path string true "An ID of a corpus to search in"
+// @Param        q query string true "A search query"
+// @Param        attr query string false "An attribute used for freq. calculation (mutually exclusive with `fcrit`)"
+// @Param        fcrit query string false "A freq. criterium in Manatee-open format (mutually exclusive with `attr`)"
+// @Success      200 {object} results.FreqDistrib
+// @Router       /text-types-streamed/{corpusId} [get]
 func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 	defer ctx.Writer.Flush()
 
