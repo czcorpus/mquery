@@ -88,7 +88,7 @@ func (a *Actions) findLemmas(corpusID string, word, pos string, exportSublemmas 
 	return ans, nil
 }
 
-func (a *Actions) findWordForms(corpusID string, lemma *lemmaItem) (*results.WordFormsItem, error) {
+func (a *Actions) findWordForms(corpusID string, lemma *lemmaItem, caseSensitive bool) (*results.WordFormsItem, error) {
 	q := "lemma=\"" + lemma.Lemma + "\"" // TODO hardcoded `lemma`
 	if lemma.POS != "" {
 		q += " & pos=\"" + lemma.POS + "\"" // TODO hardcoded `pos`
@@ -96,13 +96,17 @@ func (a *Actions) findWordForms(corpusID string, lemma *lemmaItem) (*results.Wor
 	if lemma.Sublemma != "" {
 		q += " & sublemma=\"" + lemma.Sublemma + "\""
 	}
+	crit := "word 0~0>0"
+	if !caseSensitive {
+		crit = "word/i 0~0>0"
+	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(rdb.Query{
 		Func: "freqDistrib",
 		Args: rdb.FreqDistribArgs{
 			CorpusPath: corpusPath,
 			Query:      "[" + q + "]",
-			Crit:       "word/i 0~0>0", // TODO hardcoded `word`
+			Crit:       crit,
 			FreqLimit:  1,
 			MaxItems:   MaxWordFormResultItems,
 		},
@@ -168,7 +172,7 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 	for _, v := range groupedFreqs {
 		// as we group by sublemmas, to get sublemma, we can
 		// just take the first item of the group (see v[0] below)
-		wordForms, err := a.findWordForms(ctx.Param("corpusId"), v[0])
+		wordForms, err := a.findWordForms(ctx.Param("corpusId"), v[0], true)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,
@@ -184,7 +188,7 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 
 // WordForms godoc
 // @Summary      WordForms
-// @Description  Get word forms of a lemma (plus optionally a sublemma and/or PoS)
+// @Description  Get word forms of a lemma (plus optionally a sublemma and/or PoS).
 // @Produce      json
 // @Param        corpusId path string true "An ID of a corpus to search in"
 // @Param		 lemma path string true "A lemma to search forms for"
@@ -219,6 +223,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 	wordForms, err := a.findWordForms(
 		corpusID,
 		&lemmaItem{Lemma: lemma, Sublemma: sublemma, POS: pos},
+		true,
 	)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
