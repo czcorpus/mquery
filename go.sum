@@ -25,6 +25,8 @@ github.com/czcorpus/manabuild v0.1.3 h1:dcTMpRtUUHhm1H+7532MeNFID0WyRVDorydROgbb
 github.com/czcorpus/manabuild v0.1.3/go.mod h1:dj2iAsZObs4yJhF6KkQs5oH2AAyZlrmaNwMGV44hLbk=
 github.com/czcorpus/mquery-common v0.6.3 h1:TofGFqUW7472vD9QL4tAFvGdKKIBAqcr9RsKyHSOU4Q=
 github.com/czcorpus/mquery-common v0.6.3/go.mod h1:jm+a8TUScDmReS+wJGVQpYU2ZsF1c81eMeZVWRzA9iQ=
+github.com/czcorpus/rexplorer v0.0.8 h1:rxBivMmo10xGlCDaxzH9IeD23YzS8QM5cyTXiEFPllE=
+github.com/czcorpus/rexplorer v0.0.8/go.mod h1:9KwJWUp9tqn5gDjN3sS2jcsaaMWsfi3qPaqN5s9DY9Y=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

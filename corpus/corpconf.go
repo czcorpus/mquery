@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/czcorpus/mquery-common/corp"
+	"github.com/czcorpus/rexplorer/parser"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,6 +36,7 @@ import (
 
 type MQCorpusSetup struct {
 	corp.CorpusSetup
+	IsDisabled bool `json:"isDisabled"`
 }
 
 func (cs *MQCorpusSetup) ValidateAndDefaults() error {
@@ -92,9 +94,29 @@ func (cs *MQCorpusSetup) ValidateAndDefaults() error {
 // Multiple corpora configuration types
 // -------------------------------------
 
+func checkRegistryFile(regPath string) error {
+	regBytes, err := os.ReadFile(regPath)
+	if err != nil {
+		return fmt.Errorf("failed to read registry file: %w", err)
+	}
+	reg, err := parser.ParseRegistryBytes(filepath.Base(regPath), regBytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse registry file: %w", err)
+	}
+	dataPath := reg.Entries.Get("PATH")
+	dpInfo, err := os.Stat(dataPath.Value())
+	if err != nil {
+		return fmt.Errorf("failed to validate corpus data path: %w", err)
+	}
+	if !dpInfo.IsDir() {
+		return fmt.Errorf("corpus data path is not a directory")
+	}
+	return nil
+}
+
 type Resources []*MQCorpusSetup
 
-func (rscs *Resources) Load(directory string) error {
+func (rscs *Resources) Load(directory, registryDir string) error {
 	files, err := os.ReadDir(directory)
 	if err != nil {
 		return fmt.Errorf("failed to load corpora configs: %w", err)
@@ -117,6 +139,28 @@ func (rscs *Resources) Load(directory string) error {
 				Str("file", confPath).
 				Msg("encountered invalid corpus configuration file, skipping")
 			continue
+		}
+
+		if conf.IsDisabled {
+			log.Warn().Str("corpus", conf.ID).Msg("skipping disabled corpus")
+			continue
+		}
+
+		regCheckCorpora := make([]string, 0, 10)
+		if strings.Contains(conf.ID, "*") && len(conf.Variants) > 0 {
+			for corp := range conf.Variants {
+				regCheckCorpora = append(regCheckCorpora, corp)
+			}
+
+		} else {
+			regCheckCorpora = append(regCheckCorpora, conf.ID)
+		}
+		for _, corpusID := range regCheckCorpora {
+			if err := checkRegistryFile(filepath.Join(registryDir, corpusID)); err != nil {
+				log.Error().Err(err).Str("corpus", corpusID)
+				return err
+			}
+
 		}
 		*rscs = append(*rscs, &conf)
 		log.Info().Str("name", conf.ID).Msg("loaded corpus configuration file")

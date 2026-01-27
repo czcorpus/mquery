@@ -111,7 +111,7 @@ type Conf struct {
 
 func (conf *Conf) LoadSubconfigs() error {
 	if conf.CorporaSetup.ConfFilesDir != "" {
-		if err := conf.CorporaSetup.Resources.Load(conf.CorporaSetup.ConfFilesDir); err != nil {
+		if err := conf.CorporaSetup.Resources.Load(conf.CorporaSetup.ConfFilesDir, conf.CorporaSetup.RegistryDir); err != nil {
 			return fmt.Errorf("failed to load subconfig for `corpora`: %w", err)
 		}
 	}
