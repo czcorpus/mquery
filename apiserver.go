@@ -65,6 +65,9 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.Use(logging.GinMiddleware())
 	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.Use(CORSMiddleware(api.conf))
+	if api.conf.Redis.AllowCustomTimeouts {
+		engine.Use(CustomTimeoutMiddleware())
+	}
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 

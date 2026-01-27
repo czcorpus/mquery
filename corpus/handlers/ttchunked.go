@@ -148,7 +148,7 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 	return ans
 }
 
-func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int) (chan StreamData, error) {
+func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int, workerTimeout time.Duration) (chan StreamData, error) {
 	messageChannel := make(chan StreamData, 10)
 	corpusPath := a.conf.GetRegistryPath(corpusID)
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
@@ -168,18 +168,21 @@ func (a *Actions) streamCalc(query, attr, corpusID string, flimit, maxItems int)
 		for chunkIdx, subc := range sc.Subcorpora {
 			go func(chIdx int, subcx string) {
 				defer wg.Done()
-				wait, err := a.radapter.PublishQuery(rdb.Query{
-					Func: "freqDistrib",
-					Args: rdb.FreqDistribArgs{
-						CorpusPath:  corpusPath,
-						SubcPath:    subcx,
-						Query:       query,
-						Crit:        fmt.Sprintf("%s 0", attr),
-						IsTextTypes: true,
-						FreqLimit:   flimit,
-						MaxItems:    maxItems,
+				wait, err := a.radapter.PublishQuery(
+					rdb.Query{
+						Func: "freqDistrib",
+						Args: rdb.FreqDistribArgs{
+							CorpusPath:  corpusPath,
+							SubcPath:    subcx,
+							Query:       query,
+							Crit:        fmt.Sprintf("%s 0", attr),
+							IsTextTypes: true,
+							FreqLimit:   flimit,
+							MaxItems:    maxItems,
+						},
 					},
-				})
+					workerTimeout,
+				)
 				if err != nil {
 					messageChannel <- StreamData{
 						ChunkNum: chunkIdx + 1,
@@ -304,7 +307,7 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 		return
 	}
 
-	calc, err := a.streamCalc(args.Q, args.Attr, ctx.Param("corpusId"), args.Flimit, args.MaxItems)
+	calc, err := a.streamCalc(args.Q, args.Attr, ctx.Param("corpusId"), args.Flimit, args.MaxItems, GetCTXStoredTimeout(ctx))
 	if err != nil {
 		WriteStreamingError(ctx, err)
 		return
@@ -345,7 +348,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		return
 	}
 
-	calc, err := a.streamCalc(args.Q, args.Attr, corpusID, args.Flimit, args.MaxItems)
+	calc, err := a.streamCalc(args.Q, args.Attr, corpusID, args.Flimit, args.MaxItems, GetCTXStoredTimeout(ctx))
 	if err != nil {
 		WriteStreamingError(ctx, err)
 		return

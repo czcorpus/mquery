@@ -92,10 +92,13 @@ func (a *Actions) TextTypes(ctx *gin.Context) {
 		freqArgs.SubcPath = ctx.Request.URL.Query().Get("subc")
 	}
 
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: freqArgs,
-	})
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "freqDistrib",
+			Args: freqArgs,
+		},
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

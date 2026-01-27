@@ -27,10 +27,16 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	TimeoutCtxKey = "workerTimeout"
 )
 
 type queryProps struct {
@@ -221,4 +227,17 @@ func GetURLIntArgOrFailStreaming(ctx *gin.Context, name string, dflt int) (int, 
 		return 0, false
 	}
 	return value, true
+}
+
+func GetCTXStoredTimeout(ctx *gin.Context) time.Duration {
+	tmp, ok := ctx.Get(TimeoutCtxKey)
+	if !ok {
+		return 0
+	}
+	v, ok := tmp.(time.Duration)
+	if !ok {
+		log.Error().Msgf("ctx-stored timeout has invalid data type")
+		return 0
+	}
+	return v
 }

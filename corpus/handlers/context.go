@@ -98,18 +98,21 @@ func (a *Actions) TokenContext(ctx *gin.Context) {
 	}
 
 	corpConf.PosAttrs.GetIDs()
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "tokenContext",
-		Args: rdb.TokenContextArgs{
-			CorpusPath: corpusPath,
-			Idx:        int64(pos),
-			KWICLen:    int64(kwicLen),
-			LeftCtx:    int64(leftCtx),
-			RightCtx:   int64(rightCtx),
-			Structs:    structs,
-			Attrs:      attrs,
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "tokenContext",
+			Args: rdb.TokenContextArgs{
+				CorpusPath: corpusPath,
+				Idx:        int64(pos),
+				KWICLen:    int64(kwicLen),
+				LeftCtx:    int64(leftCtx),
+				RightCtx:   int64(rightCtx),
+				Structs:    structs,
+				Attrs:      attrs,
+			},
 		},
-	})
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

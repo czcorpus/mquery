@@ -113,16 +113,19 @@ func (a *Actions) SplitCorpus(ctx *gin.Context) {
 	wg.Add(len(corp.Subcorpora))
 	errs := make([]error, 0, len(corp.Subcorpora))
 	for _, subc := range corp.Subcorpora {
-		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "calcCollFreqData",
-			Args: rdb.CalcCollFreqDataArgs{
-				CorpusPath:     corpPath,
-				SubcPath:       subc,
-				Attrs:          precalcAttr,
-				Structs:        precalcStruct,
-				MktokencovPath: a.conf.MktokencovPath,
+		wait, err := a.radapter.PublishQuery(
+			rdb.Query{
+				Func: "calcCollFreqData",
+				Args: rdb.CalcCollFreqDataArgs{
+					CorpusPath:     corpPath,
+					SubcPath:       subc,
+					Attrs:          precalcAttr,
+					Structs:        precalcStruct,
+					MktokencovPath: a.conf.MktokencovPath,
+				},
 			},
-		})
+			GetCTXStoredTimeout(ctx),
+		)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,

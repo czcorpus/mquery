@@ -29,13 +29,16 @@ import (
 
 func (a *Actions) TextTypesNorms(ctx *gin.Context) {
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "textTypeNorms",
-		Args: rdb.TextTypeNormsArgs{
-			CorpusPath: corpusPath,
-			StructAttr: ctx.Query("attr"),
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "textTypeNorms",
+			Args: rdb.TextTypeNormsArgs{
+				CorpusPath: corpusPath,
+				StructAttr: ctx.Query("attr"),
+			},
 		},
-	})
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

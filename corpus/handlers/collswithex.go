@@ -177,21 +177,25 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 		srchAttr = CollDefaultAttr
 	}
 
-	wait1, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "collocations",
-		Args: rdb.CollocationsArgs{
-			CorpusPath: corpus1Path,
-			Query:      collArgs.queryProps.query,
-			Attr:       srchAttr,
-			Measure:    collArgs.measure,
-			// Note: see the range below and note that the left context
-			// is published differently (as a positive number) in contrast
-			// with the "internals" where a negative number is required
-			SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
-			MinFreq:     int64(collArgs.minCollFreq),
-			MinCorpFreq: int64(collArgs.minCorpFreq),
-			MaxItems:    collArgs.maxItems,
-		}})
+	wait1, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "collocations",
+			Args: rdb.CollocationsArgs{
+				CorpusPath: corpus1Path,
+				Query:      collArgs.queryProps.query,
+				Attr:       srchAttr,
+				Measure:    collArgs.measure,
+				// Note: see the range below and note that the left context
+				// is published differently (as a positive number) in contrast
+				// with the "internals" where a negative number is required
+				SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
+				MinFreq:     int64(collArgs.minCollFreq),
+				MinCorpFreq: int64(collArgs.minCorpFreq),
+				MaxItems:    collArgs.maxItems,
+			},
+		},
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -210,21 +214,25 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 
 	} else {
 		corpus2Path := a.conf.GetRegistryPath(cmpCorp)
-		wait2, err2 = a.radapter.PublishQuery(rdb.Query{
-			Func: "collocations",
-			Args: rdb.CollocationsArgs{
-				CorpusPath: corpus2Path,
-				Query:      collArgs.queryProps.query,
-				Attr:       srchAttr,
-				Measure:    collArgs.measure,
-				// Note: see the range below and note that the left context
-				// is published differently (as a positive number) in contrast
-				// with the "internals" where a negative number is required
-				SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
-				MinFreq:     int64(collArgs.minCollFreq),
-				MinCorpFreq: int64(collArgs.minCorpFreq),
-				MaxItems:    collArgs.maxItems,
-			}})
+		wait2, err2 = a.radapter.PublishQuery(
+			rdb.Query{
+				Func: "collocations",
+				Args: rdb.CollocationsArgs{
+					CorpusPath: corpus2Path,
+					Query:      collArgs.queryProps.query,
+					Attr:       srchAttr,
+					Measure:    collArgs.measure,
+					// Note: see the range below and note that the left context
+					// is published differently (as a positive number) in contrast
+					// with the "internals" where a negative number is required
+					SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
+					MinFreq:     int64(collArgs.minCollFreq),
+					MinCorpFreq: int64(collArgs.minCorpFreq),
+					MaxItems:    collArgs.maxItems,
+				},
+			},
+			GetCTXStoredTimeout(ctx),
+		)
 	}
 	if err2 != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -301,25 +309,28 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 			go func(collItem *mango.GoCollItem) {
 				defer wg.Done()
 				escapedWord := strings.ReplaceAll(collItem.Word, "\"", "\\\"")
-				wait, err := a.radapter.PublishQuery(rdb.Query{
-					Func: "concordance",
-					Args: rdb.ConcordanceArgs{
-						CorpusPath: corpus1Path,
-						Query:      collArgs.queryProps.query,
-						// note - below, we can 'simple text match ==' as the
-						// inserted value is always an exact value and not a pattern
-						CollQuery:         fmt.Sprintf("[%s==\"%s\"]", srchAttr, escapedWord),
-						CollLftCtx:        -collArgs.srchLeft,
-						CollRgtCtx:        collArgs.srchRight,
-						Attrs:             corpusConf.PosAttrs.GetIDs(),
-						ShowStructs:       []string{}, // TODO
-						ShowRefs:          corpusConf.ConcTextPropsAttrs,
-						MaxItems:          examplesPerColl,
-						Shuffle:           true,
-						RowsOffset:        0,
-						ViewContextStruct: corpusConf.ViewContextStruct,
+				wait, err := a.radapter.PublishQuery(
+					rdb.Query{
+						Func: "concordance",
+						Args: rdb.ConcordanceArgs{
+							CorpusPath: corpus1Path,
+							Query:      collArgs.queryProps.query,
+							// note - below, we can 'simple text match ==' as the
+							// inserted value is always an exact value and not a pattern
+							CollQuery:         fmt.Sprintf("[%s==\"%s\"]", srchAttr, escapedWord),
+							CollLftCtx:        -collArgs.srchLeft,
+							CollRgtCtx:        collArgs.srchRight,
+							Attrs:             corpusConf.PosAttrs.GetIDs(),
+							ShowStructs:       []string{}, // TODO
+							ShowRefs:          corpusConf.ConcTextPropsAttrs,
+							MaxItems:          examplesPerColl,
+							Shuffle:           true,
+							RowsOffset:        0,
+							ViewContextStruct: corpusConf.ViewContextStruct,
+						},
 					},
-				})
+					GetCTXStoredTimeout(ctx),
+				)
 				if err != nil {
 					resultsChan <- &extendedCollItem{
 						ResultIdx: resultIdx,

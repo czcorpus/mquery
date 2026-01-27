@@ -111,7 +111,7 @@ type Conf struct {
 
 func (conf *Conf) LoadSubconfigs() error {
 	if conf.CorporaSetup.ConfFilesDir != "" {
-		if err := conf.CorporaSetup.Resources.Load(conf.CorporaSetup.ConfFilesDir); err != nil {
+		if err := conf.CorporaSetup.Resources.Load(conf.CorporaSetup.ConfFilesDir, conf.CorporaSetup.RegistryDir); err != nil {
 			return fmt.Errorf("failed to load subconfig for `corpora`: %w", err)
 		}
 	}
@@ -217,5 +217,10 @@ func ValidateAndDefaults(conf *Conf) {
 	}
 	if _, err := time.LoadLocation(conf.TimeZone); err != nil {
 		log.Fatal().Err(err).Msg("invalid time zone")
+	}
+
+	if (strings.HasPrefix(conf.ListenAddress, "0.0.0.0") || strings.HasPrefix(conf.ListenAddress, ":")) &&
+		conf.Redis.AllowCustomTimeouts {
+		log.Fatal().Msg("allowCustomTimeouts enabled but listening on all interfaces")
 	}
 }

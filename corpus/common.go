@@ -24,6 +24,7 @@ import (
 	"mquery/rdb"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
@@ -79,5 +80,10 @@ func CheckSavedSubcorpus(baseDir, corp, subcID string) (string, bool) {
 // ------------------------------------------------------------
 
 type QueryHandler interface {
-	PublishQuery(query rdb.Query) (<-chan rdb.WorkerResult, error)
+	// PublishQuery sends a query to a worker and returns a channel where
+	// where the sender can wait for the result.
+	// The workerTimeout value can be 0 (or even negative) in which case,
+	// default configured value is used instead. I.e. there is no way
+	// how to make a query with an infinite timeout.
+	PublishQuery(query rdb.Query, workerTimeout time.Duration) (<-chan rdb.WorkerResult, error)
 }
