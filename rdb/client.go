@@ -317,7 +317,7 @@ func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 				return
 			case <-tmr.C:
 				err := merror.TimeoutError{
-					Msg: fmt.Sprintf("worker result timeouted (%v)", DefaultQueryAnswerTimeout),
+					Msg: fmt.Sprintf("worker result timeout (limit: %v)", a.queryAnswerTimeout),
 				}
 				ans <- WorkerResult{
 					Value: ErrorResult{
