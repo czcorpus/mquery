@@ -25,6 +25,7 @@ import (
 	"mquery/rdb/results"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -41,7 +42,7 @@ type lemmaItem struct {
 	POS      string `json:"pos"`
 }
 
-func (a *Actions) findLemmas(corpusID string, word, pos string, exportSublemmas bool) ([]*lemmaItem, error) {
+func (a *Actions) findLemmas(corpusID string, word, pos string, exportSublemmas bool, workerTimeout time.Duration) ([]*lemmaItem, error) {
 	q := "word=\"" + word + "\""
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\""
@@ -51,16 +52,19 @@ func (a *Actions) findLemmas(corpusID string, word, pos string, exportSublemmas 
 		crit = crit + " sublemma 0~0>0"
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: rdb.FreqDistribArgs{
-			CorpusPath: corpusPath,
-			Query:      "[" + q + "]",
-			Crit:       crit,
-			FreqLimit:  1,
-			MaxItems:   500,
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "freqDistrib",
+			Args: rdb.FreqDistribArgs{
+				CorpusPath: corpusPath,
+				Query:      "[" + q + "]",
+				Crit:       crit,
+				FreqLimit:  1,
+				MaxItems:   500,
+			},
 		},
-	})
+		workerTimeout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +92,7 @@ func (a *Actions) findLemmas(corpusID string, word, pos string, exportSublemmas 
 	return ans, nil
 }
 
-func (a *Actions) findWordForms(corpusID string, lemma *lemmaItem, caseSensitive bool) (*results.WordFormsItem, error) {
+func (a *Actions) findWordForms(corpusID string, lemma *lemmaItem, caseSensitive bool, workerTimeout time.Duration) (*results.WordFormsItem, error) {
 	q := "lemma=\"" + lemma.Lemma + "\"" // TODO hardcoded `lemma`
 	if lemma.POS != "" {
 		q += " & pos=\"" + lemma.POS + "\"" // TODO hardcoded `pos`
@@ -101,16 +105,19 @@ func (a *Actions) findWordForms(corpusID string, lemma *lemmaItem, caseSensitive
 		crit = "word/i 0~0>0"
 	}
 	corpusPath := a.conf.GetRegistryPath(corpusID)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: rdb.FreqDistribArgs{
-			CorpusPath: corpusPath,
-			Query:      "[" + q + "]",
-			Crit:       crit,
-			FreqLimit:  1,
-			MaxItems:   MaxWordFormResultItems,
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "freqDistrib",
+			Args: rdb.FreqDistribArgs{
+				CorpusPath: corpusPath,
+				Query:      "[" + q + "]",
+				Crit:       crit,
+				FreqLimit:  1,
+				MaxItems:   MaxWordFormResultItems,
+			},
 		},
-	})
+		workerTimeout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +159,7 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 	var ans []*results.WordFormsItem
 	hasSublemma := corpInfo.PosAttrs.Contains("sublemma")
 
-	lemmas, err := a.findLemmas(corpusID, word, pos, hasSublemma)
+	lemmas, err := a.findLemmas(corpusID, word, pos, hasSublemma, GetCTXStoredTimeout(ctx))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -172,7 +179,7 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 	for _, v := range groupedFreqs {
 		// as we group by sublemmas, to get sublemma, we can
 		// just take the first item of the group (see v[0] below)
-		wordForms, err := a.findWordForms(ctx.Param("corpusId"), v[0], true)
+		wordForms, err := a.findWordForms(ctx.Param("corpusId"), v[0], true, GetCTXStoredTimeout(ctx))
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,
@@ -224,6 +231,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 		corpusID,
 		&lemmaItem{Lemma: lemma, Sublemma: sublemma, POS: pos},
 		true,
+		GetCTXStoredTimeout(ctx),
 	)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(

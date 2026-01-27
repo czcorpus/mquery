@@ -96,17 +96,20 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	}
 
 	corpusPath := a.conf.GetRegistryPath(queryProps.corpus)
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "freqDistrib",
-		Args: rdb.FreqDistribArgs{
-			CorpusPath: corpusPath,
-			SubcPath:   queryProps.savedSubcorpus,
-			Query:      queryProps.query,
-			Crit:       fcrit,
-			FreqLimit:  flimit,
-			MaxItems:   maxItems,
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "freqDistrib",
+			Args: rdb.FreqDistribArgs{
+				CorpusPath: corpusPath,
+				SubcPath:   queryProps.savedSubcorpus,
+				Query:      queryProps.query,
+				Crit:       fcrit,
+				FreqLimit:  flimit,
+				MaxItems:   maxItems,
+			},
 		},
-	})
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -220,17 +223,20 @@ func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
 		fcrit = DefaultFreqCrit
 	}
 	for _, subc := range sc.Subcorpora {
-		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "freqDistrib",
-			Args: rdb.FreqDistribArgs{
-				CorpusPath: corpusPath,
-				SubcPath:   subc,
-				Query:      q,
-				Crit:       fcrit,
-				FreqLimit:  flimit,
-				MaxItems:   maxItems,
+		wait, err := a.radapter.PublishQuery(
+			rdb.Query{
+				Func: "freqDistrib",
+				Args: rdb.FreqDistribArgs{
+					CorpusPath: corpusPath,
+					SubcPath:   subc,
+					Query:      q,
+					Crit:       fcrit,
+					FreqLimit:  flimit,
+					MaxItems:   maxItems,
+				},
 			},
-		})
+			GetCTXStoredTimeout(ctx),
+		)
 		if err != nil {
 			// TODO
 			log.Error().Err(err).Msg("failed to publish query")

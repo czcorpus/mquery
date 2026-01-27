@@ -28,6 +28,7 @@ type Conf struct {
 	ChannelQuery           string `json:"channelQuery"`
 	ChannelResultPrefix    string `json:"channelResultPrefix"`
 	QueryAnswerTimeoutSecs int    `json:"queryAnswerTimeoutSecs"`
+	AllowCustomTimeouts    bool   `json:"allowCustomTimeouts"`
 }
 
 func (conf *Conf) ServerInfo() string {

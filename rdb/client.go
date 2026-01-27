@@ -237,11 +237,15 @@ func (a *Adapter) SomeoneListens(channel string) (bool, error) {
 // process fails during the calculation, a respective error
 // is packed into the WorkerResult value. The error returned
 // by this method means that the publishing itself failed.
-func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
+func (a *Adapter) PublishQuery(query Query, customTimeout time.Duration) (<-chan WorkerResult, error) {
 	query.Channel = fmt.Sprintf("%s:%s", a.channelResultPrefix, uuid.New().String())
+	if customTimeout <= 0 {
+		customTimeout = a.queryAnswerTimeout
+	}
 	log.Debug().
 		Str("channel", query.Channel).
 		Str("func", query.Func).
+		Dur("timeout", customTimeout).
 		Any("args", query.Args).
 		Msg("publishing query")
 
@@ -264,7 +268,7 @@ func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 			close(ans)
 		}()
 
-		tmr := time.NewTimer(a.queryAnswerTimeout)
+		tmr := time.NewTimer(customTimeout)
 
 		for {
 			select {
@@ -317,7 +321,7 @@ func (a *Adapter) PublishQuery(query Query) (<-chan WorkerResult, error) {
 				return
 			case <-tmr.C:
 				err := merror.TimeoutError{
-					Msg: fmt.Sprintf("worker result timeout (limit: %v)", a.queryAnswerTimeout),
+					Msg: fmt.Sprintf("worker result timeout (limit: %v)", customTimeout),
 				}
 				ans <- WorkerResult{
 					Value: ErrorResult{

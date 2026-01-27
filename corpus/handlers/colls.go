@@ -146,22 +146,26 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 		srchAttr = CollDefaultAttr
 	}
 
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "collocations",
-		Args: rdb.CollocationsArgs{
-			CorpusPath: corpusPath,
-			SubcPath:   collArgs.queryProps.savedSubcorpus,
-			Query:      collArgs.queryProps.query,
-			Attr:       srchAttr,
-			Measure:    collArgs.measure,
-			// Note: see the range below and note that the left context
-			// is published differently (as a positive number) in contrast
-			// with the "internals" where a negative number is required
-			SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
-			MinFreq:     int64(collArgs.minCollFreq),
-			MinCorpFreq: int64(collArgs.minCorpFreq),
-			MaxItems:    collArgs.maxItems,
-		}})
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "collocations",
+			Args: rdb.CollocationsArgs{
+				CorpusPath: corpusPath,
+				SubcPath:   collArgs.queryProps.savedSubcorpus,
+				Query:      collArgs.queryProps.query,
+				Attr:       srchAttr,
+				Measure:    collArgs.measure,
+				// Note: see the range below and note that the left context
+				// is published differently (as a positive number) in contrast
+				// with the "internals" where a negative number is required
+				SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
+				MinFreq:     int64(collArgs.minCollFreq),
+				MinCorpFreq: int64(collArgs.minCorpFreq),
+				MaxItems:    collArgs.maxItems,
+			},
+		},
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

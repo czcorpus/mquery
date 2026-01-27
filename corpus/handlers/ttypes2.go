@@ -64,18 +64,21 @@ func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 	result.Freqs = make([]*results.FreqDistribItem, 0)
 	errs := make([]error, 0, len(sc.Subcorpora))
 	for _, subc := range sc.Subcorpora {
-		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "freqDistrib",
-			Args: rdb.FreqDistribArgs{
-				CorpusPath:  corpusPath,
-				SubcPath:    subc,
-				Query:       q,
-				Crit:        fmt.Sprintf("%s 0", attr),
-				IsTextTypes: true,
-				FreqLimit:   flimit,
-				MaxItems:    maxItems,
+		wait, err := a.radapter.PublishQuery(
+			rdb.Query{
+				Func: "freqDistrib",
+				Args: rdb.FreqDistribArgs{
+					CorpusPath:  corpusPath,
+					SubcPath:    subc,
+					Query:       q,
+					Crit:        fmt.Sprintf("%s 0", attr),
+					IsTextTypes: true,
+					FreqLimit:   flimit,
+					MaxItems:    maxItems,
+				},
 			},
-		})
+			GetCTXStoredTimeout(ctx),
+		)
 		if err != nil {
 			errs = append(errs, err)
 			log.Error().Err(err).Msg("failed to publish query")

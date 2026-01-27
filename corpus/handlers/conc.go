@@ -288,10 +288,13 @@ func (a *Actions) anyConcordance(
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 		return
 	}
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "concordance",
-		Args: args,
-	})
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "concordance",
+			Args: args,
+		},
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -357,10 +360,13 @@ func (a *Actions) TermFrequency(ctx *gin.Context) {
 		queryProps.query,
 	)
 
-	wait, err := a.radapter.PublishQuery(rdb.Query{
-		Func: "termFrequency",
-		Args: args,
-	})
+	wait, err := a.radapter.PublishQuery(
+		rdb.Query{
+			Func: "termFrequency",
+			Args: args,
+		},
+		GetCTXStoredTimeout(ctx),
+	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

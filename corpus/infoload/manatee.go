@@ -71,13 +71,16 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*results.C
 	if !registryExists {
 		return nil, corpus.ErrNotFound
 	}
-	wait, err := kdb.queryHandler.PublishQuery(rdb.Query{
-		Func: "corpusInfo",
-		Args: rdb.CorpusInfoArgs{
-			CorpusPath: corpusPath,
-			Language:   language,
+	wait, err := kdb.queryHandler.PublishQuery(
+		rdb.Query{
+			Func: "corpusInfo",
+			Args: rdb.CorpusInfoArgs{
+				CorpusPath: corpusPath,
+				Language:   language,
+			},
 		},
-	})
+		0,
+	)
 	if err != nil {
 		return nil, err
 	}

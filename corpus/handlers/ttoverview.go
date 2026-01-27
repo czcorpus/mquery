@@ -122,17 +122,20 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 	wg.Add(len(textProps))
 
 	for _, attr := range textProps {
-		wait, err := a.radapter.PublishQuery(rdb.Query{
-			Func: "freqDistrib",
-			Args: rdb.FreqDistribArgs{
-				CorpusPath:  corpusPath,
-				Query:       queryProps.query,
-				Crit:        fmt.Sprintf("%s 0", attr),
-				IsTextTypes: true,
-				FreqLimit:   flimit,
-				MaxItems:    textTypesInternalMaxResults,
+		wait, err := a.radapter.PublishQuery(
+			rdb.Query{
+				Func: "freqDistrib",
+				Args: rdb.FreqDistribArgs{
+					CorpusPath:  corpusPath,
+					Query:       queryProps.query,
+					Crit:        fmt.Sprintf("%s 0", attr),
+					IsTextTypes: true,
+					FreqLimit:   flimit,
+					MaxItems:    textTypesInternalMaxResults,
+				},
 			},
-		})
+			GetCTXStoredTimeout(ctx),
+		)
 
 		if err != nil {
 			errs = append(errs, err)

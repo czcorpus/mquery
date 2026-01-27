@@ -25,16 +25,19 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/logging"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
 	"mquery/cnf"
+	"mquery/corpus/handlers"
 	"mquery/docs"
 	"mquery/general"
 	"mquery/merror"
@@ -44,6 +47,7 @@ import (
 
 const (
 	redisConnectionTestTimeout = 120 * time.Second
+	TimeoutHeader              = "X-Worker-Timeout"
 )
 
 var (
@@ -142,6 +146,19 @@ func CORSMiddleware(conf *cnf.Conf) gin.HandlerFunc {
 			}
 		}
 		ctx.Next()
+	}
+}
+
+func CustomTimeoutMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if headerVal := ctx.GetHeader(TimeoutHeader); headerVal != "" {
+			tmo, err := strconv.Atoi(headerVal)
+			if err != nil {
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
+				return
+			}
+			ctx.Set(handlers.TimeoutCtxKey, time.Duration(tmo)*time.Second)
+		}
 	}
 }
 

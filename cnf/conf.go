@@ -218,4 +218,9 @@ func ValidateAndDefaults(conf *Conf) {
 	if _, err := time.LoadLocation(conf.TimeZone); err != nil {
 		log.Fatal().Err(err).Msg("invalid time zone")
 	}
+
+	if (strings.HasPrefix(conf.ListenAddress, "0.0.0.0") || strings.HasPrefix(conf.ListenAddress, ":")) &&
+		conf.Redis.AllowCustomTimeouts {
+		log.Fatal().Msg("allowCustomTimeouts enabled but listening on all interfaces")
+	}
 }
