@@ -92,7 +92,11 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*results.C
 	if corpusInfo.Err() != nil {
 		return nil, corpusInfo.Err()
 	}
-	mergeConfigInfo(kdb.conf.Resources.Get(corpusId), &corpusInfo, language)
+	corpusConf := kdb.conf.GetCorp(corpusId)
+	if corpusConf == nil {
+		return nil, corpus.ErrNotFound
+	}
+	mergeConfigInfo(corpusConf, &corpusInfo, language)
 	kdb.cache[kdb.makeCacheKey(corpusId, language)] = &corpusInfo
 	return &corpusInfo, nil
 }

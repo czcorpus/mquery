@@ -48,8 +48,9 @@ type corplistResponse struct {
 } // @name Corplist
 
 type corpusInfoResponse struct {
-	Corpus *results.CorpusInfo `json:"corpus"`
-	Locale string              `json:"locale"`
+	Corpus *results.CorpusInfo   `json:"corpus"`
+	Locale string                `json:"locale"`
+	Conf   *corpus.MQCorpusSetup `json:"conf,omitempty"`
 } // @name CorpusInfo
 
 func getTranslation(data map[string]string, lang string) string {
@@ -66,6 +67,7 @@ func getTranslation(data map[string]string, lang string) string {
 // @Produce      json
 // @Param        corpusId path string true "An ID of a corpus to get info about"
 // @Param        locale query string false "An ISO 639-1 locale code of response." default(en)
+// @Param		 attachConf query int 0 "If 1, then attach MQuery configuration of the corpus"
 // @Success      200 {object} corpusInfoResponse
 // @Router       /info/{corpusId} [get]
 func (a *Actions) CorpusInfo(ctx *gin.Context) {
@@ -79,6 +81,16 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
+	corpusConf := a.conf.GetCorp(corpusID)
+	if corpusConf == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			corpus.ErrNotFound,
+			http.StatusNotFound,
+		)
+		return
+	}
+
 	cinfo, err := a.infoProvider.LoadCorpusInfo(corpusID, lang)
 	if err == corpus.ErrNotFound {
 		uniresp.WriteJSONErrorResponse(
@@ -90,15 +102,6 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	corpusConf := a.conf.Resources.Get(corpusID)
-	if corpusConf == nil {
-		uniresp.RespondWithErrorJSON(
-			ctx,
-			fmt.Errorf("corpus not configured"),
-			http.StatusNotFound,
-		)
-		return
-	}
 	cinfo.Data.TextProperties = make([]corp.TextProperty, len(corpusConf.TextProperties))
 	var i int
 	for prop := range corpusConf.TextProperties {
@@ -108,6 +111,9 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 	ans := &corpusInfoResponse{
 		Locale: lang,
 		Corpus: cinfo,
+	}
+	if ctx.Query("attachConf") == "1" {
+		ans.Conf = corpusConf
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
@@ -129,9 +135,9 @@ func (a *Actions) Corplist(ctx *gin.Context) {
 		)
 		return
 	}
-	allCorpora := a.conf.Resources.GetAllCorpora()
+	allCorpora := a.conf.GetAllCorpora("") // TODO
 	corplist := make([]corpusCompactInfo, len(allCorpora))
-	for i, v := range a.conf.Resources.GetAllCorpora() {
+	for i, v := range allCorpora {
 		subcorpora := make([]subcInfo, 0, len(v.Subcorpora))
 		for k, v := range v.Subcorpora {
 			subcorpora = append(

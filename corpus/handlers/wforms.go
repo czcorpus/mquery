@@ -21,6 +21,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
@@ -150,9 +151,13 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 	word := ctx.Param("wordForm")
 	pos := ctx.Query("pos")
 	corpusID := ctx.Param("corpusId")
-	corpInfo := a.conf.Resources.Get(corpusID)
+	corpInfo := a.conf.GetCorp(corpusID)
 	if corpInfo == nil {
-		uniresp.RespondWithErrorJSON(ctx, errors.New("corpus not found"), http.StatusNotFound)
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			corpus.ErrNotFound,
+			http.StatusNotFound,
+		)
 		return
 	}
 

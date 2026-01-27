@@ -60,9 +60,9 @@ func (qp queryProps) hasError() bool {
 func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProps {
 	var ans queryProps
 	ans.corpus = ctx.Param("corpusId")
-	corpusConf := cConf.Resources.Get(ans.corpus)
+	corpusConf := cConf.GetCorp(ans.corpus)
 	if corpusConf == nil {
-		ans.err = fmt.Errorf("corpus %s not found", ans.corpus)
+		ans.err = corpus.ErrNotFound
 		ans.status = http.StatusNotFound
 		return ans
 	}
@@ -113,7 +113,7 @@ func (a *Actions) DecodeTextTypeAttrOrFail(
 		return attr.String(), true
 	}
 	if tProp != "" {
-		corpConf := a.conf.Resources.Get(corpus)
+		corpConf := a.conf.GetCorp(corpus)
 		if corpConf == nil {
 			uniresp.RespondWithErrorJSON(
 				ctx,

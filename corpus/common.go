@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("corpus not found")
+	ErrNotFound = errors.New("corpus not found or available")
 )
 
 // ------------------ split corpus (into multiple subcorpora) -------------------------
