@@ -20,7 +20,9 @@ package corpus
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
@@ -73,6 +75,75 @@ type CorporaSetup struct {
 	Resources          Resources `json:"resources"`
 	SavedSubcorporaDir string    `json:"savedSubcorporaDir"`
 	AudioFilesDir      string    `json:"audioFilesDir"`
+	ZeroConfCorpora    bool      `json:"zeroConfCorpora"`
+
+	autoConfCache map[string]*MQCorpusSetup
+}
+
+// GetCorp returns a corpus configuration.
+// If zeroConfCorpora is enabled, the function may panic
+// if it cannot produce a configuration based on an inferred
+// registry file.
+func (cs *CorporaSetup) GetCorp(corpusID string) *MQCorpusSetup {
+	if c := cs.Resources.get(corpusID); c != nil {
+		return c
+	}
+	if !cs.ZeroConfCorpora {
+		return nil
+	}
+	if cs.autoConfCache == nil {
+		cs.autoConfCache = make(map[string]*MQCorpusSetup)
+	}
+	autoConf, ok := cs.autoConfCache[corpusID]
+	if ok {
+		return autoConf
+	}
+	autoConf = AutogenerateConf(cs.RegistryDir, corpusID)
+	cs.autoConfCache[corpusID] = autoConf
+	return autoConf
+}
+
+func (cs *CorporaSetup) safeGetCorp(corpusID string) *MQCorpusSetup {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error().Str("corpus", corpusID).Msg("failed to get corpus info for listing")
+		}
+	}()
+	return cs.GetCorp(corpusID)
+}
+
+func (cs *CorporaSetup) GetAllCorpora(substrFilter string) []*MQCorpusSetup {
+	if !cs.ZeroConfCorpora {
+		ans := make([]*MQCorpusSetup, 0, len(cs.Resources)*3)
+		for _, v := range cs.Resources {
+			if len(v.Variants) > 0 {
+				for _, variant := range v.Variants {
+					item := cs.Resources.get(variant.ID)
+					ans = append(ans, item)
+				}
+
+			} else {
+				ans = append(ans, v)
+			}
+		}
+		return ans
+
+	} else {
+		files, err := os.ReadDir(cs.RegistryDir)
+		if err != nil {
+			panic(fmt.Errorf("failed to get list of registry files: %w", err))
+		}
+		ans := make([]*MQCorpusSetup, 0, len(files))
+		for _, f := range files {
+			if substrFilter == "" || strings.Contains(strings.ToLower(f.Name()), strings.ToLower(substrFilter)) {
+				item := cs.safeGetCorp(f.Name())
+				if item != nil {
+					ans = append(ans, item)
+				}
+			}
+		}
+		return ans
+	}
 }
 
 func (cs *CorporaSetup) GetRegistryPath(corpusID string) string {

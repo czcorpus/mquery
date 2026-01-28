@@ -6,7 +6,8 @@ require (
 	github.com/czcorpus/cnc-gokit v0.22.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/manabuild v0.1.3
-	github.com/czcorpus/mquery-common v0.6.3
+	github.com/czcorpus/mquery-common v0.7.1
+	github.com/czcorpus/rexplorer v0.0.8
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.17.2
@@ -14,7 +15,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
-	github.com/czcorpus/rexplorer v0.0.8
 	github.com/swaggo/swag v1.16.6
 )
 

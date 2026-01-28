@@ -320,7 +320,7 @@ func (a *Actions) anyConcordance(
 	case concFormatMarkdown:
 		md := transform.ConcToMarkdown(
 			&result,
-			a.conf.Resources.Get(queryProps.corpus),
+			a.conf.GetCorp(queryProps.corpus),
 			len(args.ShowRefs) > 0,
 		)
 		ctx.Header("content-type", "text/markdown; charset=utf-8")

@@ -300,7 +300,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	corpusConf := a.conf.Resources.Get(collArgs.queryProps.corpus)
+	corpusConf := a.conf.GetCorp(collArgs.queryProps.corpus)
 	resultsChan := make(chan *extendedCollItem)
 	var wg sync.WaitGroup
 	wg.Add(len(result1.Colls))

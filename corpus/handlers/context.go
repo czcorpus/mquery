@@ -20,6 +20,7 @@ package handlers
 
 import (
 	"fmt"
+	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
@@ -37,7 +38,7 @@ import (
 // @Produce      json
 // @Param        corpusId path string true "An ID of a corpus to search in"
 // @Param        idx query int true "A token number"
-// @Param        kwicLen query int false "How many long is the KWIC (in tokens)" default(1)
+// @Param        kwicLen query int false "How long is the KWIC (in tokens)" default(1)
 // @Param        leftCtx query int false "Left window size in tokens. Default value is corpus-dependent, but typically around 25"
 // @Param        rightCtx query int false "Right window size in tokens. Default value is corpus-dependent, but typically around 25"
 // @Param        attr query string false "Positional attributes to be returned, multiple values are supported. Default is corpus-dependend, but typically: word, lemma, tag"
@@ -50,10 +51,10 @@ func (a *Actions) TokenContext(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	corpConf := a.conf.Resources.Get(ctx.Param("corpusId"))
+	corpConf := a.conf.GetCorp(ctx.Param("corpusId"))
 	if corpConf == nil {
 		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("corpus not found"), http.StatusNotFound,
+			ctx, corpus.ErrNotFound, http.StatusNotFound,
 		)
 		return
 	}

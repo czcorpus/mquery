@@ -22,6 +22,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
@@ -97,7 +98,14 @@ func (a *Actions) TextTypesOverview(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
 	}
-	cConf := a.conf.Resources.Get(queryProps.corpus)
+	cConf := a.conf.GetCorp(queryProps.corpus)
+	if cConf == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			corpus.ErrNotFound,
+			http.StatusNotFound,
+		)
+	}
 	flimit := 1
 	if ctx.Request.URL.Query().Has("flimit") {
 		var err error

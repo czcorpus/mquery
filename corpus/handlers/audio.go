@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"mquery/corpus"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,7 +49,14 @@ func (a *Actions) getRange(hdr http.Header) (lft, rgt int, err error) {
 
 func (a *Actions) Audio(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
-	corpConf := a.conf.Resources.Get(corpusID)
+	corpConf := a.conf.GetCorp(corpusID)
+	if corpConf == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			corpus.ErrNotFound,
+			http.StatusNotFound,
+		)
+	}
 	if !corpConf.HasPublicAudio {
 		uniresp.RespondWithErrorJSON(
 			ctx,

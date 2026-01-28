@@ -168,7 +168,7 @@ func (rscs *Resources) Load(directory, registryDir string) error {
 	return nil
 }
 
-func (rscs Resources) Get(name string) *MQCorpusSetup {
+func (rscs Resources) get(name string) *MQCorpusSetup {
 	for _, v := range rscs {
 		if strings.Contains(v.ID, "*") {
 			ptrn := regexp.MustCompile(strings.ReplaceAll(v.ID, "*", ".*"))
@@ -196,20 +196,4 @@ func (rscs Resources) Get(name string) *MQCorpusSetup {
 		}
 	}
 	return nil
-}
-
-func (rscs Resources) GetAllCorpora() []*MQCorpusSetup {
-	ans := make([]*MQCorpusSetup, 0, len(rscs)*3)
-	for _, v := range rscs {
-		if len(v.Variants) > 0 {
-			for _, variant := range v.Variants {
-				item := rscs.Get(variant.ID)
-				ans = append(ans, item)
-			}
-
-		} else {
-			ans = append(ans, v)
-		}
-	}
-	return ans
 }
