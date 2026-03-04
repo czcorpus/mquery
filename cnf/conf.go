@@ -104,6 +104,15 @@ type Conf struct {
 	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
 	AuthHeaderName         string               `json:"authHeaderName"`
 	AuthTokens             []string             `json:"authTokens"`
+	// KnownProxies lists IP addresses of reverse proxies in front of MQuery.
+	// Requests originating from these IPs are always subject to auth token
+	// checks, even if the IP matches listenAddress.
+	KnownProxies           []string             `json:"knownProxies"`
+	// LocalNetworks lists CIDR ranges (e.g. "192.168.1.0/24") whose traffic
+	// is considered local and exempt from auth token checks, provided the
+	// source IP is not also listed in trustedProxies. If empty, only the
+	// exact listenAddress is treated as local.
+	LocalNetworks          []string             `json:"localNetworks"`
 	Monitoring             *monitoring.Conf     `json:"monitoring"`
 
 	srcPath string

@@ -88,6 +88,56 @@ If you prefer to install MQuery manually without Docker:
       * `systemctl start mquery-worker-all.target`
 
 
+## Authentication
+
+MQuery supports optional token-based authentication via a configurable HTTP header. When enabled, every request must include the header with a valid token.
+
+Relevant configuration fields in `conf.json`:
+
+```json
+{
+  "authHeaderName": "X-API-Key",
+  "authTokens": [
+    "sha256:a3f1c8d2...",
+    "sha256:9e107d9d..."
+  ],
+  "localNetworks": [
+    "127.0.0.0/8",
+    "192.168.1.0/24"
+  ],
+  "knownProxies": [
+    "192.168.1.10"
+  ]
+}
+```
+
+Tokens in `authTokens` can be stored either as **plaintext** (not recommended) or as **SHA-256 hashes** prefixed with `sha256:` (recommended).
+
+### Generating a hashed token
+
+1. Choose a secret token (use a long random string):
+   ```bash
+   openssl rand -hex 32
+   # example output: 4a7b9c2e1f3d8a6b...
+   ```
+
+2. Hash it for storage in `conf.json`:
+   ```bash
+   echo -n "your-secret-token" | sha256sum | awk '{print "sha256:" $1}'
+   # output: sha256:a3f1c8d2...
+   ```
+
+3. Paste the `sha256:...` value into `authTokens` in your config.
+
+Clients send the original (unhashed) token in the configured header:
+```
+X-API-Key: your-secret-token
+```
+
+Requests from IPs within any `localNetworks` CIDR range are exempt from auth token checks, provided the source IP is not also listed in `knownProxies`. If `localNetworks` is not set, only the exact `listenAddress` is treated as local.
+
+If a reverse proxy shares an IP with a local network (e.g. runs on the same host), add its IP to `knownProxies` to ensure its forwarded requests still require auth.
+
 ## API
 
 For the most recent API Docs, please see https://korpus.cz/mquery-test/docs/
