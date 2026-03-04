@@ -322,7 +322,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 							CollRgtCtx:        collArgs.srchRight,
 							Attrs:             corpusConf.PosAttrs.GetIDs(),
 							ShowStructs:       []string{}, // TODO
-							ShowRefs:          corpusConf.ConcTextPropsAttrs,
+							ShowRefs:          corpusConf.ConcTextPropsAttrs(),
 							MaxItems:          examplesPerColl,
 							Shuffle:           true,
 							RowsOffset:        0,

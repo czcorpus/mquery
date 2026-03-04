@@ -127,22 +127,54 @@ func extractMarkupStructs(reg *parser.Document) []string {
 	return ans
 }
 
-// AutogenerateConf generates a MQuery configuration based
-// on a registry file found based on the provided arguments.
-func AutogenerateConf(registryDir, corpusID string) *MQCorpusSetup {
+func getAllTextProps(doc *parser.Document) []string {
+	ans := make([]string, 0, len(doc.Structures)*5)
+	for _, strct := range doc.Structures {
+		for _, attr := range strct.Attrs {
+			ans = append(ans, fmt.Sprintf("%s.%s", strct.Name, attr.Name))
+		}
+	}
+	return ans
+}
+
+func loadRegistry(registryDir, corpusID string) (*parser.Document, error) {
 	regPath := filepath.Join(registryDir, corpusID)
 	tmp, err := os.ReadFile(regPath)
 	if err != nil {
-		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to autogenerate corpus config")
-		return nil
+		return nil, fmt.Errorf("failed to autogenerate corpus config")
 	}
 	reg, err := parser.ParseRegistryBytes(corpusID, tmp)
 	if err != nil {
-		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to autogenerate corpus config")
-		return nil
+		return nil, fmt.Errorf("failed to autogenerate corpus config")
 	}
 	if err := checkRegistryFile(regPath); err != nil {
-		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to validate corpus autoconfiguration; corpus won't be available")
+		return nil, fmt.Errorf("failed to validate corpus autoconfiguration; corpus won't be available")
+	}
+	return reg, nil
+}
+
+// AutogenerateMinConf is for obtaining values needed even in case zero conf mode is disabled
+// (currently, it is mostly the `fullConcTextPropsAttrs` entry)
+func AutogenerateMinConf(registryDir, corpusID string) *MQCorpusSetup {
+	reg, err := loadRegistry(registryDir, corpusID)
+	if err != nil {
+		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to load or process corpus registry file")
+		return nil
+	}
+	return &MQCorpusSetup{
+		CorpusSetup: corp.CorpusSetup{
+			ID: corpusID,
+		},
+		fullConcTextPropsAttrs: getAllTextProps(reg),
+	}
+}
+
+// AutogenerateConf generates a MQuery configuration based
+// on a registry file found based on the provided arguments.
+func AutogenerateConf(registryDir, corpusID string) *MQCorpusSetup {
+	reg, err := loadRegistry(registryDir, corpusID)
+	if err != nil {
+		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to load or process corpus registry file")
 		return nil
 	}
 	newConf := &MQCorpusSetup{
@@ -153,6 +185,7 @@ func AutogenerateConf(registryDir, corpusID string) *MQCorpusSetup {
 			ConcMarkupStructures: extractMarkupStructs(reg),
 			TextProperties:       extractTextPropsStrucattrs(reg),
 		},
+		fullConcTextPropsAttrs: getAllTextProps(reg),
 	}
 	if err := newConf.ValidateAndDefaults(); err != nil {
 		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to validate corpus autoconfiguration; corpus won't be available")

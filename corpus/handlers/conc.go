@@ -93,7 +93,7 @@ func (a *Actions) SyntaxConcordance(ctx *gin.Context) {
 // @Param        subcorpus query string false "An ID of a subcorpus"
 // @Param        format query string false "For a concordance formatted in Markdown, `markdown` value can be passed" Enums(json,markdown) default(json)
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
-// @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
+// @Param        showTextProps query int false "if 1, then basic text metadata (e.g. author, publication year) will be attached to each line. Value 2 shows all the available attributes" enums(0,1,2) default(0)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
 // @Param        contextStruct query string false "By default, tokens are used for specifying context window. Setting this value will change the units to structs (typically a sentence) "
 // @Param        rowsOffset query int false "Take results starting from this row number (first row = 0)"
@@ -183,8 +183,11 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 				showStructs = queryProps.corpusConf.ConcMarkupStructures
 			}
 			showRefs := []string{}
-			if ctx.Query("showTextProps") == "1" {
-				showRefs = queryProps.corpusConf.ConcTextPropsAttrs
+			switch ctx.Query("showTextProps") {
+			case "1":
+				showRefs = queryProps.corpusConf.ConcTextPropsAttrs()
+			case "2":
+				showRefs = queryProps.corpusConf.FullConcTextPropsAttrs()
 			}
 			contextStruct := ctx.DefaultQuery("contextStruct", queryProps.corpusConf.ViewContextStruct)
 
@@ -219,7 +222,7 @@ func (a *Actions) Concordance(ctx *gin.Context) {
 // @Param        subcorpus query string false "An ID of a subcorpus"
 // @Param        format query string false "For a concordance formatted in Markdown, `markdown` value can be passed" enums(json,markdown) default(json)
 // @Param        showMarkup query int false "if 1, then markup specifying formatting and structure of text will be displayed along with tokens" enums(0,1) default(0)
-// @Param        showTextProps query int false "if 1, then text metadata (e.g. author, publication year) will be attached to each line" enums(0,1) default(0)
+// @Param        showTextProps query int false "if 1, then basic text metadata (e.g. author, publication year) will be attached to each line. Value 2 shows all the available attributes." enums(0,1,2) default(0)
 // @Param        noShuffle query int false "if 1, then the order of matches will be the same as in the source corpus"
 // @Success      200 {object} results.ConcordanceResponse
 // @Success      200 {string} text/markdown
@@ -243,8 +246,11 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 				showStructs = queryProps.corpusConf.ConcMarkupStructures
 			}
 			showRefs := []string{}
-			if ctx.Query("showTextProps") == "1" {
-				showRefs = queryProps.corpusConf.ConcTextPropsAttrs
+			switch ctx.Query("showTextProps") {
+			case "1":
+				showRefs = queryProps.corpusConf.ConcTextPropsAttrs()
+			case "2":
+				showRefs = queryProps.corpusConf.FullConcTextPropsAttrs()
 			}
 			noShuffle := ctx.Query("noShuffle") == "1"
 			return rdb.ConcordanceArgs{
