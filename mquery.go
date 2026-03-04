@@ -19,9 +19,12 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/gob"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/concordance"
@@ -162,10 +164,63 @@ func CustomTimeoutMiddleware() gin.HandlerFunc {
 	}
 }
 
+func authTokenMatches(stored, provided string) bool {
+	if hashed, ok := strings.CutPrefix(stored, "sha256:"); ok {
+		sum := sha256.Sum256([]byte(provided))
+		return hex.EncodeToString(sum[:]) == hashed
+	}
+	return stored == provided
+}
+
+func isLocalNetwork(conf *cnf.Conf, ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	if len(conf.LocalNetworks) > 0 {
+		for _, cidr := range conf.LocalNetworks {
+			_, network, err := net.ParseCIDR(cidr)
+			if err != nil {
+				log.Error().Err(err).Str("cidr", cidr).Msg("invalid localNetworks entry")
+				continue
+			}
+			if network.Contains(parsed) {
+				return true
+			}
+		}
+		return false
+	}
+	return ip == conf.ListenAddress
+}
+
+func isKnownProxy(conf *cnf.Conf, ip string) bool {
+	for _, p := range conf.KnownProxies {
+		if p == ip {
+			return true
+		}
+	}
+	return false
+}
+
 func AuthRequired(conf *cnf.Conf) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if len(conf.AuthHeaderName) > 0 && !collections.SliceContains(conf.AuthTokens, ctx.GetHeader(conf.AuthHeaderName)) {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		if len(conf.AuthHeaderName) > 0 {
+			remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
+			isLocalDirect := err == nil && isLocalNetwork(conf, remoteIP) && !isKnownProxy(conf, remoteIP)
+			if !isLocalDirect {
+				provided := ctx.GetHeader(conf.AuthHeaderName)
+				authorized := false
+				for _, stored := range conf.AuthTokens {
+					if authTokenMatches(stored, provided) {
+						authorized = true
+						break
+					}
+				}
+				if !authorized {
+					ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+					return
+				}
+			}
 		}
 		ctx.Next()
 	}
