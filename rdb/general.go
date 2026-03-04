@@ -19,11 +19,11 @@
 package rdb
 
 import (
+	"encoding/json"
 	"math"
+	"mquery/merror"
 	"strings"
 	"time"
-	"encoding/json"
-
 )
 
 const (
@@ -57,6 +57,10 @@ func NormRound(val float64) float64 {
 	return math.Round(val*1000) / 1000
 }
 
-func IsUserErrorMsg(msg string) bool {
-	return strings.Contains(strings.ToLower(msg), "syntax error,")
+func IsUserError(err error) bool {
+	switch err.(type) {
+	case *merror.InputError, merror.InputError:
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "syntax error,")
 }

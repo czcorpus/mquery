@@ -202,8 +202,11 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 			args.ViewContextStruct,
 		)
 	}
-	if err != nil {
-		ans.Error = fmt.Errorf("query %s: %w", args.AsDescription(), err)
+	if err == mango.ErrRowsRangeOutOfConc {
+		ans.Error = merror.InputError{Msg: "invalid rows range"}
+
+	} else if err != nil {
+		ans.Error = merror.InternalError{Msg: fmt.Sprintf("query %s: %s", args.AsDescription(), err.Error())}
 		return ans
 	}
 	parser := concordance.NewLineParser(args.Attrs)

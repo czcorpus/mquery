@@ -370,7 +370,7 @@ func (a *Adapter) PublishResult(channelName string, value WorkerResult) error {
 		Str("channel", channelName).
 		Str("resultType", string(value.Value.Type())).
 		Msg("publishing result")
-	if value.Value.Err() != nil && IsUserErrorMsg(value.Value.Err().Error()) {
+	if value.Value.Err() != nil && IsUserError(value.Value.Err()) {
 		value.HasUserError = true
 	}
 	var msg bytes.Buffer

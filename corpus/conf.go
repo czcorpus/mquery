@@ -85,14 +85,19 @@ type CorporaSetup struct {
 // if it cannot produce a configuration based on an inferred
 // registry file.
 func (cs *CorporaSetup) GetCorp(corpusID string) *MQCorpusSetup {
+	if cs.autoConfCache == nil {
+		cs.autoConfCache = make(map[string]*MQCorpusSetup)
+	}
 	if c := cs.Resources.get(corpusID); c != nil {
+		_, ok := cs.autoConfCache[corpusID]
+		if !ok {
+			tmp := AutogenerateMinConf(cs.RegistryDir, corpusID)
+			c.fullConcTextPropsAttrs = tmp.fullConcTextPropsAttrs
+		}
 		return c
 	}
 	if !cs.ZeroConfCorpora {
 		return nil
-	}
-	if cs.autoConfCache == nil {
-		cs.autoConfCache = make(map[string]*MQCorpusSetup)
 	}
 	autoConf, ok := cs.autoConfCache[corpusID]
 	if ok {

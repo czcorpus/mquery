@@ -360,7 +360,7 @@ KWICRowsRetval conc_examples(
             };
             return ans;
         }
-        if (conc->size() < fromLine) {
+        if (conc->size() <= fromLine) {
             const char* msg = "line range out of result size";
             char* dynamicStr = static_cast<char*>(malloc(strlen(msg) + 1));
             strcpy(dynamicStr, msg);
@@ -383,6 +383,10 @@ KWICRowsRetval conc_examples(
         std::vector<std::string> aligned_corps;
         conc->get_aligned(aligned_corps);
 
+        if (limit + fromLine > conc->size()) {
+            limit = conc->size() - fromLine;
+        }
+
         char** lines = process_kwic_lines(
             corp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
 
@@ -403,9 +407,6 @@ KWICRowsRetval conc_examples(
             delete alignedCorp;
         }
 
-        if (conc->size() < limit) {
-            limit = conc->size();
-        }
         int i = limit;
         for (int idx = 0; idx < limit; idx++) {
             if (lines[idx] != nullptr && strlen(lines[idx]) > 0) {
@@ -498,7 +499,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 };
                 return ans;
             }
-            if (conc->size() < fromLine) {
+            if (conc->size() <= fromLine) {
                 const char* msg = "line range out of result size";
                 char* dynamicStr = static_cast<char*>(malloc(strlen(msg) + 1));
                 strcpy(dynamicStr, msg);
