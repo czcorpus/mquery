@@ -177,8 +177,8 @@ func isLocalNetwork(conf *cnf.Conf, ip string) bool {
 	if parsed == nil {
 		return false
 	}
-	if len(conf.LocalNetworks) > 0 {
-		for _, cidr := range conf.LocalNetworks {
+	if len(conf.Auth.LocalNetworks) > 0 {
+		for _, cidr := range conf.Auth.LocalNetworks {
 			_, network, err := net.ParseCIDR(cidr)
 			if err != nil {
 				log.Error().Err(err).Str("cidr", cidr).Msg("invalid localNetworks entry")
@@ -194,7 +194,7 @@ func isLocalNetwork(conf *cnf.Conf, ip string) bool {
 }
 
 func isKnownProxy(conf *cnf.Conf, ip string) bool {
-	for _, p := range conf.KnownProxies {
+	for _, p := range conf.Auth.KnownProxies {
 		if p == ip {
 			return true
 		}
@@ -204,22 +204,20 @@ func isKnownProxy(conf *cnf.Conf, ip string) bool {
 
 func AuthRequired(conf *cnf.Conf) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if len(conf.AuthHeaderName) > 0 {
-			remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
-			isLocalDirect := err == nil && isLocalNetwork(conf, remoteIP) && !isKnownProxy(conf, remoteIP)
-			if !isLocalDirect {
-				provided := ctx.GetHeader(conf.AuthHeaderName)
-				authorized := false
-				for _, stored := range conf.AuthTokens {
-					if authTokenMatches(stored, provided) {
-						authorized = true
-						break
-					}
+		remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
+		isLocalDirect := err == nil && isLocalNetwork(conf, remoteIP) && !isKnownProxy(conf, remoteIP)
+		if !isLocalDirect {
+			provided := ctx.GetHeader(conf.Auth.TokenHeaderName)
+			authorized := false
+			for _, stored := range conf.Auth.Tokens {
+				if authTokenMatches(stored, provided) {
+					authorized = true
+					break
 				}
-				if !authorized {
-					ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-					return
-				}
+			}
+			if !authorized {
+				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
 			}
 		}
 		ctx.Next()

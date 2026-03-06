@@ -58,20 +58,32 @@ func (api *apiServer) Start(ctx context.Context) {
 	if !api.conf.Logging.Level.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(additionalLogEvents())
 	engine.Use(logging.GinMiddleware())
 	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.Use(CORSMiddleware(api.conf))
+	if !api.conf.Auth.ApplyToAdminActionsOnly && api.conf.Auth.IsDefined() {
+		engine.Use(AuthRequired(api.conf))
+	}
 	if api.conf.Redis.AllowCustomTimeouts {
 		engine.Use(CustomTimeoutMiddleware())
 	}
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	protected := engine.Group("/tools").Use(AuthRequired(api.conf))
+	protectedRouter := engine.Group("/tools")
+	if api.conf.Auth.ApplyToAdminActionsOnly {
+		if api.conf.Auth.IsDefined() {
+			protectedRouter.Use(AuthRequired(api.conf))
+
+		} else {
+			protectedRouter.Use(func(ctx *gin.Context) {
+				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			})
+		}
+	}
 
 	ceActions := corpusActions.NewActions(
 		api.conf.CorporaSetup, api.radapter, api.infoProvider, api.conf.Locales)
@@ -101,10 +113,10 @@ func (api *apiServer) Start(ctx context.Context) {
 		},
 	)
 
-	protected.POST(
+	protectedRouter.POST(
 		"/split/:corpusId", ceActions.SplitCorpus)
 
-	protected.DELETE(
+	protectedRouter.DELETE(
 		"/split/:corpusId", ceActions.DeleteSplit)
 
 	engine.GET(
