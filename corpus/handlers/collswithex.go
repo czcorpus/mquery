@@ -30,6 +30,7 @@ import (
 	"sync"
 
 	"github.com/czcorpus/cnc-gokit/collections"
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
@@ -155,6 +156,7 @@ func mkEmptyResult() (<-chan rdb.WorkerResult, error) {
 // @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
 // @Param        maxItems query int false "maximum number of result items" default(20)
 // @Param        examplesPerColl query int false "number of concordance lines per collocation" default(5)
+// @Param        contextWidth query int false "Defines number of tokens around KWIC in coll. examples. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
 // @Param        event query string false "an event id used in response data stream; if omitted then just `data` line are returned"
 // @Success      200 {object} results.CollocationsResponse
 // @Router       /collocations-extended/{corpusId} [get]
@@ -175,6 +177,19 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 	srchAttr := ctx.Request.URL.Query().Get("srchAttr")
 	if srchAttr == "" {
 		srchAttr = CollDefaultAttr
+	}
+
+	contextWidth, ok := unireq.GetURLIntArgOrFail(ctx, "contextWidth", ConcordanceDefaultWidth)
+	if !ok {
+		return
+	}
+	if contextWidth > ConcordanceMaxWidth {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("invalid contextWidth - max value is %d", ConcordanceMaxWidth),
+			http.StatusBadRequest,
+		)
+		return
 	}
 
 	wait1, err := a.radapter.PublishQuery(
@@ -324,6 +339,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 							ShowStructs:       []string{}, // TODO
 							ShowRefs:          corpusConf.ConcTextPropsAttrs(),
 							MaxItems:          examplesPerColl,
+							MaxContext:        contextWidth,
 							Shuffle:           true,
 							RowsOffset:        0,
 							ViewContextStruct: corpusConf.ViewContextStruct,
