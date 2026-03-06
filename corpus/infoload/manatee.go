@@ -33,7 +33,13 @@ type Manatee struct {
 	cache        map[string]*results.CorpusInfo
 }
 
-func mergeConfigInfo(conf *corpus.MQCorpusSetup, cinfo *results.CorpusInfo, lang string) {
+// extendCorpusInfo takes corpus info (as provided by worker Manatee action) and attaches
+// useful information from Mquery's own configuration entry. This is mostly used
+// for the /info/:corpusId endpoint.
+func extendCorpusInfo(cinfo *results.CorpusInfo, conf *corpus.MQCorpusSetup, lang string) {
+	if conf == nil {
+		return
+	}
 	newAttrList := make([]corp.Attr, len(cinfo.Data.AttrList))
 	for i, attr := range cinfo.Data.AttrList {
 		srch := conf.GetPosAttr(attr.Name)
@@ -96,7 +102,7 @@ func (kdb *Manatee) LoadCorpusInfo(corpusId string, language string) (*results.C
 	if corpusConf == nil {
 		return nil, corpus.ErrNotFound
 	}
-	mergeConfigInfo(corpusConf, &corpusInfo, language)
+	extendCorpusInfo(&corpusInfo, corpusConf, language)
 	kdb.cache[kdb.makeCacheKey(corpusId, language)] = &corpusInfo
 	return &corpusInfo, nil
 }
