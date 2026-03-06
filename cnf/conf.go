@@ -82,6 +82,32 @@ type PrivacyPolicy struct {
 	Contents   []string `json:"contents"`
 }
 
+type AuthConf struct {
+	TokenHeaderName string   `json:"TokenHeaderName"`
+	Tokens          []string `json:"tokens"`
+	// KnownProxies lists IP addresses of reverse proxies in front of MQuery.
+	// Requests originating from these IPs are always subject to auth token
+	// checks, even if the IP matches listenAddress.
+	KnownProxies []string `json:"knownProxies"`
+	// LocalNetworks lists CIDR ranges (e.g. "192.168.1.0/24") whose traffic
+	// is considered local and exempt from auth token checks, provided the
+	// source IP is not also listed in trustedProxies. If empty, only the
+	// exact listenAddress is treated as local.
+	LocalNetworks []string `json:"localNetworks"`
+
+	// ApplyToAdminActionsOnly if true then only specific "administration"
+	// actions are protected by authentication tokens.
+	// In case there are no tokens defined (tokenHeaderName, tokens),
+	// those actions are blocked completely.
+	ApplyToAdminActionsOnly bool `json:"applyToAdminActionsOnly"`
+}
+
+func (ac *AuthConf) IsDefined() bool {
+	return ac.TokenHeaderName != "" && len(ac.Tokens) > 0
+}
+
+// --------
+
 // Conf is a global configuration of the app
 type Conf struct {
 	ListenAddress string `json:"listenAddress"`
@@ -102,20 +128,10 @@ type Conf struct {
 	Locales                LocalesConf          `json:"locales"`
 	TimeZone               string               `json:"timeZone"`
 	PrivacyPolicy          PrivacyPolicy        `json:"privacyPolicy"`
-	AuthHeaderName         string               `json:"authHeaderName"`
-	AuthTokens             []string             `json:"authTokens"`
-	// KnownProxies lists IP addresses of reverse proxies in front of MQuery.
-	// Requests originating from these IPs are always subject to auth token
-	// checks, even if the IP matches listenAddress.
-	KnownProxies           []string             `json:"knownProxies"`
-	// LocalNetworks lists CIDR ranges (e.g. "192.168.1.0/24") whose traffic
-	// is considered local and exempt from auth token checks, provided the
-	// source IP is not also listed in trustedProxies. If empty, only the
-	// exact listenAddress is treated as local.
-	LocalNetworks          []string             `json:"localNetworks"`
-	Monitoring             *monitoring.Conf     `json:"monitoring"`
 
-	srcPath string
+	Monitoring *monitoring.Conf `json:"monitoring"`
+	Auth       *AuthConf        `json:"auth"`
+	srcPath    string
 }
 
 func (conf *Conf) LoadSubconfigs() error {
