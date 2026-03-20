@@ -103,7 +103,7 @@ type AuthConf struct {
 }
 
 func (ac *AuthConf) IsDefined() bool {
-	return ac.TokenHeaderName != "" && len(ac.Tokens) > 0
+	return ac != nil && ac.TokenHeaderName != "" && len(ac.Tokens) > 0
 }
 
 // --------

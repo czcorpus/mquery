@@ -64,7 +64,7 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.Use(logging.GinMiddleware())
 	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.Use(CORSMiddleware(api.conf))
-	if !api.conf.Auth.ApplyToAdminActionsOnly && api.conf.Auth.IsDefined() {
+	if api.conf.Auth.IsDefined() && !api.conf.Auth.ApplyToAdminActionsOnly {
 		engine.Use(AuthRequired(api.conf))
 	}
 	if api.conf.Redis.AllowCustomTimeouts {
@@ -74,15 +74,15 @@ func (api *apiServer) Start(ctx context.Context) {
 	engine.NoRoute(uniresp.NotFoundHandler)
 
 	protectedRouter := engine.Group("/tools")
-	if api.conf.Auth.ApplyToAdminActionsOnly {
-		if api.conf.Auth.IsDefined() {
+	if api.conf.Auth.IsDefined() {
+		if api.conf.Auth.ApplyToAdminActionsOnly {
 			protectedRouter.Use(AuthRequired(api.conf))
 
-		} else {
-			protectedRouter.Use(func(ctx *gin.Context) {
-				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			})
 		}
+	} else {
+		protectedRouter.Use(func(ctx *gin.Context) {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		})
 	}
 
 	ceActions := corpusActions.NewActions(
