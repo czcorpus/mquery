@@ -20,12 +20,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"mquery/corpus"
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +37,10 @@ import (
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+)
+
+var (
+	yearMatchRegexp = regexp.MustCompile(`^\d\d\d\d?$`)
 )
 
 type StreamData struct {
@@ -121,10 +127,26 @@ func mockFreqCalculation() chan StreamData {
 // filterByYearRange creates a new stream of `StreamData` with freqs not matching
 // the provided year range (`fromYear` ... `toYear`) excluded. To leave a year
 // limit empty, use 0.
-func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int) chan StreamData {
-	if fromYear == 0 && toYear == 0 {
-		return inStream
+func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int, autobin bool) chan StreamData {
+
+	datetimeToInt := func(v string) (int, error) {
+		const dayFmt = "2006-01-02"
+		const yearFmt = "2006"
+
+		var t time.Time
+		var err error
+		if yearMatchRegexp.MatchString(v) {
+			t, err = time.Parse(yearFmt, v)
+
+		} else {
+			t, err = time.Parse(dayFmt, v)
+		}
+		if err != nil {
+			return 0, errors.New("failed to parse value as date or year")
+		}
+		return int(t.Unix()), nil
 	}
+
 	ans := make(chan StreamData)
 	go func() {
 		for item := range inStream {
@@ -135,12 +157,18 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 					if err != nil {
 						return false
 					}
+					if fromYear == 0 && toYear == 0 {
+						return true
+					}
 					if toYear == 0 {
 						return year >= fromYear
 					}
 					return year >= fromYear && year <= toYear
 				},
 			)
+			if autobin {
+				item.Entries.Freqs = item.Entries.Freqs.BinAsDataSeries(datetimeToInt)
+			}
 			ans <- item
 		}
 		close(ans)
@@ -297,6 +325,7 @@ func (a *Actions) ttStreamedBase(ctx *gin.Context) (streamedFreqsBaseArgs, bool)
 // @Param        q query string true "A search query"
 // @Param        attr query string false "An attribute used for freq. calculation (mutually exclusive with `fcrit`)"
 // @Param        fcrit query string false "A freq. criterium in Manatee-open format (mutually exclusive with `attr`)"
+// @Param		 autobin query int 0 "If 1 then data will be grouped into a suitable number of bins for readability"
 // @Success      200 {object} results.FreqDistrib
 // @Router       /text-types-streamed/{corpusId} [get]
 func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
@@ -348,12 +377,14 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		return
 	}
 
+	autobin := ctx.Query("autobin") == "1"
+
 	calc, err := a.streamCalc(args.Q, args.Attr, corpusID, args.Flimit, args.MaxItems, GetCTXStoredTimeout(ctx))
 	if err != nil {
 		WriteStreamingError(ctx, err)
 		return
 	}
-	calc = a.filterByYearRange(calc, fromYear, toYear)
+	calc = a.filterByYearRange(calc, fromYear, toYear, autobin)
 
 	for message := range calc {
 		messageJSON, err := json.Marshal(message)

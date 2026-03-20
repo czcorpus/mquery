@@ -237,6 +237,10 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 		)
 		return
 	}
+	rowsOffset, ok := unireq.GetURLIntArgOrFail(ctx, "rowsOffset", 0)
+	if !ok {
+		return
+	}
 	a.anyConcordance(
 		ctx,
 		format,
@@ -253,6 +257,7 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 				showRefs = queryProps.corpusConf.FullConcTextPropsAttrs()
 			}
 			noShuffle := ctx.Query("noShuffle") == "1"
+
 			return rdb.ConcordanceArgs{
 				CorpusPath:        a.conf.GetRegistryPath(queryProps.corpusConf.ID),
 				SubcPath:          queryProps.savedSubcorpus,
@@ -261,7 +266,7 @@ func (a *Actions) Sentences(ctx *gin.Context) {
 				ShowStructs:       showStructs,
 				ShowRefs:          showRefs,
 				ParentIdxAttr:     queryProps.corpusConf.SyntaxConcordance.ParentAttr,
-				RowsOffset:        0, // TODO
+				RowsOffset:        rowsOffset,
 				MaxItems:          queryProps.corpusConf.MaximumRecords,
 				MaxContext:        ConcordanceMaxWidth,
 				Shuffle:           !noShuffle,

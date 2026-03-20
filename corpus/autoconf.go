@@ -127,6 +127,22 @@ func extractMarkupStructs(reg *parser.Document) []string {
 	return ans
 }
 
+func getSentenceStruct(reg *parser.Document) string {
+	if attr := reg.GetPosAttr("s"); attr != nil {
+		return "s"
+	}
+	if attr := reg.GetPosAttr("sent"); attr != nil {
+		return "sent"
+	}
+	if attr := reg.GetPosAttr("sen"); attr != nil {
+		return "sen"
+	}
+	if attr := reg.GetPosAttr("sp"); attr != nil {
+		return "sp"
+	}
+	return ""
+}
+
 func getAllTextProps(doc *parser.Document) []string {
 	ans := make([]string, 0, len(doc.Structures)*5)
 	for _, strct := range doc.Structures {
@@ -184,6 +200,7 @@ func AutogenerateConf(registryDir, corpusID string) *MQCorpusSetup {
 			PosAttrs:             extractPosAttrs(reg, getSelAttrSet(reg)),
 			ConcMarkupStructures: extractMarkupStructs(reg),
 			TextProperties:       extractTextPropsStrucattrs(reg),
+			ViewContextStruct:    getSentenceStruct(reg),
 		},
 		fullConcTextPropsAttrs: getAllTextProps(reg),
 	}

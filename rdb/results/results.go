@@ -20,12 +20,15 @@ package results
 
 import (
 	"encoding/json"
+	"math"
 	"mquery/mango"
 	"mquery/rdb"
+	"slices"
 
 	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/czcorpus/mquery-common/corp"
+	"github.com/rs/zerolog/log"
 )
 
 type FreqDistribItemList []*FreqDistribItem
@@ -37,6 +40,105 @@ func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 		return flist[:maxItems]
 	}
 	return flist
+}
+
+func (flist FreqDistribItemList) Stdev() float64 {
+	var total, avg, stdev float64
+	for _, item := range flist {
+		total += float64(item.Freq)
+	}
+	avg = total / float64(len(flist))
+	for _, item := range flist {
+		stdev += (float64(item.Freq) - avg) * (float64(item.Freq) - avg) / float64(len(flist)-1)
+	}
+	return math.Sqrt(stdev)
+}
+
+func (flist FreqDistribItemList) CV() float64 {
+	var total, avg, stdev float64
+	for _, item := range flist {
+		total += float64(item.Freq)
+	}
+	avg = total / float64(len(flist))
+	for _, item := range flist {
+		stdev += (float64(item.Freq) - avg) * (float64(item.Freq) - avg) / float64(len(flist)-1)
+	}
+	return math.Sqrt(stdev) / avg
+}
+
+// BinAsDataSeries groups time-series items based on the provided toInt function converting
+// values (e.g. calendar dates) to ints so we can sort them.
+func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)) FreqDistribItemList {
+	if len(flist) < 5 {
+		return flist
+	}
+
+	type binData struct {
+		dateBucket int
+		freq       int64
+		base       int64
+		label      string
+		numGrouped int
+	}
+
+	dates := make([]binData, len(flist))
+	for i, item := range flist {
+		idx, err := toInt(item.Word)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("value", item.Word).
+				Msg("failed to process data item during data series binning")
+			return flist
+		}
+		dates[i] = binData{
+			dateBucket: idx,
+			freq:       item.Freq,
+			base:       item.Base,
+			label:      item.Word,
+		}
+	}
+	slices.SortFunc(
+		dates,
+		func(d1, d2 binData) int {
+			return d1.dateBucket - d2.dateBucket
+		},
+	)
+	numBins := math.Ceil(float64(len(flist)) / 2 * flist.CV())
+	if int(numBins) > len(flist) {
+		numBins = float64(len(flist))
+	}
+	itemsPerBin := int(math.RoundToEven(float64(len(flist)) / float64(numBins)))
+	result := make(FreqDistribItemList, 0, len(dates))
+	var currBin binData
+	var totalFreq float64
+	for i, item := range dates {
+		totalFreq += float64(item.freq)
+		currBin.base = item.base
+		currBin.freq += item.freq
+		currBin.numGrouped++
+		if currBin.label == "" {
+			currBin.label = item.label
+		}
+		if (i+1)%itemsPerBin == 0 {
+			result = append(result, &FreqDistribItem{
+				Word: currBin.label,
+				Freq: currBin.freq,
+				IPM:  float32(currBin.freq) / float32(currBin.base) * 1e6,
+				Base: currBin.base,
+			})
+			currBin = binData{}
+		}
+	}
+	if currBin.freq > 0 {
+		result = append(result, &FreqDistribItem{
+			Word: currBin.label,
+			Freq: currBin.freq,
+			IPM:  float32(currBin.freq) / float32(currBin.base) * 1e6,
+			Base: currBin.base,
+		})
+	}
+	return result
 }
 
 // AlwaysAsList returns an empty list in case the original
