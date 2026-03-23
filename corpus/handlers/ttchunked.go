@@ -37,6 +37,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -167,7 +168,24 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear i
 				},
 			)
 			if autobin {
-				item.Entries.Freqs = item.Entries.Freqs.BinAsDataSeries(datetimeToInt)
+				// here is a heuristic evaluation of window size for calculating
+				// moving z-score which determines number of data bins.
+				// We assume here that typically there are at most hundreds or small thousands
+				// of items (e.g. a monitoring corpus with daily updates across at most a few years)
+				windowSize := 10
+				if len(item.Entries.Freqs) > 1000 {
+					windowSize = 100
+				} else if len(item.Entries.Freqs) > 300 {
+					windowSize = 30
+
+				} else if len(item.Entries.Freqs) > 100 {
+					windowSize = 20
+
+				} else if len(item.Entries.Freqs) > 50 {
+					windowSize = 15
+				}
+				log.Debug().Int("windowSize", windowSize).Msg("determining window size for data binning")
+				item.Entries.Freqs = item.Entries.Freqs.BinAsDataSeries(datetimeToInt, windowSize)
 			}
 			ans <- item
 		}

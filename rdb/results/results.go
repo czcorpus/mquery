@@ -42,43 +42,14 @@ func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 	return flist
 }
 
-func (flist FreqDistribItemList) Stdev() float64 {
-	var total, avg, stdev float64
-	for _, item := range flist {
-		total += float64(item.Freq)
-	}
-	avg = total / float64(len(flist))
-	for _, item := range flist {
-		stdev += (float64(item.Freq) - avg) * (float64(item.Freq) - avg) / float64(len(flist)-1)
-	}
-	return math.Sqrt(stdev)
-}
-
-func (flist FreqDistribItemList) CV() float64 {
-	var total, avg, stdev float64
-	for _, item := range flist {
-		total += float64(item.Freq)
-	}
-	avg = total / float64(len(flist))
-	for _, item := range flist {
-		stdev += (float64(item.Freq) - avg) * (float64(item.Freq) - avg) / float64(len(flist)-1)
-	}
-	return math.Sqrt(stdev) / avg
-}
-
 // BinAsDataSeries groups time-series items based on the provided toInt function converting
 // values (e.g. calendar dates) to ints so we can sort them.
-func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)) FreqDistribItemList {
+func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error), analysisWindowSize int) FreqDistribItemList {
 	if len(flist) < 5 {
 		return flist
 	}
-
-	type binData struct {
-		dateBucket int
-		freq       int64
-		base       int64
-		label      string
-		numGrouped int
+	if analysisWindowSize <= 1 {
+		panic("BinAsDataSeries - analysisWindowSize must be > 1")
 	}
 
 	dates := make([]binData, len(flist))
@@ -104,10 +75,31 @@ func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)
 			return d1.dateBucket - d2.dateBucket
 		},
 	)
-	numBins := math.Ceil(float64(len(flist)) / 2 * flist.CV())
-	if int(numBins) > len(flist) {
-		numBins = float64(len(flist))
+
+	movingZScores := bdMovingZScores(dates, analysisWindowSize)
+	var maxZScore float64
+
+	for _, item := range movingZScores {
+		maxZScore = max(maxZScore, math.Abs(item))
 	}
+
+	// here is a heuristic for automatic binning:
+	//
+	// too many zero values => less detailed view
+	numBins := len(flist)
+	if numBins > 10 {
+		if bdNumZeroFreq(dates) > len(dates)/10 {
+			numBins = int(math.Ceil(float64(numBins) / 5))
+
+		} else if maxZScore < 2 {
+			numBins = int(math.Ceil(float64(numBins) / 3))
+
+		} else if maxZScore < 3 {
+			numBins = int(math.Ceil(float64(numBins) / 4))
+		}
+	}
+	log.Debug().Int("numBins", numBins).Msg("determined num of bins for BinAsDataSeries")
+
 	itemsPerBin := int(math.RoundToEven(float64(len(flist)) / float64(numBins)))
 	result := make(FreqDistribItemList, 0, len(dates))
 	var currBin binData
