@@ -89,16 +89,16 @@ func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)
 	numBins := len(flist)
 	numZero := bdNumZeroFreq(dates)
 	if numBins > 10 {
-		if maxZScore < 2 {
+		if maxZScore < 2.5 {
 			if numZero > len(dates)/10 {
-				numBins = int(math.Ceil(float64(len(flist)) / 5))
+				numBins = int(math.Ceil(float64(len(flist)) / 10))
 
 			} else {
-				numBins = int(math.Ceil(float64(len(flist)) / 3))
+				numBins = int(math.Ceil(float64(len(flist)) / 5))
 			}
 
-		} else if maxZScore < 3 {
-			numBins = int(math.Ceil(float64(len(flist)) / 2))
+		} else if maxZScore < 3.5 {
+			numBins = int(math.Ceil(float64(len(flist)) / 3))
 		}
 	}
 	itemsPerBin := int(math.RoundToEven(float64(len(flist)) / float64(numBins)))
