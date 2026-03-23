@@ -85,12 +85,18 @@ func extractTextPropsStrucattrs(reg *parser.Document) corp.TextTypeProperties {
 	for _, strct := range reg.Structures {
 		if slices.Contains(textSegmentStructs, strct.Name) {
 			for _, attr := range strct.Attrs {
-				var key string
+				var key corp.TextProperty
+				var dateFormat string
 				if attr.Name == "author" {
 					key = corp.TextPropertyAuthor
 
-				} else if attr.Name == "year" || attr.Name == "pubyear" {
+				} else if attr.Name == "year" || attr.Name == "pubyear" || attr.Name == "rok" || attr.Name == "rokvyd" {
 					key = corp.TextPropertyPubYear
+					dateFormat = "2006"
+
+				} else if attr.Name == "date" || attr.Name == "pubdate" || attr.Name == "datum" {
+					key = corp.TextPropertyPubDate
+					dateFormat = "2006-01-02"
 
 				} else if attr.Name == "title" {
 					key = corp.TextPropertyTitle
@@ -109,6 +115,7 @@ func extractTextPropsStrucattrs(reg *parser.Document) corp.TextTypeProperties {
 					commonProps[corp.TextProperty(key)] = corp.TTPropertyConf{
 						Name:         fmt.Sprintf("%s.%s", strct.Name, attr.Name),
 						IsInOverview: true,
+						DateFormat:   dateFormat,
 					}
 				}
 			}
