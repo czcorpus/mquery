@@ -20,7 +20,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
 	"mquery/corpus"
@@ -28,7 +27,6 @@ import (
 	"mquery/rdb/results"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +34,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/mquery-common/corp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -128,43 +127,66 @@ func mockFreqCalculation() chan StreamData {
 // filterByYearRange creates a new stream of `StreamData` with freqs not matching
 // the provided year range (`fromYear` ... `toYear`) excluded. To leave a year
 // limit empty, use 0.
-func (a *Actions) filterByYearRange(inStream chan StreamData, fromYear, toYear int, autobin bool) chan StreamData {
+func (a *Actions) filterByYearRange(inStream chan StreamData, dateFormat, fromDateStr, toDateStr string, autobin bool) chan StreamData {
 
 	datetimeToInt := func(v string) (int, error) {
-		const dayFmt = "2006-01-02"
-		const yearFmt = "2006"
-
-		var t time.Time
-		var err error
-		if yearMatchRegexp.MatchString(v) {
-			t, err = time.Parse(yearFmt, v)
-
-		} else {
-			t, err = time.Parse(dayFmt, v)
-		}
+		t, err := time.Parse(dateFormat, v)
 		if err != nil {
-			return 0, errors.New("failed to parse value as date or year")
+			return 0, fmt.Errorf("failed to parse value as %s: %w", dateFormat, err)
 		}
 		return int(t.Unix()), nil
 	}
 
 	ans := make(chan StreamData)
+
+	var fromDate, toDate time.Time
+	var parseErr error
+	if fromDateStr != "" {
+		fromDate, parseErr = time.Parse(dateFormat, fromDateStr)
+		if parseErr != nil {
+			go func() {
+				for range inStream {
+				}
+				ans <- StreamData{
+					Error: fmt.Errorf("failed to parse fromDateStr %s using template %s", fromDateStr, dateFormat),
+				}
+				close(ans)
+			}()
+			return ans
+		}
+	}
+	if toDateStr != "" {
+		toDate, parseErr = time.Parse(dateFormat, toDateStr)
+		if parseErr != nil {
+			go func() {
+				for range inStream {
+				}
+				ans <- StreamData{
+					Error: fmt.Errorf("failed to parse toDateStr %s using template %s", toDateStr, dateFormat),
+				}
+				close(ans)
+			}()
+			return ans
+		}
+	}
+
 	go func() {
 		for item := range inStream {
 			item.Entries.Freqs = collections.SliceFilter(
 				item.Entries.Freqs,
 				func(v *results.FreqDistribItem, i int) bool {
-					year, err := strconv.Atoi(v.Word)
+					docDate, err := time.Parse(dateFormat, v.Word)
 					if err != nil {
+						log.Error().Str("dateLayout", dateFormat).Str("value", v.Word).Msg("failed to parse supposedly date attribute during filtering, skippping item")
 						return false
 					}
-					if fromYear == 0 && toYear == 0 {
+					if fromDate.IsZero() && toDate.IsZero() {
 						return true
 					}
-					if toYear == 0 {
-						return year >= fromYear
+					if toDate.IsZero() {
+						return docDate.After(fromDate)
 					}
-					return year >= fromYear && year <= toYear
+					return docDate.After(fromDate) && docDate.Before(toDate)
 				},
 			)
 			if autobin {
@@ -385,24 +407,43 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		return
 	}
 	corpusID := ctx.Param("corpusId")
+	fromDate := ctx.Query("fromDate")
+	toDate := ctx.Query("toDate")
 
-	fromYear, ok := unireq.GetURLIntArgOrFail(ctx, "fromYear", 0)
-	if !ok {
-		return
-	}
-	toYear, ok := unireq.GetURLIntArgOrFail(ctx, "toYear", 0)
-	if !ok {
-		return
+	if fromDate == "" && toDate == "" {
+		// deprecated
+		fromDate = ctx.Query("fromYear")
+		toDate = ctx.Query("toYear")
 	}
 
 	autobin := ctx.Query("autobin") == "1"
+
+	cinfo := a.conf.GetCorp(corpusID)
+	tprop, ok := cinfo.TextProperties[corp.TextProperty(args.Attr)]
+	if !ok {
+		for _, attr := range cinfo.TextProperties {
+			if attr.Name == args.Attr {
+				tprop = attr
+				break
+			}
+		}
+	}
+	if tprop.DateFormat == "" {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("attribute %s not of a date type", args.Attr),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
 
 	calc, err := a.streamCalc(args.Q, args.Attr, corpusID, args.Flimit, args.MaxItems, GetCTXStoredTimeout(ctx))
 	if err != nil {
 		WriteStreamingError(ctx, err)
 		return
 	}
-	calc = a.filterByYearRange(calc, fromYear, toYear, autobin)
+
+	calc = a.filterByYearRange(calc, tprop.DateFormat, fromDate, toDate, autobin)
 
 	for message := range calc {
 		messageJSON, err := json.Marshal(message)
