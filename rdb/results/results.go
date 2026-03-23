@@ -87,8 +87,9 @@ func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)
 	//
 	// too many zero values => less detailed view
 	numBins := len(flist)
+	numZero := bdNumZeroFreq(dates)
 	if numBins > 10 {
-		if bdNumZeroFreq(dates) > len(dates)/10 {
+		if numZero > len(dates)/10 {
 			numBins = int(math.Ceil(float64(numBins) / 5))
 
 		} else if maxZScore < 2 {
@@ -98,9 +99,16 @@ func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)
 			numBins = int(math.Ceil(float64(numBins) / 4))
 		}
 	}
-	log.Debug().Int("numBins", numBins).Msg("determined num of bins for BinAsDataSeries")
-
 	itemsPerBin := int(math.RoundToEven(float64(len(flist)) / float64(numBins)))
+
+	log.Debug().
+		Int("totalItems", len(flist)).
+		Int("numBins", numBins).
+		Int("numZero", numZero).
+		Int("itemsPerBin", itemsPerBin).
+		Float64("maxZScore", maxZScore).
+		Msg("determined num of bins for BinAsDataSeries")
+
 	result := make(FreqDistribItemList, 0, len(dates))
 	var currBin binData
 	var totalFreq float64
