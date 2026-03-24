@@ -419,8 +419,8 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 	autobin := ctx.Query("autobin") == "1"
 
 	cinfo := a.conf.GetCorp(corpusID)
-	tprop, ok := cinfo.TextProperties[corp.TextProperty(args.Attr)]
-	if !ok {
+	tprop := cinfo.TextProperties.Get(corp.TextProperty(args.Attr))
+	if tprop.IsZero() {
 		for _, attr := range cinfo.TextProperties {
 			if attr.Name == args.Attr {
 				tprop = attr
