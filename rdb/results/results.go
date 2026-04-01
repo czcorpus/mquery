@@ -20,15 +20,12 @@ package results
 
 import (
 	"encoding/json"
-	"math"
 	"mquery/mango"
 	"mquery/rdb"
-	"slices"
 
 	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/czcorpus/mquery-common/corp"
-	"github.com/rs/zerolog/log"
 )
 
 type FreqDistribItemList []*FreqDistribItem
@@ -40,107 +37,6 @@ func (flist FreqDistribItemList) Cut(maxItems int) FreqDistribItemList {
 		return flist[:maxItems]
 	}
 	return flist
-}
-
-// BinAsDataSeries groups time-series items based on the provided toInt function converting
-// values (e.g. calendar dates) to ints so we can sort them.
-func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error), analysisWindowSize int) FreqDistribItemList {
-	if len(flist) < 5 {
-		return flist
-	}
-	if analysisWindowSize <= 1 {
-		panic("BinAsDataSeries - analysisWindowSize must be > 1")
-	}
-
-	dates := make([]binData, len(flist))
-	for i, item := range flist {
-		idx, err := toInt(item.Word)
-		if err != nil {
-			log.Error().
-				Err(err).
-				Str("value", item.Word).
-				Msg("failed to process data item during data series binning")
-			return flist
-		}
-		dates[i] = binData{
-			dateBucket: idx,
-			freq:       item.Freq,
-			base:       item.Base,
-			label:      item.Word,
-		}
-	}
-	slices.SortFunc(
-		dates,
-		func(d1, d2 binData) int {
-			return d1.dateBucket - d2.dateBucket
-		},
-	)
-
-	movingZScores := bdMovingZScores(dates, analysisWindowSize)
-	var maxZScore float64
-
-	for _, item := range movingZScores {
-		maxZScore = max(maxZScore, math.Abs(item))
-	}
-
-	// here is a heuristic for automatic binning:
-	//
-	// too many zero values => less detailed view
-	numBins := len(flist)
-	numZero := bdNumZeroFreq(dates)
-	if numBins > 10 {
-		if maxZScore < 2.5 {
-			if numZero > len(dates)/10 {
-				numBins = int(math.Ceil(float64(len(flist)) / 10))
-
-			} else {
-				numBins = int(math.Ceil(float64(len(flist)) / 5))
-			}
-
-		} else if maxZScore < 3.5 {
-			numBins = int(math.Ceil(float64(len(flist)) / 3))
-		}
-	}
-	itemsPerBin := int(math.RoundToEven(float64(len(flist)) / float64(numBins)))
-
-	log.Debug().
-		Int("totalItems", len(flist)).
-		Int("numBins", numBins).
-		Int("numZero", numZero).
-		Int("itemsPerBin", itemsPerBin).
-		Float64("maxZScore", maxZScore).
-		Msg("determined num of bins for BinAsDataSeries")
-
-	result := make(FreqDistribItemList, 0, len(dates))
-	var currBin binData
-	var totalFreq float64
-	for i, item := range dates {
-		totalFreq += float64(item.freq)
-		currBin.base = item.base
-		currBin.freq += item.freq
-		currBin.numGrouped++
-		if currBin.label == "" {
-			currBin.label = item.label
-		}
-		if (i+1)%itemsPerBin == 0 {
-			result = append(result, &FreqDistribItem{
-				Word: currBin.label,
-				Freq: currBin.freq,
-				IPM:  float32(currBin.freq) / float32(currBin.base) * 1e6,
-				Base: currBin.base,
-			})
-			currBin = binData{}
-		}
-	}
-	if currBin.freq > 0 {
-		result = append(result, &FreqDistribItem{
-			Word: currBin.label,
-			Freq: currBin.freq,
-			IPM:  float32(currBin.freq) / float32(currBin.base) * 1e6,
-			Base: currBin.base,
-		})
-	}
-	return result
 }
 
 // AlwaysAsList returns an empty list in case the original
