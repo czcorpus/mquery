@@ -116,7 +116,7 @@ func (flist FreqDistribItemList) BinAsDataSeries(toInt func(string) (int, error)
 	var totalFreq float64
 	for i, item := range dates {
 		totalFreq += float64(item.freq)
-		currBin.base = item.base
+		currBin.base += item.base
 		currBin.freq += item.freq
 		currBin.numGrouped++
 		if currBin.label == "" {
