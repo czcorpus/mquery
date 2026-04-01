@@ -127,8 +127,18 @@ func mockFreqCalculation() chan StreamData {
 // filterByYearRange creates a new stream of `StreamData` with freqs not matching
 // the provided year range (`fromYear` ... `toYear`) excluded. To leave a year
 // limit empty, use 0.
-func (a *Actions) filterByYearRange(inStream chan StreamData, dateFormat, fromDateStr, toDateStr string) chan StreamData {
+func (a *Actions) filterByYearRange(inStream chan StreamData, dateFormat, fromDateStr, toDateStr string, autobin bool) chan StreamData {
+
+	datetimeToInt := func(v string) (int, error) {
+		t, err := time.Parse(dateFormat, v)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse value as %s: %w", dateFormat, err)
+		}
+		return int(t.Unix()), nil
+	}
+
 	ans := make(chan StreamData)
+
 	var fromDate, toDate time.Time
 	var parseErr error
 	if fromDateStr != "" {
@@ -179,6 +189,26 @@ func (a *Actions) filterByYearRange(inStream chan StreamData, dateFormat, fromDa
 					return docDate.After(fromDate) && docDate.Before(toDate)
 				},
 			)
+			if autobin {
+				// here is a heuristic evaluation of window size for calculating
+				// moving z-score which determines number of data bins.
+				// We assume here that typically there are at most hundreds or small thousands
+				// of items (e.g. a monitoring corpus with daily updates across at most a few years)
+				windowSize := 10
+				if len(item.Entries.Freqs) > 1000 {
+					windowSize = 100
+				} else if len(item.Entries.Freqs) > 300 {
+					windowSize = 30
+
+				} else if len(item.Entries.Freqs) > 100 {
+					windowSize = 20
+
+				} else if len(item.Entries.Freqs) > 50 {
+					windowSize = 15
+				}
+				log.Debug().Int("windowSize", windowSize).Msg("determining window size for data binning")
+				item.Entries.Freqs = item.Entries.Freqs.BinAsDataSeries(datetimeToInt, windowSize)
+			}
 			ans <- item
 		}
 		close(ans)
@@ -335,6 +365,7 @@ func (a *Actions) ttStreamedBase(ctx *gin.Context) (streamedFreqsBaseArgs, bool)
 // @Param        q query string true "A search query"
 // @Param        attr query string false "An attribute used for freq. calculation (mutually exclusive with `fcrit`)"
 // @Param        fcrit query string false "A freq. criterium in Manatee-open format (mutually exclusive with `attr`)"
+// @Param		 autobin query int 0 "If 1 then data will be grouped into a suitable number of bins for readability"
 // @Success      200 {object} results.FreqDistrib
 // @Router       /text-types-streamed/{corpusId} [get]
 func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
@@ -385,6 +416,8 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		toDate = ctx.Query("toYear")
 	}
 
+	autobin := ctx.Query("autobin") == "1"
+
 	cinfo := a.conf.GetCorp(corpusID)
 	tprop := cinfo.TextProperties.Get(corp.TextProperty(args.Attr))
 	if tprop.IsZero() {
@@ -410,7 +443,7 @@ func (a *Actions) FreqsByYears(ctx *gin.Context) {
 		return
 	}
 
-	calc = a.filterByYearRange(calc, tprop.DateFormat, fromDate, toDate)
+	calc = a.filterByYearRange(calc, tprop.DateFormat, fromDate, toDate, autobin)
 
 	for message := range calc {
 		messageJSON, err := json.Marshal(message)
