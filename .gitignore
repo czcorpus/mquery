@@ -27,5 +27,4 @@ go.work
 config.json
 mquery
 Makefile
-docs/*
-
+cmd/mquery/docs/*
