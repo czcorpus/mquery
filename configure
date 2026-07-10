@@ -59,6 +59,7 @@ all: test-and-build
 build:
 	@echo "building without running unit tests and without regenerating OpenAPI"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery ./cmd/mquery
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mqmcp ./cmd/mqmcp
 
 test-and-build:
 	@echo "generating OpenAPI documentation"
@@ -66,6 +67,7 @@ test-and-build:
 	@echo "running unit tests and building the project"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go test $(go list ./...  | tr '\n' ' ')
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery  ./cmd/mquery
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mqmcp  ./cmd/mqmcp
 
 tools:
 	@echo "installing local dependencies"

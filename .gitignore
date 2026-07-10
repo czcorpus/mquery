@@ -26,5 +26,6 @@ go.work
 # local installation
 config.json
 mquery
+mqmcp
 Makefile
 cmd/mquery/docs/*
