@@ -18,7 +18,7 @@ else
   echo "...error"
 fi
 
-swag init -g mquery.go --parseDependency
+swag init -g mquery.go -d cmd/mquery,. --parseDependency -o cmd/mquery/docs
 if [ $? -eq 0 ]; then
   echo "...done"
 else
@@ -58,14 +58,16 @@ all: test-and-build
 
 build:
 	@echo "building without running unit tests and without regenerating OpenAPI"
-	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery ./cmd/mquery
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mqmcp ./cmd/mqmcp
 
 test-and-build:
 	@echo "generating OpenAPI documentation"
-	swag init --parseDependency -g apiserver.go
+	swag init --parseDependency -g mquery.go -d cmd/mquery,. -o cmd/mquery/docs
 	@echo "running unit tests and building the project"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go test $(go list ./...  | tr '\n' ' ')
-	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery  ./cmd/mquery
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mqmcp  ./cmd/mqmcp
 
 tools:
 	@echo "installing local dependencies"
@@ -95,7 +97,7 @@ uninstall:
 	@rm -rf /opt/mquery
 
 clean:
-	rm -rf docs/*
+	rm -rf cmd/mquery/docs/*
 
 
 test:
