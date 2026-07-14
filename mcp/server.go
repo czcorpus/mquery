@@ -7,7 +7,65 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/rs/zerolog/log"
 )
+
+type remoteAddrCtxKey struct{}
+
+// clientIPFromRequest extracts the caller's IP address, preferring the
+// X-Forwarded-For/X-Real-Ip headers set by a reverse proxy over the raw
+// connection address.
+func clientIPFromRequest(r *http.Request) string {
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		return strings.TrimSpace(strings.Split(fwd, ",")[0])
+	}
+	if realIP := r.Header.Get("X-Real-Ip"); realIP != "" {
+		return realIP
+	}
+	return r.RemoteAddr
+}
+
+// WithClientIPContext returns an HTTPContextFunc suitable for
+// server.WithHTTPContextFunc which makes the caller's IP address available
+// to tool call hooks via RemoteAddrFromContext.
+func WithClientIPContext(ctx context.Context, r *http.Request) context.Context {
+	return context.WithValue(ctx, remoteAddrCtxKey{}, clientIPFromRequest(r))
+}
+
+// RemoteAddrFromContext returns the caller's IP address as stored by
+// WithClientIPContext, or "" when running in stdio mode (no HTTP request).
+func RemoteAddrFromContext(ctx context.Context) string {
+	addr, _ := ctx.Value(remoteAddrCtxKey{}).(string)
+	return addr
+}
+
+// NewLoggingHooks builds server hooks that log every tool call together with
+// the caller's remote address (HTTP mode only) and, when available, the
+// identity of the connecting MCP client (e.g. the LLM/agent calling the tool).
+func NewLoggingHooks() *server.Hooks {
+	hooks := &server.Hooks{}
+	hooks.AddBeforeCallTool(func(ctx context.Context, id any, message *mcp.CallToolRequest) {
+		evt := log.Info().
+			Str("tool", message.Params.Name).
+			Str("remoteAddr", RemoteAddrFromContext(ctx))
+
+		if session := server.ClientSessionFromContext(ctx); session != nil {
+			evt = evt.Str("sessionId", session.SessionID())
+			if sessionWithInfo, ok := session.(server.SessionWithClientInfo); ok {
+				clientInfo := sessionWithInfo.GetClientInfo()
+				evt = evt.Str("clientName", clientInfo.Name).Str("clientVersion", clientInfo.Version)
+			}
+		}
+		if ua := message.Header.Get("User-Agent"); ua != "" {
+			evt = evt.Str("userAgent", ua)
+		}
+		evt.Msg("MCP tool called")
+	})
+	return hooks
+}
 
 // argToString converts a query argument value to its string representation.
 // Bools are encoded as "1"/"0" rather than "true"/"false".

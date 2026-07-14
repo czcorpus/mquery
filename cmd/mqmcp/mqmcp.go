@@ -10,6 +10,7 @@ import (
 	"mquery/general"
 	"mquery/mcp"
 
+	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -48,12 +49,14 @@ func main() {
 		GitCommit: normVersionInfo(gitCommit),
 	}
 
-	srv := server.NewMCPServer("mquery-mcp", version.Version)
+	srv := server.NewMCPServer("mquery-mcp", version.Version, server.WithHooks(mcp.NewLoggingHooks()))
 	confPath := os.Getenv("CONF_PATH")
 	if confPath == "" {
 		confPath = "./mqmcp.json"
 	}
 	conf := loadConf(confPath)
+	logging.SetupLogging(conf.Logging)
+
 	mcp.CreateCorpInfoTool(srv, &conf)
 	mcp.CreateTermSrchTool(srv, &conf)
 	mcp.CreateFreqsTool(srv, &conf)
@@ -82,6 +85,7 @@ func main() {
 		httpServer := server.NewStreamableHTTPServer(
 			srv,
 			server.WithEndpointPath("/mcp"),
+			server.WithHTTPContextFunc(mcp.WithClientIPContext),
 		)
 
 		mux := http.NewServeMux()
