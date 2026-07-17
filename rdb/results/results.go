@@ -335,6 +335,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		CollocationsResponse{
+			ConcSize:   res.ConcSize,
 			CorpusSize: res.CorpusSize,
 			SubcSize:   res.SubcSize,
 			Colls:      colls,
