@@ -353,6 +353,9 @@ func (a *Actions) anyConcordance(
 // @Router       /term-frequency/{corpusId} [get]
 func (a *Actions) TermFrequency(ctx *gin.Context) {
 	queryProps := DetermineQueryProps(ctx, a.conf)
+	if queryProps.hasError() {
+		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
+	}
 	argsBuilder := func(conf *corpus.MQCorpusSetup, q string) rdb.TermFrequencyArgs {
 		return rdb.TermFrequencyArgs{
 			CorpusPath:        a.conf.GetRegistryPath(conf.ID),

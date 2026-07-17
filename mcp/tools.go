@@ -24,26 +24,46 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+func requireCorpusID(request mcp.CallToolRequest) (string, *mcp.CallToolResult) {
+	corpusID := request.GetString("corpus_id", "")
+	if corpusID == "" {
+		return "", mcp.NewToolResultError("missing corpus_id argument")
+	}
+	return corpusID, nil
+}
+
 func CreateCorpInfoTool(srv *server.MCPServer, conf *Conf) {
 	t := mcp.NewTool("corpus_info",
 		mcp.WithDescription("Get information about a corpus, including important information about its structure required for proper CQL queries"),
 		mcp.WithString("corpus_id", mcp.Required(), mcp.Description("An ID of a corpus to get info about")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "info", request.GetString("corpus_id", ""))
-			if err != nil {
-				return nil, fmt.Errorf("failed to run term-frequency: %w", err)
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
 			}
-			ans, err := httpRequest(
+			url, err := JoinURL(conf.APIUrl, "info", corpusID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to run info: %w", err)
+			}
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
 				map[string]any{},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run info: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
@@ -56,15 +76,23 @@ func CreateTermSrchTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithString("corpus_id", mcp.Required(), mcp.Description("An ID of a corpus to search in")),
 		mcp.WithString("subcorpus", mcp.Description("Optional ID of a subcorpus")),
 		mcp.WithString("q", mcp.Required(), mcp.Description("CQL query string")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "term-frequency", request.GetString("corpus_id", ""))
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "term-frequency", corpusID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to run term-frequency: %w", err)
 			}
-			ans, err := httpRequest(
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
@@ -72,9 +100,13 @@ func CreateTermSrchTool(srv *server.MCPServer, conf *Conf) {
 					"subcorpus": request.GetString("subcorpus", ""),
 					"q":         request.GetString("q", ""),
 				},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run term-frequency: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
@@ -96,15 +128,23 @@ func CreateFreqsTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithBoolean("match_case", mcp.Description("if true then words with the same letters but different letter cases will be treated separately")),
 		mcp.WithInteger("max_items", mcp.Description("maximum number of result items"), mcp.DefaultNumber(defaultMaxItems)),
 		mcp.WithInteger("flimit", mcp.Description("minimum frequency of result items to be included in the result set"), mcp.DefaultNumber(defaultFlimit)),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "freqs", request.GetString("corpus_id", ""))
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "freqs", corpusID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to run freqs: %w", err)
 			}
-			ans, err := httpRequest(
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
@@ -116,9 +156,13 @@ func CreateFreqsTool(srv *server.MCPServer, conf *Conf) {
 					"maxItems":  request.GetInt("max_items", defaultMaxItems),
 					"flimit":    request.GetInt("flimit", defaultFlimit),
 				},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run freqs: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
@@ -137,15 +181,23 @@ func CreateTextTypesTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithString("attr", mcp.Required(), mcp.Description("a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)")),
 		mcp.WithInteger("max_items", mcp.Description("maximum number of result items"), mcp.DefaultNumber(defaultMaxItems)),
 		mcp.WithInteger("flimit", mcp.Description("minimum frequency of result items to be included in the result set"), mcp.DefaultNumber(defaultFlimit)),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "text-types", request.GetString("corpus_id", ""))
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "text-types", corpusID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to run freqs: %w", err)
 			}
-			ans, err := httpRequest(
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
@@ -156,9 +208,13 @@ func CreateTextTypesTool(srv *server.MCPServer, conf *Conf) {
 					"maxItems":  request.GetInt("max_items", defaultMaxItems),
 					"flimit":    request.GetInt("flimit", defaultFlimit),
 				},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run text-types: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
@@ -175,15 +231,23 @@ func CreateTextTypesOverviewTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithString("subcorpus", mcp.Description("Optional ID of a subcorpus")),
 		mcp.WithString("q", mcp.Required(), mcp.Description("CQL query string")),
 		mcp.WithInteger("flimit", mcp.Description("minimum frequency of result items to be included in the result set"), mcp.DefaultNumber(1)),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "text-types-overview", request.GetString("corpus_id", ""))
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "text-types-overview", corpusID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to run freqs: %w", err)
 			}
-			ans, err := httpRequest(
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
@@ -192,9 +256,13 @@ func CreateTextTypesOverviewTool(srv *server.MCPServer, conf *Conf) {
 					"q":         request.GetString("q", ""),
 					"flimit":    request.GetInt("flimit", defaultFlimit),
 				},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run text_types_overview: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
@@ -221,15 +289,23 @@ func CreateCollocationsTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithString("srch_attr", mcp.Description("a positional attribute considered when collocations are calculated"), mcp.DefaultString(defaultSrchAttr)),
 		mcp.WithInteger("min_coll_freq", mcp.Description("the minimum frequency that a collocate must have in the searched range."), mcp.DefaultNumber(defaultMinCollFreq)),
 		mcp.WithInteger("max_items", mcp.Description("maximum number of result items"), mcp.DefaultNumber(defaultMaxItems)),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "collocations", request.GetString("corpus_id", ""))
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "collocations", corpusID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to run freqs: %w", err)
 			}
-			ans, err := httpRequest(
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
@@ -243,9 +319,13 @@ func CreateCollocationsTool(srv *server.MCPServer, conf *Conf) {
 					"minCollFreq": request.GetInt("min_coll_freq", defaultMinCollFreq),
 					"maxItems":    request.GetInt("max_items", defaultMaxItems),
 				},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run collocations: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
@@ -276,15 +356,23 @@ func CreateConcordanceTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithString("coll", mcp.Description("Optional collocate query (CQL)")),
 		mcp.WithString("coll_range", mcp.Description("Specifies where to search the collocate. I.e. this only applies if the `coll` is filled. Format: left,right where negative numbers are on the left side of the KWIC.")),
 		mcp.WithBoolean("no_shuffle", mcp.Description("if true, then the order of matches will be the same as in the source corpus")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 	)
 	srv.AddTool(
 		t,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			url, err := JoinURL(conf.APIUrl, "concordance", request.GetString("corpus_id", ""))
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "concordance", corpusID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to run freqs: %w", err)
 			}
-			ans, err := httpRequest(
+			ans, err2 := httpRequest(
 				ctx,
 				"GET",
 				url,
@@ -302,9 +390,13 @@ func CreateConcordanceTool(srv *server.MCPServer, conf *Conf) {
 					"collRange":          request.GetString("coll_range", ""),
 					"noShuffle":          request.GetBool("no_shuffle", false),
 				},
+				conf.APIHeaders,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to run concordance: %w", err)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
 			}
 			return mcp.NewToolResultText(ans), nil
 		},
