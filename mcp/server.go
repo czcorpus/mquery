@@ -48,12 +48,34 @@ func JoinURL(base string, chunks ...string) (string, error) {
 	return parsedURL.String(), nil
 }
 
+type httpClientError struct {
+	Status int
+	Msg    string
+}
+
+func (err *httpClientError) Error() string {
+	return fmt.Sprintf("%s (HTTP API Status code %d)", err.Msg, err.Status)
+}
+
+func (err *httpClientError) IsSoftError() bool {
+	return err != nil && err.Status > 0
+}
+
+func (err *httpClientError) IsHardError() bool {
+	return err != nil && err.Status == 0
+}
+
+func newHttpClientErrorFromErr(err error) *httpClientError {
+	return &httpClientError{Msg: err.Error()}
+}
+
 // httpRequest performs an HTTP request with the given method against rawURL,
-// passing args as URL query parameters, and returns the response body as a string.
-func httpRequest(ctx context.Context, method, rawURL string, args map[string]any) (string, error) {
+// passing args as URL query parameters and headers as request headers, and
+// returns the response body as a string.
+func httpRequest(ctx context.Context, method, rawURL string, args map[string]any, headers map[string]string) (string, *httpClientError) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return "", err
+		return "", newHttpClientErrorFromErr(err)
 	}
 	query := make(url.Values, len(args))
 	for k, v := range args {
@@ -66,18 +88,25 @@ func httpRequest(ctx context.Context, method, rawURL string, args map[string]any
 
 	req, err := http.NewRequestWithContext(ctx, method, parsedURL.String(), nil)
 	if err != nil {
-		return "", err
+		return "", newHttpClientErrorFromErr(err)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", newHttpClientErrorFromErr(err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", newHttpClientErrorFromErr(err)
+	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 600 {
+		return string(body), &httpClientError{Status: resp.StatusCode, Msg: string(body)}
 	}
 	return string(body), nil
+
 }

@@ -5,7 +5,7 @@ go 1.25.5
 toolchain go1.25.12
 
 require (
-	github.com/czcorpus/cnc-gokit v0.22.0
+	github.com/czcorpus/cnc-gokit v0.25.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/mquery-common v0.10.0
