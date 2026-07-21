@@ -153,6 +153,9 @@ func (api *apiServer) Start(ctx context.Context) {
 		"/text-types-overview/:corpusId", ceActions.TextTypesOverview)
 
 	engine.GET(
+		"/text-types-avail-values/:corpusId", ceActions.TextTypesAvailValues)
+
+	engine.GET(
 		"/collocations/:corpusId", ceActions.Collocations)
 
 	engine.GET(

@@ -31,6 +31,7 @@
 #include <sstream>
 #include <cmath>
 #include <map>
+#include <algorithm>
 
 using namespace std;
 
@@ -840,6 +841,83 @@ CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name) {
     }
     delete corp;
     return ans;
+}
+
+
+StructAttrValuesRetval get_struct_attr_values(const char* corpusPath, PosInt limit) {
+    StructAttrValuesRetval ans;
+    ans.err = nullptr;
+    ans.items = nullptr;
+    ans.size = 0;
+    Corpus* corp = nullptr;
+    try {
+        corp = new Corpus(corpusPath);
+        vector<StructAttrValue> collected;
+
+        // SUBCORPATTRS entries are conventionally comma-separated, but some
+        // registry files (following the FULLREF/SHORTREF convention) use
+        // '|' to group alternatives, so we accept both, same as manatee's
+        // own `corpconfcheck` tool does.
+        string subcorpattrs = corp->get_conf("SUBCORPATTRS");
+        replace(subcorpattrs.begin(), subcorpattrs.end(), '|', ',');
+
+        istringstream attrStream(subcorpattrs);
+        string structAttr;
+        while (getline(attrStream, structAttr, ',')) {
+            if (structAttr.empty()) {
+                continue;
+            }
+            size_t dotPos = structAttr.find('.');
+            if (dotPos == string::npos) {
+                continue;
+            }
+            string structName = structAttr.substr(0, dotPos);
+            string attrName = structAttr.substr(dotPos + 1);
+
+            Structure* strct = corp->get_struct(structName);
+            PosAttr* attr = strct->get_attr(attrName);
+            int idRange = attr->id_range();
+            bool truncated = limit > 0 && idRange > limit;
+            int numToCollect = truncated ? (int)limit : idRange;
+            for (int i = 0; i < numToCollect; i++) {
+                StructAttrValue item;
+                item.structName = strdup(structName.c_str());
+                item.attrName = strdup(attrName.c_str());
+                item.value = strdup(attr->id2str(i));
+                item.truncated = truncated ? 1 : 0;
+                collected.push_back(item);
+            }
+        }
+
+        StructAttrValue* items = (StructAttrValue*)malloc(
+            collected.size() * sizeof(StructAttrValue));
+        for (size_t i = 0; i < collected.size(); i++) {
+            items[i] = collected[i];
+        }
+        ans.items = static_cast<void*>(items);
+        ans.size = collected.size();
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    delete corp;
+    return ans;
+}
+
+
+StructAttrValue get_struct_attr_value_item(StructAttrValuesRetval data, int idx) {
+    return ((StructAttrValue*)data.items)[idx];
+}
+
+
+void delete_struct_attr_values(StructAttrValuesV items, int numItems) {
+    StructAttrValue* tItems = (StructAttrValue*)items;
+    for (int i = 0; i < numItems; i++) {
+        free(tItems[i].structName);
+        free(tItems[i].attrName);
+        free(tItems[i].value);
+    }
+    free(tItems);
 }
 
 

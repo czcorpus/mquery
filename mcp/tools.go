@@ -402,3 +402,42 @@ func CreateConcordanceTool(srv *server.MCPServer, conf *Conf) {
 		},
 	)
 }
+
+func CreateTextTypesAvailValuesTool(srv *server.MCPServer, conf *Conf) {
+
+	t := mcp.NewTool("text_types_avail_values",
+		mcp.WithDescription("Get all the values for all the reasonably small structural attributes (typically - media types, orig. language, author gender, text category, publication year) "),
+		mcp.WithString("corpus_id", mcp.Required(), mcp.Description("An ID of a corpus to search in")),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+	)
+	srv.AddTool(
+		t,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			corpusID, errResult := requireCorpusID(request)
+			if errResult != nil {
+				return errResult, nil
+			}
+			url, err := JoinURL(conf.APIUrl, "text-types-avail-values", corpusID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to run text-types-avail-values: %w", err)
+			}
+			ans, err2 := httpRequest(
+				ctx,
+				"GET",
+				url,
+				nil,
+				conf.APIHeaders,
+			)
+			if err2.IsSoftError() {
+				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
+			}
+			if err2.IsHardError() {
+				return nil, err2
+			}
+			return mcp.NewToolResultText(ans), nil
+		},
+	)
+}

@@ -31,6 +31,7 @@ const (
 	ResultTypeCorpusInfo               ResultType = "corpusInfo"
 	ResultTypeTextTypeNorms            ResultType = "textTypeNorms"
 	ResultTypeTokenContext             ResultType = "tokenContext"
+	ResultTypeTextTypesAvailValues     ResultType = "textTypesAvailValues"
 	ResultTypeError                    ResultType = "error"
 )
 

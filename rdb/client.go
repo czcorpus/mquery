@@ -161,6 +161,14 @@ type TokenContextArgs struct {
 
 // --------------
 
+type TextTypesAvailValuesArgs struct {
+	CorpusPath       string
+	MaxValueListSize int
+	SkipTruncated    bool
+}
+
+// --------------
+
 type StatusWriter interface {
 	Write(rec JobLog)
 }
