@@ -317,3 +317,19 @@ func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 	ans.Context.Ref = fmt.Sprintf("#%d", args.Idx)
 	return ans
 }
+
+func (w *Worker) textTypesAvailValues(args rdb.TextTypesAvailValuesArgs) results.TextTypesAvailValues {
+	var ans results.TextTypesAvailValues
+	values, err := mango.GetStructAttrValues(args.CorpusPath, args.MaxValueListSize)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.Attributes = make([]mango.GoStructAttr, 0, len(values))
+	for _, v := range values {
+		if !v.Truncated || !args.SkipTruncated {
+			ans.Attributes = append(ans.Attributes, v)
+		}
+	}
+	return ans
+}

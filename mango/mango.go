@@ -456,6 +456,47 @@ func GetStructSize(corpusPath string, name string) (int, error) {
 	return int(ans.value), nil
 }
 
+type GoStructAttr struct {
+	Struct    string   `json:"struct"`
+	Attr      string   `json:"attr"`
+	Values    []string `json:"values"`
+	Truncated bool     `json:"isTruncated"`
+}
+
+// GetStructAttrValues returns, for every structural attribute listed
+// in the corpus configuration value SUBCORPATTRS (e.g. `doc.author`,
+// `text.pubyear`), the list of all values it can have.
+//
+// limit caps the number of values collected per structural attribute;
+// if a value domain exceeds it, the returned list is cut to limit
+// items and Truncated is set to true for that entry. A limit <= 0
+// means no cap is applied.
+func GetStructAttrValues(corpusPath string, limit int) ([]GoStructAttr, error) {
+	ans := C.get_struct_attr_values(C.CString(corpusPath), C.longlong(limit))
+	if ans.err != nil {
+		err := errors.New(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return nil, err
+	}
+	defer C.delete_struct_attr_values(ans.items, C.int(ans.size))
+
+	ret := make([]GoStructAttr, 0, 10)
+	var current *GoStructAttr
+	size := int(ans.size)
+	for i := 0; i < size; i++ {
+		item := C.get_struct_attr_value_item(ans, C.int(i))
+		structName := C.GoString(item.structName)
+		attrName := C.GoString(item.attrName)
+		value := C.GoString(item.value)
+		if current == nil || current.Struct != structName || current.Attr != attrName {
+			ret = append(ret, GoStructAttr{Struct: structName, Attr: attrName, Truncated: item.truncated != 0})
+			current = &ret[len(ret)-1]
+		}
+		current.Values = append(current.Values, value)
+	}
+	return ret, nil
+}
+
 func GetCorpRegion(corpusPath string, lftCtx, rgtCtx int64, structs, attrs []string) (GoTokenContext, error) {
 	ans := C.get_corp_region(
 		C.CString(corpusPath),

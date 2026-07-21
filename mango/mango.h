@@ -256,6 +256,49 @@ CorpusSizeRetrval get_posattr_size(const char* corpus_path, const char* name);
 
 CorpusSizeRetrval get_struct_size(const char* corpus_path, const char* name);
 
+/**
+ * StructAttrValue represents a single value found in the value domain
+ * of a structural attribute (e.g. `doc.author`). `truncated` is non-zero
+ * for every value belonging to a struct.attr whose value list was cut
+ * short due to the `limit` argument of `get_struct_attr_values`.
+ */
+typedef struct StructAttrValue {
+    char* structName;
+    char* attrName;
+    char* value;
+    int truncated;
+} StructAttrValue;
+
+typedef void* StructAttrValuesV;
+
+typedef struct StructAttrValuesRetval {
+    StructAttrValuesV items;
+    PosInt size;
+    const char* err;
+} StructAttrValuesRetval;
+
+/**
+ * @brief Enumerate the structural attributes listed in the corpus
+ * configuration value SUBCORPATTRS, along with all the values each
+ * of them can have.
+ *
+ * The result is a flat list of (structure, attribute, value) triples
+ * accessible via `get_struct_attr_value_item`. Use `delete_struct_attr_values`
+ * to release it once done.
+ *
+ * @param corpusPath
+ * @param limit Maximum number of values collected per structural attribute.
+ * If a value domain exceeds this limit, it is cut to `limit` items and
+ * the `truncated` flag is set on the collected items. A value <= 0 means
+ * no limit is applied.
+ * @return StructAttrValuesRetval
+ */
+StructAttrValuesRetval get_struct_attr_values(const char* corpusPath, PosInt limit);
+
+StructAttrValue get_struct_attr_value_item(StructAttrValuesRetval data, int idx);
+
+void delete_struct_attr_values(StructAttrValuesV items, int numItems);
+
 void free_string(char* str);
 
 #ifdef __cplusplus

@@ -492,3 +492,30 @@ func (res TokenContext) MarshalJSON() ([]byte, error) {
 		Error:      res.Error,
 	})
 }
+
+// ---------------------------------
+
+type TextTypesAvailValues struct {
+	Attributes []mango.GoStructAttr
+	Error      error
+}
+
+func (res TextTypesAvailValues) Err() error {
+	return res.Error
+}
+
+func (res TextTypesAvailValues) Type() rdb.ResultType {
+	return rdb.ResultTypeTextTypesAvailValues
+}
+
+func (res TextTypesAvailValues) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Attributes []mango.GoStructAttr `json:"attributes"`
+		ResultType rdb.ResultType       `json:"resultType"`
+		Error      error                `json:"error,omitempty"`
+	}{
+		Attributes: res.Attributes,
+		ResultType: res.Type(),
+		Error:      res.Error,
+	})
+}

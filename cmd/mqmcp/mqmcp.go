@@ -174,6 +174,7 @@ func main() {
 	mcp.CreateTextTypesOverviewTool(srv, &conf)
 	mcp.CreateCollocationsTool(srv, &conf)
 	mcp.CreateConcordanceTool(srv, &conf)
+	mcp.CreateTextTypesAvailValuesTool(srv, &conf)
 
 	switch mode {
 	case "stdio":
