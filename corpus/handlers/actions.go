@@ -26,7 +26,6 @@ import (
 	"mquery/corpus/infoload"
 	"mquery/rdb"
 	"mquery/rdb/results"
-	"net"
 	"net/http"
 	"sync"
 
@@ -61,9 +60,7 @@ type Actions struct {
 }
 
 func (a *Actions) isLocalNetworkReq(ctx *gin.Context) bool {
-	remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
-	return err == nil && a.authConf.IsLocalNetwork(remoteIP, a.listenAddress) &&
-		!a.authConf.IsKnownProxy(remoteIP)
+	return a.authConf.IsInternalRequest(ctx.Request, a.listenAddress)
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {

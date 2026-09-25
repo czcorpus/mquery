@@ -22,9 +22,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"mquery/corpus"
+	"mquery/general"
 	"mquery/monitoring"
 	"mquery/rdb"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -141,6 +143,19 @@ func (ac *AuthConf) IsKnownProxy(ip string) bool {
 		}
 	}
 	return false
+}
+
+// IsInternalRequest tests whether the request comes directly from
+// an internal network. Such requests are exempt from auth token checks
+// and can access "internal network access only" corpora.
+// Requests from known proxies and requests with the general.PublicClientHeader
+// set (e.g. from the MCP server) are never considered internal.
+func (ac *AuthConf) IsInternalRequest(req *http.Request, listenAddr string) bool {
+	if req.Header.Get(general.PublicClientHeader) != "" {
+		return false
+	}
+	remoteIP, _, err := net.SplitHostPort(req.RemoteAddr)
+	return err == nil && ac.IsLocalNetwork(remoteIP, listenAddr) && !ac.IsKnownProxy(remoteIP)
 }
 
 // --------
@@ -271,6 +286,17 @@ func ValidateAndDefaults(conf *Conf) {
 	}
 	if err := conf.CorporaSetup.ValidateAndDefaults("corporaSetup"); err != nil {
 		log.Fatal().Err(err).Msg("invalid configuration")
+	}
+	if conf.Auth == nil || len(conf.Auth.KnownProxies) == 0 {
+		for _, v := range conf.CorporaSetup.Resources {
+			if v.InternalNetworkAccessOnly {
+				log.Warn().
+					Str("corpus", v.ID).
+					Msg("found internal-network-only corpus but no `auth.knownProxies` configured - " +
+						"if MQuery runs behind a reverse proxy, the corpus may be accessible from outside")
+				break
+			}
+		}
 	}
 	if conf.TimeZone == "" {
 		log.Warn().

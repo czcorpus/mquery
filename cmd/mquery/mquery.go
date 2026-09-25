@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -176,10 +175,7 @@ func authTokenMatches(stored, provided string) bool {
 
 func AuthRequired(conf *cnf.Conf) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
-		isLocalDirect := err == nil && conf.Auth.IsLocalNetwork(remoteIP, conf.ListenAddress) &&
-			!conf.Auth.IsKnownProxy(remoteIP)
-		if !isLocalDirect {
+		if !conf.Auth.IsInternalRequest(ctx.Request, conf.ListenAddress) {
 			provided := ctx.GetHeader(conf.Auth.TokenHeaderName)
 			authorized := false
 			for _, stored := range conf.Auth.Tokens {
