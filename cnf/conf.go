@@ -90,13 +90,29 @@ type AuthConf struct {
 	Tokens          []string `json:"tokens"`
 	// KnownProxies lists IP addresses of reverse proxies in front of MQuery.
 	// Requests originating from these IPs are always subject to auth token
-	// checks, even if the IP matches listenAddress.
+	// checks, even if the IP matches listenAddress (for an exception, see
+	// ProxiesSetForwardingHeaders).
 	KnownProxies []string `json:"knownProxies"`
 	// LocalNetworks lists CIDR ranges (e.g. "192.168.1.0/24") whose traffic
 	// is considered local and exempt from auth token checks, provided the
-	// source IP is not also listed in trustedProxies. If empty, only the
+	// source IP is not also listed in knownProxies. If empty, only the
 	// exact listenAddress is treated as local.
 	LocalNetworks []string `json:"localNetworks"`
+
+	// ProxiesSetForwardingHeaders if true, then a request coming from
+	// a known proxy IP is considered as proxied only if it contains one of
+	// the X-Forwarded-For, X-Real-IP, Forwarded headers. Otherwise it is
+	// considered as a direct request from a client running on the proxy's
+	// host (and it is evaluated just like any other direct request).
+	// Enable this only if ALL the proxies listed in KnownProxies always set
+	// at least one of the headers (e.g. Nginx does not do this by default!).
+	// Otherwise, external requests may be considered internal.
+	//
+	// This is useful e.g. if some internal applications/script querying
+	// MQuery are on the same IP as the proxy. In such case it would
+	// be otherwise impossible to distinguish between a proxy request and
+	// the script.
+	ProxiesSetForwardingHeaders bool `json:"proxiesSetForwardingHeaders"`
 
 	// ApplyToAdminActionsOnly if true then only specific "administration"
 	// actions are protected by authentication tokens.
@@ -145,17 +161,34 @@ func (ac *AuthConf) IsKnownProxy(ip string) bool {
 	return false
 }
 
+func hasForwardingHeader(req *http.Request) bool {
+	return req.Header.Get("X-Forwarded-For") != "" ||
+		req.Header.Get("X-Real-IP") != "" ||
+		req.Header.Get("Forwarded") != ""
+}
+
+// isProxiedRequest tests whether the request comes via a known proxy.
+// If the proxies are configured to always set forwarding headers
+// (see ProxiesSetForwardingHeaders), a request from a known proxy IP without
+// such headers is a direct request from a client on the proxy's host.
+func (ac *AuthConf) isProxiedRequest(req *http.Request, remoteIP string) bool {
+	if !ac.IsKnownProxy(remoteIP) {
+		return false
+	}
+	return !ac.ProxiesSetForwardingHeaders || hasForwardingHeader(req)
+}
+
 // IsInternalRequest tests whether the request comes directly from
 // an internal network. Such requests are exempt from auth token checks
 // and can access "internal network access only" corpora.
-// Requests from known proxies and requests with the general.PublicClientHeader
+// Requests via known proxies and requests with the general.PublicClientHeader
 // set (e.g. from the MCP server) are never considered internal.
 func (ac *AuthConf) IsInternalRequest(req *http.Request, listenAddr string) bool {
 	if req.Header.Get(general.PublicClientHeader) != "" {
 		return false
 	}
 	remoteIP, _, err := net.SplitHostPort(req.RemoteAddr)
-	return err == nil && ac.IsLocalNetwork(remoteIP, listenAddr) && !ac.IsKnownProxy(remoteIP)
+	return err == nil && ac.IsLocalNetwork(remoteIP, listenAddr) && !ac.isProxiedRequest(req, remoteIP)
 }
 
 // --------
