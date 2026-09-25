@@ -46,6 +46,9 @@ import (
 // @Success      200 {object} results.TokenContext
 // @Router       /token-context/{corpusId} [get]
 func (a *Actions) TokenContext(ctx *gin.Context) {
+	if !a.canAccessCorpusOrFail(ctx, ctx.Param("corpusId")) {
+		return
+	}
 	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
 	pos, ok := unireq.RequireURLIntArgOrFail(ctx, "idx")
 	if !ok {

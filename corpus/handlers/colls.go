@@ -54,7 +54,7 @@ type collArgs struct {
 func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
 	var ans collArgs
 
-	ans.queryProps = DetermineQueryProps(ctx, a.conf)
+	ans.queryProps = a.determineQueryProps(ctx)
 	if ans.queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, ans.queryProps.err, ans.queryProps.status)
 		return ans, false

@@ -93,7 +93,7 @@ func newTtOverviewResult() *ttOverviewResult {
 // @Success      200 {object} ttOverviewResponse
 // @Router       /text-types-overview/{corpusId} [get]
 func (a *Actions) TextTypesOverview(ctx *gin.Context) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
+	queryProps := a.determineQueryProps(ctx)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return

@@ -289,7 +289,7 @@ func (a *Actions) anyConcordance(
 	validator ConcArgsValidator,
 
 ) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
+	queryProps := a.determineQueryProps(ctx)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
@@ -352,9 +352,10 @@ func (a *Actions) anyConcordance(
 // @Success      200 {object} results.ConcSizeResponse
 // @Router       /term-frequency/{corpusId} [get]
 func (a *Actions) TermFrequency(ctx *gin.Context) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
+	queryProps := a.determineQueryProps(ctx)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
+		return
 	}
 	argsBuilder := func(conf *corpus.MQCorpusSetup, q string) rdb.TermFrequencyArgs {
 		return rdb.TermFrequencyArgs{

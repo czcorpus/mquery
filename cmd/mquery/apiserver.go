@@ -86,7 +86,7 @@ func (api *apiServer) Start(ctx context.Context) {
 	}
 
 	ceActions := corpusActions.NewActions(
-		api.conf.CorporaSetup, api.radapter, api.infoProvider, api.conf.Locales)
+		api.conf, api.radapter, api.infoProvider, api.conf.Locales)
 
 	engine.GET("/", mkServerInfo(api.conf))
 

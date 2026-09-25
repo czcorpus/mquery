@@ -151,6 +151,10 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 	word := ctx.Param("wordForm")
 	pos := ctx.Query("pos")
 	corpusID := ctx.Param("corpusId")
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
+	}
+
 	corpInfo := a.conf.GetCorp(corpusID)
 	if corpInfo == nil {
 		uniresp.RespondWithErrorJSON(
@@ -210,6 +214,9 @@ func (a *Actions) OtherForms(ctx *gin.Context) {
 // @Router       /word-forms/{corpusId}/{lemma} [get]
 func (a *Actions) WordForms(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
+	}
 	lemma := ctx.Param("lemma")
 	sublemma := ctx.Query("sublemma")
 

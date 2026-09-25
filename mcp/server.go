@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mquery/general"
 	"net/http"
 	"net/url"
 	"strings"
@@ -93,6 +94,10 @@ func httpRequest(ctx context.Context, method, rawURL string, args map[string]any
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	// MCP clients are always considered as coming from the outside world
+	// (even if the MCP server itself runs within an internal network).
+	// Note: we set this after the custom headers so it cannot be overridden.
+	req.Header.Set(general.PublicClientHeader, "1")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

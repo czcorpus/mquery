@@ -28,7 +28,11 @@ import (
 )
 
 func (a *Actions) TextTypesNorms(ctx *gin.Context) {
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	corpusID := ctx.Param("corpusId")
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
+	}
+	corpusPath := a.conf.GetRegistryPath(corpusID)
 	wait, err := a.radapter.PublishQuery(
 		rdb.Query{
 			Func: "textTypeNorms",

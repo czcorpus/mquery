@@ -1,5 +1,5 @@
-// Copyright 2023 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2023 Institute of the Czech National Corpus,
+// Copyright 2026 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2026 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of MQUERY.
 //
@@ -16,26 +16,14 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
 
-package handlers
+package general
 
-import (
-	"mquery/cnf"
-	"mquery/corpus/infoload"
-	"mquery/rdb"
-)
-
-func NewActions(
-	conf *cnf.Conf,
-	radapter *rdb.Adapter,
-	infoProvider *infoload.Manatee,
-	locales cnf.LocalesConf,
-) *Actions {
-	return &Actions{
-		conf:          conf.CorporaSetup,
-		authConf:      conf.Auth,
-		listenAddress: conf.ListenAddress,
-		radapter:      radapter,
-		infoProvider:  infoProvider,
-		locales:       locales,
-	}
-}
+// PublicClientHeader is an HTTP header a client (e.g. the MCP server) can
+// send to signal that it forwards requests from the outside world.
+// Such requests are never considered as coming from an internal network
+// (no matter what their source IP is) so they are subject to auth token
+// checks (if configured) and they cannot access corpora configured
+// as "internal network access only".
+// The header can only reduce access rights so there is no need
+// to protect it against spoofing.
+const PublicClientHeader = "X-Mquery-Public-Client"

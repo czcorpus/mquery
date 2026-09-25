@@ -51,10 +51,16 @@ type multiSubcCorpus interface {
 }
 
 type Actions struct {
-	conf         *corpus.CorporaSetup
-	radapter     *rdb.Adapter
-	infoProvider *infoload.Manatee
-	locales      cnf.LocalesConf
+	conf          *corpus.CorporaSetup
+	authConf      *cnf.AuthConf
+	radapter      *rdb.Adapter
+	infoProvider  *infoload.Manatee
+	locales       cnf.LocalesConf
+	listenAddress string
+}
+
+func (a *Actions) isLocalNetworkReq(ctx *gin.Context) bool {
+	return a.authConf.IsInternalRequest(ctx.Request, a.listenAddress)
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {

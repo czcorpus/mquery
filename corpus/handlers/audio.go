@@ -56,6 +56,10 @@ func (a *Actions) Audio(ctx *gin.Context) {
 			corpus.ErrNotFound,
 			http.StatusNotFound,
 		)
+		return
+	}
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
 	}
 	if !corpConf.HasPublicAudio {
 		uniresp.RespondWithErrorJSON(

@@ -371,6 +371,11 @@ func (a *Actions) ttStreamedBase(ctx *gin.Context) (streamedFreqsBaseArgs, bool)
 func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 	defer ctx.Writer.Flush()
 
+	if !a.canAccessCorpus(ctx, ctx.Param("corpusId")) {
+		WriteStreamingError(ctx, corpus.ErrAccessDenied)
+		return
+	}
+
 	args, ok := a.ttStreamedBase(ctx)
 	if !ok {
 		return
@@ -402,11 +407,18 @@ func (a *Actions) TextTypesStreamed(ctx *gin.Context) {
 func (a *Actions) FreqsByYears(ctx *gin.Context) {
 	defer ctx.Writer.Flush()
 
+	corpusID := ctx.Param("corpusId")
+
+	if !a.canAccessCorpus(ctx, corpusID) {
+		WriteStreamingError(ctx, corpus.ErrAccessDenied)
+		return
+	}
+
 	args, ok := a.ttStreamedBase(ctx)
 	if !ok {
 		return
 	}
-	corpusID := ctx.Param("corpusId")
+
 	fromDate := ctx.Query("fromDate")
 	toDate := ctx.Query("toDate")
 

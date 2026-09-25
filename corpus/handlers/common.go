@@ -52,18 +52,51 @@ func (qp queryProps) hasError() bool {
 	return qp.err != nil
 }
 
-// DetermineQueryProps searches for common arguments
+// canAccessCorpus determines whether the corpus can be accessed.
+// This is an alternative to the method determineQueryProps for action
+// handlers where typical combination "corpus + subcorpus + conc. query" does
+// not make sense.
+// Note: for a non-existing corpus, the function returns true so that
+// the handler can respond with a proper "not found" error.
+func (a *Actions) canAccessCorpus(ctx *gin.Context, corpusID string) bool {
+	corpusConf := a.conf.GetCorp(corpusID)
+	return corpusConf == nil || a.canAccessCorpusConf(ctx, corpusConf)
+}
+
+func (a *Actions) canAccessCorpusConf(ctx *gin.Context, corpusConf *corpus.MQCorpusSetup) bool {
+	return !corpusConf.InternalNetworkAccessOnly || a.isLocalNetworkReq(ctx)
+}
+
+// canAccessCorpusOrFail tests corpus accessibility and in case it is
+// not accessible, it writes a proper error response.
+func (a *Actions) canAccessCorpusOrFail(ctx *gin.Context, corpusID string) bool {
+	if !a.canAccessCorpus(ctx, corpusID) {
+		uniresp.RespondWithErrorJSON(ctx, corpus.ErrAccessDenied, http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+// determineQueryProps searches for common arguments
 // required for most query+operation actions (freqs, colls, concordance)
+// and tests whether the corpus can be accessed (if not proper err and status
+// are set)
+//
 // Those are:
 // * `q` for Manatee CQL query
 // * `subcorpus` for a named ad-hoc subcorpus
-func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProps {
+func (a *Actions) determineQueryProps(ctx *gin.Context) queryProps {
 	var ans queryProps
 	ans.corpus = ctx.Param("corpusId")
-	corpusConf := cConf.GetCorp(ans.corpus)
+	corpusConf := a.conf.GetCorp(ans.corpus)
 	if corpusConf == nil {
 		ans.err = corpus.ErrNotFound
 		ans.status = http.StatusNotFound
+		return ans
+	}
+	if !a.canAccessCorpusConf(ctx, corpusConf) {
+		ans.err = corpus.ErrAccessDenied
+		ans.status = http.StatusForbidden
 		return ans
 	}
 	ans.corpusConf = corpusConf
@@ -79,7 +112,7 @@ func DetermineQueryProps(ctx *gin.Context, cConf *corpus.CorporaSetup) queryProp
 	if subc != "" {
 		ttCQL = corpus.SubcorpusToCQL(corpusConf.Subcorpora[subc].TextTypes)
 		if ttCQL == "" {
-			savedSubcPath, ok := corpus.CheckSavedSubcorpus(cConf.SavedSubcorporaDir, ans.corpus, subc)
+			savedSubcPath, ok := corpus.CheckSavedSubcorpus(a.conf.SavedSubcorporaDir, ans.corpus, subc)
 			if ok {
 				ans.savedSubcorpus = savedSubcPath
 

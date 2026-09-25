@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -174,41 +173,9 @@ func authTokenMatches(stored, provided string) bool {
 	return stored == provided
 }
 
-func isLocalNetwork(conf *cnf.Conf, ip string) bool {
-	parsed := net.ParseIP(ip)
-	if parsed == nil {
-		return false
-	}
-	if len(conf.Auth.LocalNetworks) > 0 {
-		for _, cidr := range conf.Auth.LocalNetworks {
-			_, network, err := net.ParseCIDR(cidr)
-			if err != nil {
-				log.Error().Err(err).Str("cidr", cidr).Msg("invalid localNetworks entry")
-				continue
-			}
-			if network.Contains(parsed) {
-				return true
-			}
-		}
-		return false
-	}
-	return ip == conf.ListenAddress
-}
-
-func isKnownProxy(conf *cnf.Conf, ip string) bool {
-	for _, p := range conf.Auth.KnownProxies {
-		if p == ip {
-			return true
-		}
-	}
-	return false
-}
-
 func AuthRequired(conf *cnf.Conf) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
-		isLocalDirect := err == nil && isLocalNetwork(conf, remoteIP) && !isKnownProxy(conf, remoteIP)
-		if !isLocalDirect {
+		if !conf.Auth.IsInternalRequest(ctx.Request, conf.ListenAddress) {
 			provided := ctx.GetHeader(conf.Auth.TokenHeaderName)
 			authorized := false
 			for _, stored := range conf.Auth.Tokens {
@@ -250,7 +217,7 @@ func main() {
 	docs.SwaggerInfo.Version = version.Version
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "MQUERY - A specialized corpus querying server\n\n")
+		fmt.Fprintf(os.Stderr, "MQUERY - A Manatee-open based corpus querying HTTP API and MCP server\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] server [config.json]\n\t", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] worker [config.json]\n\t", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "%s [options] version\n", filepath.Base(os.Args[0]))

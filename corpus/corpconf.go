@@ -36,8 +36,9 @@ import (
 
 type MQCorpusSetup struct {
 	corp.CorpusSetup
-	IsDisabled             bool `json:"isDisabled"`
-	fullConcTextPropsAttrs []string
+	IsDisabled                bool `json:"isDisabled"`
+	InternalNetworkAccessOnly bool `json:"internalNetworkAccessOnly"`
+	fullConcTextPropsAttrs    []string
 }
 
 func (cs *MQCorpusSetup) FullConcTextPropsAttrs() []string {
