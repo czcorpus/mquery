@@ -4,6 +4,11 @@
     "serverReadTimeoutSecs": 120,
     "serverWriteTimeoutSecs": 60,
     "corsAllowedOrigins": ["http://localhost:8081", "http://localhost:8082"],
+    "auth": {
+        "knownProxies": ["192.168.1.3"],
+        "localNetworks": ["192.168.1.0/24"],
+        "proxiesSetForwardingHeaders": false
+    },
     "corpora": {
         "registryDir": "/path/to/corpora/registry",
         "splitCorporaDir": "/path/to/split/corpora/dir",
