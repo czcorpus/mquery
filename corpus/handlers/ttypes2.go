@@ -37,7 +37,13 @@ import (
 func (a *Actions) TextTypesParallel(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
 	attr := ctx.Request.URL.Query().Get("attr")
-	corpusPath := a.conf.GetRegistryPath(ctx.Param("corpusId"))
+	corpusID := ctx.Param("corpusId")
+
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
+	}
+
+	corpusPath := a.conf.GetRegistryPath(corpusID)
 	sc, err := corpus.OpenSplitCorpus(a.conf.SplitCorporaDir, corpusPath)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(

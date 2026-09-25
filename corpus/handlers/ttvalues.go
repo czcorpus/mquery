@@ -39,6 +39,9 @@ import (
 // @Router       /text-types-avail-values/{corpusId} [get]
 func (a *Actions) TextTypesAvailValues(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
+	}
 	corpusConf := a.conf.GetCorp(corpusID)
 	if corpusConf == nil {
 		uniresp.RespondWithErrorJSON(ctx, corpus.ErrNotFound, http.StatusNotFound)

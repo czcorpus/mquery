@@ -90,6 +90,9 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 		)
 		return
 	}
+	if !a.canAccessCorpusOrFail(ctx, corpusID) {
+		return
+	}
 
 	cinfo, err := a.infoProvider.LoadCorpusInfo(corpusID, lang)
 	if err == corpus.ErrNotFound {
@@ -136,8 +139,11 @@ func (a *Actions) Corplist(ctx *gin.Context) {
 		return
 	}
 	allCorpora := a.conf.GetAllCorpora("") // TODO
-	corplist := make([]corpusCompactInfo, len(allCorpora))
-	for i, v := range allCorpora {
+	corplist := make([]corpusCompactInfo, 0, len(allCorpora))
+	for _, v := range allCorpora {
+		if !a.canAccessCorpusConf(ctx, v) {
+			continue
+		}
 		subcorpora := make([]subcInfo, 0, len(v.Subcorpora))
 		for k, v := range v.Subcorpora {
 			subcorpora = append(
@@ -148,13 +154,16 @@ func (a *Actions) Corplist(ctx *gin.Context) {
 				},
 			)
 		}
-		corplist[i] = corpusCompactInfo{
-			ID:          v.ID,
-			FullName:    getTranslation(v.FullName, lang),
-			Description: getTranslation(v.Description, lang),
-			Flags:       v.SrchKeywords,
-			Subcorpora:  subcorpora,
-		}
+		corplist = append(
+			corplist,
+			corpusCompactInfo{
+				ID:          v.ID,
+				FullName:    getTranslation(v.FullName, lang),
+				Description: getTranslation(v.Description, lang),
+				Flags:       v.SrchKeywords,
+				Subcorpora:  subcorpora,
+			},
+		)
 	}
 	ans := &corplistResponse{
 		Corpora: corplist,

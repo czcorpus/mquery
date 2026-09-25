@@ -48,7 +48,7 @@ const (
 // @Success      200 {object} results.FreqDistribResponse
 // @Router       /text-types/{corpusId} [get]
 func (a *Actions) TextTypes(ctx *gin.Context) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
+	queryProps := a.determineQueryProps(ctx)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return

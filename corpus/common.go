@@ -31,7 +31,8 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("corpus not found or available")
+	ErrNotFound     = errors.New("corpus not found or available")
+	ErrAccessDenied = errors.New("access denied")
 )
 
 // ------------------ split corpus (into multiple subcorpora) -------------------------

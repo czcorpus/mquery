@@ -26,6 +26,7 @@ import (
 	"mquery/corpus/infoload"
 	"mquery/rdb"
 	"mquery/rdb/results"
+	"net"
 	"net/http"
 	"sync"
 
@@ -51,10 +52,18 @@ type multiSubcCorpus interface {
 }
 
 type Actions struct {
-	conf         *corpus.CorporaSetup
-	radapter     *rdb.Adapter
-	infoProvider *infoload.Manatee
-	locales      cnf.LocalesConf
+	conf          *corpus.CorporaSetup
+	authConf      *cnf.AuthConf
+	radapter      *rdb.Adapter
+	infoProvider  *infoload.Manatee
+	locales       cnf.LocalesConf
+	listenAddress string
+}
+
+func (a *Actions) isLocalNetworkReq(ctx *gin.Context) bool {
+	remoteIP, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
+	return err == nil && a.authConf.IsLocalNetwork(remoteIP, a.listenAddress) &&
+		!a.authConf.IsKnownProxy(remoteIP)
 }
 
 func (a *Actions) DeleteSplit(ctx *gin.Context) {

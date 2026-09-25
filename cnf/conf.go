@@ -24,6 +24,7 @@ import (
 	"mquery/corpus"
 	"mquery/monitoring"
 	"mquery/rdb"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -104,6 +105,42 @@ type AuthConf struct {
 
 func (ac *AuthConf) IsDefined() bool {
 	return ac != nil && ac.TokenHeaderName != "" && len(ac.Tokens) > 0
+}
+
+// IsLocalNetwork tests whether the provided IP belongs to one of
+// configured local networks. If no networks are configured (or there
+// is no auth configuration at all), only the listenAddr is considered local.
+func (ac *AuthConf) IsLocalNetwork(ip, listenAddr string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	if ac == nil || len(ac.LocalNetworks) == 0 {
+		return ip == listenAddr
+	}
+	for _, cidr := range ac.LocalNetworks {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			log.Error().Err(err).Str("cidr", cidr).Msg("invalid localNetworks entry")
+			continue
+		}
+		if network.Contains(parsed) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ac *AuthConf) IsKnownProxy(ip string) bool {
+	if ac == nil {
+		return false
+	}
+	for _, p := range ac.KnownProxies {
+		if p == ip {
+			return true
+		}
+	}
+	return false
 }
 
 // --------

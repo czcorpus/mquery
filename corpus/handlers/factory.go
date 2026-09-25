@@ -20,21 +20,22 @@ package handlers
 
 import (
 	"mquery/cnf"
-	"mquery/corpus"
 	"mquery/corpus/infoload"
 	"mquery/rdb"
 )
 
 func NewActions(
-	conf *corpus.CorporaSetup,
+	conf *cnf.Conf,
 	radapter *rdb.Adapter,
 	infoProvider *infoload.Manatee,
 	locales cnf.LocalesConf,
 ) *Actions {
 	return &Actions{
-		conf:         conf,
-		radapter:     radapter,
-		infoProvider: infoProvider,
-		locales:      locales,
+		conf:          conf.CorporaSetup,
+		authConf:      conf.Auth,
+		listenAddress: conf.ListenAddress,
+		radapter:      radapter,
+		infoProvider:  infoProvider,
+		locales:       locales,
 	}
 }

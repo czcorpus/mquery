@@ -58,7 +58,7 @@ const (
 // @Success      200 {object} results.FreqDistribResponse
 // @Router       /freqs/{corpusId} [get]
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
+	queryProps := a.determineQueryProps(ctx)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
@@ -136,7 +136,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 }
 
 func (a *Actions) FreqDistribParallel(ctx *gin.Context) {
-	queryProps := DetermineQueryProps(ctx, a.conf)
+	queryProps := a.determineQueryProps(ctx)
 	if queryProps.hasError() {
 		uniresp.RespondWithErrorJSON(ctx, queryProps.err, queryProps.status)
 		return
