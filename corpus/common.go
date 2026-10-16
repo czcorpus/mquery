@@ -24,6 +24,7 @@ import (
 	"mquery/rdb"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
@@ -69,6 +70,9 @@ func OpenSplitCorpus(subcBaseDir, corpPath string) (*SplitCorpus, error) {
 // --------------- saved subcorpus ----------------------------
 
 func CheckSavedSubcorpus(baseDir, corp, subcID string) (string, bool) {
+	if len(subcID) < 2 || strings.Contains(subcID, "..") || strings.ContainsRune(subcID, filepath.Separator) {
+		return subcID, false
+	}
 	path := filepath.Join(baseDir, subcID[:2], subcID, "data.subc")
 	isf, err := fs.IsFile(path)
 	if err != nil {
@@ -76,6 +80,33 @@ func CheckSavedSubcorpus(baseDir, corp, subcID string) (string, bool) {
 		return path, false
 	}
 	return path, isf
+}
+
+// SubcFreqDataPath returns a path of Manatee's auxiliary frequency file
+// for a positional attribute `attr` of a subcorpus `subcPath` (e.g. for
+// `/a/b/data.subc` and `lemma` it returns `/a/b/data.lemma.frq`).
+// Note: Manatee may also create a 64-bit variant with the `64` suffix
+// (e.g. `data.lemma.frq64`) in case some frequency exceeds uint32.
+func SubcFreqDataPath(subcPath, attr string) string {
+	// this mimics Manatee's SubCorpus SUBCPATH handling
+	prefix := strings.TrimSuffix(subcPath, filepath.Ext(subcPath))
+	return fmt.Sprintf("%s.%s.frq", prefix, attr)
+}
+
+// SubcFreqDataExists tests whether auxiliary frequency data for
+// a positional attribute `attr` of a subcorpus `subcPath` exist.
+func SubcFreqDataExists(subcPath, attr string) (bool, error) {
+	path := SubcFreqDataPath(subcPath, attr)
+	for _, p := range []string{path, path + "64"} {
+		isf, err := fs.IsFile(p)
+		if err != nil {
+			return false, fmt.Errorf("failed to test subc. freq. data file %s: %w", p, err)
+		}
+		if isf {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ------------------------------------------------------------
