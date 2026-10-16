@@ -119,6 +119,9 @@ func (api *apiServer) Start(ctx context.Context) {
 	protectedRouter.DELETE(
 		"/split/:corpusId", ceActions.DeleteSplit)
 
+	engine.POST(
+		"/subc-aux-data/:corpusId", ceActions.SubcAuxData)
+
 	engine.GET(
 		"/info/:corpusId", ceActions.CorpusInfo)
 
