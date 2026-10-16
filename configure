@@ -52,18 +52,20 @@ HASH=\`git rev-parse --short HEAD\`
 
 LDFLAGS=-ldflags "-w -s -X main.version=\${VERSION} -X main.buildDate=\${BUILD} -X main.gitCommit=\${HASH}"
 
-.PHONY: clean tools
+.PHONY: clean tools swagger
 
 all: test-and-build
+
+swagger:
+	@echo "generating OpenAPI documentation"
+	swag init --parseDependency -g mquery.go -d cmd/mquery,. -o cmd/mquery/docs
 
 build:
 	@echo "building without running unit tests and without regenerating OpenAPI"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery ./cmd/mquery
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mqmcp ./cmd/mqmcp
 
-test-and-build:
-	@echo "generating OpenAPI documentation"
-	swag init --parseDependency -g mquery.go -d cmd/mquery,. -o cmd/mquery/docs
+test-and-build: swagger
 	@echo "running unit tests and building the project"
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go test $(go list ./...  | tr '\n' ' ')
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o mquery  ./cmd/mquery
