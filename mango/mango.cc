@@ -59,13 +59,13 @@ CorpusSizeRetrval get_corpus_size(const char* corpusPath) {
     ans.err = nullptr;
     Corpus* corp = nullptr;
     try {
-        Corpus* corp = new Corpus(corpusPath);
+        corp = new Corpus(corpusPath);
         ans.value = corp->size();
-        delete corp;
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
     }
+    delete corp;
     return ans;
 }
 
@@ -115,6 +115,7 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* subcPath, co
     }
 
     delete conc;
+    delete subc;
     delete corp;
 
     return ans;
@@ -170,15 +171,19 @@ FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt 
 
 FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* query, const char* fcrit, PosInt flimit) {
     string cPath(corpusPath);
+    Corpus* corp = nullptr;
+    Concordance* conc = nullptr;
+    SubCorpus* subc = nullptr;
+    vector<string>* xwords = nullptr;
+    vector<PosInt>* xfreqs = nullptr;
+    vector<PosInt>* xnorms = nullptr;
     try {
-        Corpus* corp = new Corpus(cPath);
-        Concordance* conc = nullptr;
-        SubCorpus* subc = nullptr;
-        auto xwords = new vector<string>;
+        corp = new Corpus(cPath);
+        xwords = new vector<string>;
         vector<string>& words = *xwords;
-        auto xfreqs = new vector<PosInt>;
+        xfreqs = new vector<PosInt>;
         vector<PosInt>& freqs = *xfreqs;
-        auto xnorms = new vector<PosInt>;
+        xnorms = new vector<PosInt>;
         vector<PosInt>& norms = *xnorms;
         PosInt concSize;
         PosInt corpSize;
@@ -216,6 +221,12 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
         return ans;
 
     } catch (std::exception &e) {
+        delete xwords;
+        delete xfreqs;
+        delete xnorms;
+        delete conc;
+        delete subc;
+        delete corp;
         FreqsRetval ans {
             nullptr,
             nullptr,
@@ -275,40 +286,50 @@ char** process_kwic_lines(
     if (conc->size() < limit) {
         limit = conc->size();
     }
-    char** lines = (char**)malloc(limit * sizeof(char*));
+    // calloc so that unfilled items are nullptr and the whole array
+    // can be safely released via conc_examples_free
+    char** lines = (char**)calloc(limit, sizeof(char*));
     int i = 0;
-    while (kl->nextline()) {
-        auto lft = kl->get_left();
-        auto kwc = kl->get_kwic();
-        auto rgt = kl->get_right();
-        std::ostringstream buffer;
+    try {
+        while (kl->nextline()) {
+            auto lft = kl->get_left();
+            auto kwc = kl->get_kwic();
+            auto rgt = kl->get_right();
+            std::ostringstream buffer;
 
-        buffer << kl->get_refs() << refsSplitter;
+            buffer << kl->get_refs() << refsSplitter;
 
-        for (size_t i = 0; i < lft.size(); ++i) {
-            if (i > 0) {
-                buffer << " ";
+            for (size_t i = 0; i < lft.size(); ++i) {
+                if (i > 0) {
+                    buffer << " ";
+                }
+                buffer << lft.at(i);
             }
-            buffer << lft.at(i);
-        }
-        for (size_t i = 0; i < kwc.size(); ++i) {
-            if (i > 0) {
-                buffer << " ";
+            for (size_t i = 0; i < kwc.size(); ++i) {
+                if (i > 0) {
+                    buffer << " ";
+                }
+                buffer << kwc.at(i);
             }
-            buffer << kwc.at(i);
-        }
-        for (size_t i = 0; i < rgt.size(); ++i) {
-            if (i > 0) {
-                buffer << " ";
+            for (size_t i = 0; i < rgt.size(); ++i) {
+                if (i > 0) {
+                    buffer << " ";
+                }
+                buffer << rgt.at(i);
             }
-            buffer << rgt.at(i);
+            lines[i] = strdup(buffer.str().c_str());
+            i++;
+            if (i == limit) {
+                break;
+            }
         }
-        lines[i] = strdup(buffer.str().c_str());
-        i++;
-        if (i == limit) {
-            break;
-        }
+
+    } catch (...) {
+        conc_examples_free(lines, limit);
+        delete kl;
+        throw;
     }
+    delete kl;
     return lines;
 }
 
@@ -336,12 +357,16 @@ KWICRowsRetval conc_examples(
     const char* viewContextStruct) {
 
     string cPath(corpusPath);
-    Corpus* corp = new Corpus(cPath);
-    PosInt corpSize = corp->size();
+    Corpus* corp = nullptr;
     Concordance* conc = nullptr;
     SubCorpus* subc = nullptr;
+    Corpus* alignedCorp = nullptr;
+    char** lines = nullptr;
+    char** alignedLines = nullptr;
 
     try {
+        corp = new Corpus(cPath);
+        PosInt corpSize = corp->size();
         if (subcPath && *subcPath != '\0') {
             subc = new SubCorpus(corp, subcPath);
             conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
@@ -359,6 +384,9 @@ KWICRowsRetval conc_examples(
                 0,
                 nullptr
             };
+            delete conc;
+            delete subc;
+            delete corp;
             return ans;
         }
         if (conc->size() <= fromLine) {
@@ -374,6 +402,9 @@ KWICRowsRetval conc_examples(
                 dynamicStr,
                 1
             };
+            delete conc;
+            delete subc;
+            delete corp;
             return ans;
         }
         if (shuffle) {
@@ -388,10 +419,9 @@ KWICRowsRetval conc_examples(
             limit = conc->size() - fromLine;
         }
 
-        char** lines = process_kwic_lines(
+        lines = process_kwic_lines(
             corp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
 
-        char** alignedLines = nullptr;
         if (aligned_corps.size() == 2) {
             conc->switch_aligned(aligned_corps[0].c_str());
 
@@ -402,10 +432,11 @@ KWICRowsRetval conc_examples(
             string alignedCorpusPath = corpusDir + aligned_corps[0];
 
             // Get the aligned corpus object after switching
-            Corpus* alignedCorp = new Corpus(alignedCorpusPath);
+            alignedCorp = new Corpus(alignedCorpusPath);
             alignedLines = process_kwic_lines(
                 alignedCorp, conc, fromLine, limit, maxContext, attrs, structs, refs, refsSplitter, viewContextStruct);
             delete alignedCorp;
+            alignedCorp = nullptr;
         }
 
         int i = limit;
@@ -431,6 +462,7 @@ KWICRowsRetval conc_examples(
             }
         }
         delete conc;
+        delete subc;
         delete corp;
         KWICRowsRetval ans {
             lines,
@@ -444,6 +476,16 @@ KWICRowsRetval conc_examples(
         return ans;
 
     } catch (std::exception &e) {
+        if (lines != nullptr) {
+            conc_examples_free(lines, limit);
+        }
+        if (alignedLines != nullptr) {
+            conc_examples_free(alignedLines, limit);
+        }
+        delete alignedCorp;
+        delete conc;
+        delete subc;
+        delete corp;
         KWICRowsRetval ans {
             nullptr,
             nullptr,
@@ -475,12 +517,15 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     const char* viewContextStruct) {
 
         string cPath(corpusPath);
-        Corpus* corp = new Corpus(cPath);
-        PosInt corpSize = corp->size();
+        Corpus* corp = nullptr;
         Concordance* conc = nullptr;
         SubCorpus* subc = nullptr;
+        KWICLines* kl = nullptr;
+        char** lines = nullptr;
 
         try {
+            corp = new Corpus(cPath);
+            PosInt corpSize = corp->size();
             if (subcPath && *subcPath != '\0') {
                 subc = new SubCorpus(corp, subcPath);
                 conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
@@ -498,6 +543,9 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                     0,
                     nullptr
                 };
+                delete conc;
+                delete subc;
+                delete corp;
                 return ans;
             }
             if (conc->size() <= fromLine) {
@@ -513,6 +561,9 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                     dynamicStr,
                     1
                 };
+                delete conc;
+                delete subc;
+                delete corp;
                 return ans;
             }
 
@@ -528,7 +579,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             std::string cppContextStruct(viewContextStruct);
             std::string halfLeft = "-" + std::to_string(int(std::floor(maxContext / 2.0)));
             std::string halfRight = std::to_string(int(std::ceil(maxContext / 2.0)));
-            KWICLines* kl = new KWICLines(
+            kl = new KWICLines(
                 corp,
                 conc->RS(true, fromLine, fromLine+limit),
                 cppContextStruct.empty() ? halfLeft.c_str() : ("-1:"+cppContextStruct).c_str(),
@@ -543,7 +594,9 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             if (conc->size() < limit) {
                 limit = conc->size();
             }
-            char** lines = (char**)malloc(limit * sizeof(char*));
+            // calloc so that unfilled items are nullptr and the whole array
+            // can be safely released via conc_examples_free
+            lines = (char**)calloc(limit, sizeof(char*));
             int i = 0;
             while (kl->nextline()) {
                 auto lft = kl->get_left();
@@ -584,7 +637,9 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             for (int i2 = i; i2 < limit; i2++) {
                 lines[i2] = strdup("");
             }
+            delete kl;
             delete conc;
+            delete subc;
             delete corp;
 
             KWICRowsRetval ans {
@@ -599,6 +654,13 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             return ans;
 
         } catch (std::exception &e) {
+            if (lines != nullptr) {
+                conc_examples_free(lines, limit);
+            }
+            delete kl;
+            delete conc;
+            delete subc;
+            delete corp;
             KWICRowsRetval ans {
                 nullptr,
                 nullptr,
@@ -674,11 +736,14 @@ CollsRetVal collocations(
 ) {
     CollsRetVal ans;
     ans.err = nullptr;
+    ans.items = nullptr;
+    ans.resultSize = 0;
     string cPath(corpusPath);
     Corpus* corp = nullptr;
     Concordance* conc = nullptr;
     CollocItems* collocs = nullptr;
     SubCorpus* subc = nullptr;
+    CollItem* items = nullptr;
 
     try {
         corp = new Corpus(cPath);
@@ -694,9 +759,8 @@ CollsRetVal collocations(
         conc->sync();
         ans.concSize = conc->size();
         ans.searchSize = corp->size();
-        ans.resultSize = 0;
         collocs = new CollocItems(conc, string(attrName), sortFunCode, minfreq, minbgr, fromw, tow, maxitems);
-        CollItem* items = (CollItem*) malloc(maxitems * sizeof(CollItem));
+        items = (CollItem*) malloc(maxitems * sizeof(CollItem));
         int i = 0;
         while (collocs->eos() == false && i < maxitems) {
             CollItem item;
@@ -711,6 +775,11 @@ CollsRetVal collocations(
         ans.items = items;
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
+        if (items != nullptr) {
+            coll_examples_free(items, ans.resultSize);
+        }
+        ans.items = nullptr;
+        ans.resultSize = 0;
     }
     delete collocs;
     delete conc;
@@ -744,13 +813,14 @@ AttrValSizes get_attr_values_sizes(
     Corpus* corp = nullptr;
     Structure* strct = nullptr;
     PosAttr* attr = nullptr;
+    map<string, PosInt>* sizes = nullptr;
 
     try {
         corp = new Corpus(corpus_path);
         strct = corp->get_struct(struct_name);
         attr = strct->get_attr(attr_name);
         map<PosInt, PosInt> normvals;
-        auto sizes = new map<string, PosInt>;
+        sizes = new map<string, PosInt>;
 
         for (PosInt i = 0; i < strct->size(); i++) {
             normvals[strct->rng->beg_at(i)] = strct->rng->end_at(i) - strct->rng->beg_at(i);
@@ -770,12 +840,15 @@ AttrValSizes get_attr_values_sizes(
                 rng->next();
             }
             (*sizes)[value] = cnt;
-            delete pos;
+            // `rng` owns `pos` (see part_range destructor), so deleting
+            // `rng` releases both
+            delete rng;
         }
         ans.sizes = static_cast<void*>(sizes);
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
+        delete sizes;
     }
     delete corp;
     return ans;
@@ -850,9 +923,9 @@ StructAttrValuesRetval get_struct_attr_values(const char* corpusPath, PosInt lim
     ans.items = nullptr;
     ans.size = 0;
     Corpus* corp = nullptr;
+    vector<StructAttrValue> collected;
     try {
         corp = new Corpus(corpusPath);
-        vector<StructAttrValue> collected;
 
         // SUBCORPATTRS entries are conventionally comma-separated, but some
         // registry files (following the FULLREF/SHORTREF convention) use
@@ -899,6 +972,11 @@ StructAttrValuesRetval get_struct_attr_values(const char* corpusPath, PosInt lim
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
+        for (size_t i = 0; i < collected.size(); i++) {
+            free(collected[i].structName);
+            free(collected[i].attrName);
+            free(collected[i].value);
+        }
     }
     delete corp;
     return ans;
@@ -931,10 +1009,11 @@ CorpRegionRetval get_corp_region(
     CorpRegionRetval ans;
     ans.err = nullptr;
     Corpus* corp = nullptr;
+    CorpRegion* region = nullptr;
     string cPath(corpusPath);
     try {
         corp = new Corpus(cPath);
-        CorpRegion* region = new CorpRegion(corp, attrs, structs);
+        region = new CorpRegion(corp, attrs, structs);
         const std::vector<std::string>& xreg = region->region(fromPos, toPos, ' ', '\x1F');
 
         std:stringstream buff;
@@ -946,11 +1025,10 @@ CorpRegionRetval get_corp_region(
         char* c_str = strdup(cpp_str.c_str());
         ans.text = c_str;
 
-        delete region;
-
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
     }
+    delete region;
     delete corp;
     return ans;
 }
