@@ -44,7 +44,10 @@ func extendCorpusInfo(cinfo *results.CorpusInfo, conf *corpus.MQCorpusSetup, lan
 	for i, attr := range cinfo.Data.AttrList {
 		srch := conf.GetPosAttr(attr.Name)
 		if !srch.IsZero() {
-			attr.Description = srch.LocaleDescription(lang)
+			// registry-only attributes may have no label - keep the original description then
+			if desc := srch.LocaleDescription(lang); desc != "" {
+				attr.Description = desc
+			}
 		}
 		newAttrList[i] = attr
 	}

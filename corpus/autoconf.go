@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/czcorpus/rexplorer/parser"
 	"github.com/rs/zerolog/log"
@@ -177,7 +178,9 @@ func loadRegistry(registryDir, corpusID string) (*parser.Document, error) {
 }
 
 // AutogenerateMinConf is for obtaining values needed even in case zero conf mode is disabled
-// (currently, it is mostly the `fullConcTextPropsAttrs` entry)
+// (currently, these are all the structural attributes - see `fullConcTextPropsAttrs` - and
+// all the positional attributes). Please note that `PosAttrs` in the returned value
+// contains all the registry-defined attributes.
 func AutogenerateMinConf(registryDir, corpusID string) *MQCorpusSetup {
 	reg, err := loadRegistry(registryDir, corpusID)
 	if err != nil {
@@ -187,6 +190,12 @@ func AutogenerateMinConf(registryDir, corpusID string) *MQCorpusSetup {
 	return &MQCorpusSetup{
 		CorpusSetup: corp.CorpusSetup{
 			ID: corpusID,
+			PosAttrs: collections.SliceMap(reg.PosAttrs, func(item *parser.Attr, i int) corp.PosAttr {
+				return corp.PosAttr{
+					Name:        item.Name,
+					Description: map[string]string{"en": item.GetProperty("LABEL").Value()},
+				}
+			}),
 		},
 		fullConcTextPropsAttrs: getAllTextProps(reg),
 	}

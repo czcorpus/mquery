@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
@@ -77,7 +78,8 @@ type CorporaSetup struct {
 	AudioFilesDir      string    `json:"audioFilesDir"`
 	ZeroConfCorpora    bool      `json:"zeroConfCorpora"`
 
-	autoConfCache map[string]*MQCorpusSetup
+	autoConfCache     map[string]*MQCorpusSetup
+	autoConfCacheLock sync.Mutex
 }
 
 // GetCorp returns a corpus configuration.
@@ -85,19 +87,16 @@ type CorporaSetup struct {
 // if it cannot produce a configuration based on an inferred
 // registry file.
 func (cs *CorporaSetup) GetCorp(corpusID string) *MQCorpusSetup {
-	if cs.autoConfCache == nil {
-		cs.autoConfCache = make(map[string]*MQCorpusSetup)
-	}
 	if c := cs.Resources.get(corpusID); c != nil {
-		_, ok := cs.autoConfCache[corpusID]
-		if !ok {
-			tmp := AutogenerateMinConf(cs.RegistryDir, corpusID)
-			c.fullConcTextPropsAttrs = tmp.fullConcTextPropsAttrs
-		}
 		return c
 	}
 	if !cs.ZeroConfCorpora {
 		return nil
+	}
+	cs.autoConfCacheLock.Lock()
+	defer cs.autoConfCacheLock.Unlock()
+	if cs.autoConfCache == nil {
+		cs.autoConfCache = make(map[string]*MQCorpusSetup)
 	}
 	autoConf, ok := cs.autoConfCache[corpusID]
 	if ok {
@@ -119,15 +118,10 @@ func (cs *CorporaSetup) safeGetCorp(corpusID string) *MQCorpusSetup {
 
 func (cs *CorporaSetup) GetAllCorpora(substrFilter string) []*MQCorpusSetup {
 	if !cs.ZeroConfCorpora {
-		ans := make([]*MQCorpusSetup, 0, len(cs.Resources)*3)
+		// variants are already expanded (see Resources.expandVariants)
+		ans := make(Resources, 0, len(cs.Resources))
 		for _, v := range cs.Resources {
-			if len(v.Variants) > 0 {
-				for _, variant := range v.Variants {
-					item := cs.Resources.get(variant.ID)
-					ans = append(ans, item)
-				}
-
-			} else {
+			if substrFilter == "" || strings.Contains(strings.ToLower(v.ID), strings.ToLower(substrFilter)) {
 				ans = append(ans, v)
 			}
 		}
@@ -197,6 +191,10 @@ func (cs *CorporaSetup) ValidateAndDefaults(confContext string) error {
 		if err := v.ValidateAndDefaults(); err != nil {
 			return err
 		}
+		if !v.IsDynamic() {
+			v.SyncWithRegistry(cs.RegistryDir)
+		}
 	}
+	cs.Resources.expandVariants(cs.RegistryDir)
 	return nil
 }

@@ -78,7 +78,7 @@ func (a *Actions) TokenContext(ctx *gin.Context) {
 
 	attrs := ctx.Request.URL.Query()["attr"]
 	for _, attr := range attrs {
-		if !corpConf.PosAttrs.Contains(attr) {
+		if !corpConf.AllPosAttrs().Contains(attr) {
 			uniresp.RespondWithErrorJSON(
 				ctx, fmt.Errorf("attribute %s not found", attr), http.StatusBadRequest,
 			)
