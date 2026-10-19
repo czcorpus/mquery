@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/czcorpus/mquery-common/corp"
@@ -39,10 +38,72 @@ type MQCorpusSetup struct {
 	IsDisabled                bool `json:"isDisabled"`
 	InternalNetworkAccessOnly bool `json:"internalNetworkAccessOnly"`
 	fullConcTextPropsAttrs    []string
+	allPosAttrs               corp.PosAttrList
+	syncedWithRegistry        string
+}
+
+// SyncWithRegistry loads values which are available only in corpus
+// registry file (all positional attributes, all structural attributes).
+// For positional attributes defined also in the JSON configuration,
+// the JSON-defined descriptions take precedence.
+// The function is expected to be called during configuration loading
+// as it is not thread-safe.
+func (cs *MQCorpusSetup) SyncWithRegistry(registryDir string) {
+	if cs.syncedWithRegistry == registryDir {
+		return
+	}
+	tmp := AutogenerateMinConf(registryDir, cs.ID)
+	if tmp == nil {
+		return
+	}
+	cs.fullConcTextPropsAttrs = tmp.fullConcTextPropsAttrs
+	cs.allPosAttrs = tmp.PosAttrs
+	for i, posattr := range cs.allPosAttrs {
+		if jsonAttr := cs.CorpusSetup.GetPosAttr(posattr.Name); len(jsonAttr.Description) > 0 {
+			cs.allPosAttrs[i].Description = jsonAttr.Description
+		}
+	}
+	for _, posattr := range cs.PosAttrs {
+		if !cs.allPosAttrs.Contains(posattr.Name) {
+			log.Warn().
+				Str("corpus", cs.ID).
+				Str("attr", posattr.Name).
+				Msg("configured positional attribute not found in corpus registry")
+		}
+	}
+	cs.syncedWithRegistry = registryDir
 }
 
 func (cs *MQCorpusSetup) FullConcTextPropsAttrs() []string {
 	return cs.fullConcTextPropsAttrs
+}
+
+// AllPosAttrs returns all the positional attributes defined
+// in corpus registry. This is in contrast to `PosAttrs` which
+// contains only attributes explicitly configured in MQuery
+// (which are used e.g. as default attributes for concordances).
+func (cs *MQCorpusSetup) AllPosAttrs() corp.PosAttrList {
+	return cs.allPosAttrs
+}
+
+// GetPosAttr searches for a positional attribute among all
+// the registry-defined attributes (see AllPosAttrs). In case
+// the configuration has not been synced with the registry,
+// only the JSON-configured attributes are searched.
+// If nothing is found, a zero PosAttr is returned.
+//
+// Note: this shadows corp.CorpusSetup.GetPosAttr which searches
+// only the JSON-configured attributes.
+func (cs *MQCorpusSetup) GetPosAttr(name string) corp.PosAttr {
+	if cs.allPosAttrs == nil {
+		return cs.CorpusSetup.GetPosAttr(name)
+	}
+	for _, v := range cs.allPosAttrs {
+		if v.Name == name {
+			return v
+		}
+	}
+	return corp.PosAttr{}
 }
 
 func (cs *MQCorpusSetup) ValidateAndDefaults() error {
@@ -162,30 +223,44 @@ func (rscs *Resources) Load(directory, registryDir string) error {
 	return nil
 }
 
+// expandVariants replaces dynamic corpora configurations (templates
+// with "*" in their ID) with actual configurations of their variants.
+// Each variant is a copy of its template (sharing its read-only
+// slices and maps) and it is synced with its registry file.
+// The function is expected to be called during configuration loading
+// as it is not thread-safe. Repeated calls have no effect as no templates
+// remain after the first call.
+func (rscs *Resources) expandVariants(registryPath string) {
+	expanded := make(Resources, 0, len(*rscs))
+	for _, tpl := range *rscs {
+		if !tpl.IsDynamic() {
+			expanded = append(expanded, tpl)
+			continue
+		}
+		for _, variant := range tpl.Variants {
+			merged := *tpl
+			merged.syncedWithRegistry = ""
+			merged.Variants = nil
+			merged.ID = variant.ID
+			if len(variant.FullName) > 0 {
+				merged.FullName = variant.FullName
+			}
+			if len(variant.Description) > 0 {
+				merged.Description = variant.Description
+			}
+			merged.Subcorpora = nil
+			merged.Tagsets = nil
+			merged.SrchKeywords = nil
+			merged.SyncWithRegistry(registryPath)
+			expanded = append(expanded, &merged)
+		}
+	}
+	*rscs = expanded
+}
+
 func (rscs Resources) get(name string) *MQCorpusSetup {
 	for _, v := range rscs {
-		if strings.Contains(v.ID, "*") {
-			ptrn := regexp.MustCompile(strings.ReplaceAll(v.ID, "*", ".*"))
-			if ptrn.MatchString(name) {
-				if v.Variants != nil {
-					variant, ok := v.Variants[name]
-					if ok {
-						// make a copy of CorpusSetup and replace values for specific variant
-						merged := *v
-						merged.Variants = nil
-						merged.ID = variant.ID
-						if len(variant.FullName) > 0 {
-							merged.FullName = variant.FullName
-						}
-						if len(variant.Description) > 0 {
-							merged.Description = variant.Description
-						}
-						return &merged
-					}
-				}
-			}
-
-		} else if v.ID == name {
+		if v.ID == name {
 			return v
 		}
 	}

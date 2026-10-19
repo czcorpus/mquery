@@ -317,9 +317,6 @@ func ValidateAndDefaults(conf *Conf) {
 	if err := conf.CorporaSetup.ValidateAndDefaults("corpora"); err != nil {
 		log.Fatal().Err(err).Msg("invalid configuration")
 	}
-	if err := conf.CorporaSetup.ValidateAndDefaults("corporaSetup"); err != nil {
-		log.Fatal().Err(err).Msg("invalid configuration")
-	}
 	if conf.Auth == nil || len(conf.Auth.KnownProxies) == 0 {
 		for _, v := range conf.CorporaSetup.Resources {
 			if v.InternalNetworkAccessOnly {
