@@ -145,8 +145,6 @@ PosInt int_vector_get_element(MVector v, int i);
 
 PosInt int_vector_get_size(MVector v);
 
-FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
-
 FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* query, const char* fcrit, PosInt flimit);
 
 /**

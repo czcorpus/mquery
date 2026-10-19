@@ -246,6 +246,15 @@ func GetConcordanceWithCollPhrase(
 	shuffle bool,
 	viewContextStruct string,
 ) (GoConcordance, error) {
+	if fromLine < 0 {
+		panic("GetConcordanceWithCollPhrase - invalid fromLine value")
+	}
+	if maxItems < 0 {
+		panic("GetConcordanceWithCollPhrase - invalid maxItems value")
+	}
+	if maxContext < 0 {
+		panic("GetConcordanceWithCollPhrase - invalid maxContext value")
+	}
 	if !collections.SliceContains(refs, "#") {
 		refs = append([]string{"#"}, refs...)
 	}
@@ -276,6 +285,7 @@ func GetConcordanceWithCollPhrase(
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
+	ret.CorpusSize = int(ans.corpusSize)
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
