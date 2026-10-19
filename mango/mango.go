@@ -41,6 +41,23 @@ var (
 	ErrRowsRangeOutOfConc = errors.New("rows range is out of concordance size")
 )
 
+// cStrings keeps track of C strings allocated for a C function call
+// so they can be released at once (typically via `defer cs.free()`).
+type cStrings []*C.char
+
+func (cs *cStrings) new(s string) *C.char {
+	ans := C.CString(s)
+	*cs = append(*cs, ans)
+	return ans
+}
+
+func (cs *cStrings) free() {
+	for _, s := range *cs {
+		C.free(unsafe.Pointer(s))
+	}
+	*cs = nil
+}
+
 type GoVector struct {
 	v C.MVector
 }
@@ -89,7 +106,9 @@ type GoColls struct {
 }
 
 func GetCorpusSize(corpusPath string) (int64, error) {
-	ans := C.get_corpus_size(C.CString(corpusPath))
+	var cs cStrings
+	defer cs.free()
+	ans := C.get_corpus_size(cs.new(corpusPath))
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -99,7 +118,9 @@ func GetCorpusSize(corpusPath string) (int64, error) {
 }
 
 func GetConcSize(corpusPath, subcPath, query string) (GoConcSize, error) {
-	ans := C.concordance_size(C.CString(corpusPath), C.CString(subcPath), C.CString(query))
+	var cs cStrings
+	defer cs.free()
+	ans := C.concordance_size(cs.new(corpusPath), cs.new(subcPath), cs.new(query))
 	var ret GoConcSize
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
@@ -113,7 +134,9 @@ func GetConcSize(corpusPath, subcPath, query string) (GoConcSize, error) {
 }
 
 func CompileSubcFreqs(corpusPath, subcPath, attr string) error {
-	ans := C.compile_subc_freqs(C.CString(corpusPath), C.CString(subcPath), C.CString(attr))
+	var cs cStrings
+	defer cs.free()
+	ans := C.compile_subc_freqs(cs.new(corpusPath), cs.new(subcPath), cs.new(attr))
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -151,19 +174,21 @@ func GetConcordance(
 	} else {
 		shuffleInt = 0
 	}
+	var cs cStrings
+	defer cs.free()
 	ans := C.conc_examples(
-		C.CString(corpusPath),
-		C.CString(subcPath),
-		C.CString(query),
-		C.CString(strings.Join(attrs, ",")),
-		C.CString(strings.Join(structs, ",")),
-		C.CString(strings.Join(refs, ",")),
-		C.CString(concordance.RefsEndMark),
+		cs.new(corpusPath),
+		cs.new(subcPath),
+		cs.new(query),
+		cs.new(strings.Join(attrs, ",")),
+		cs.new(strings.Join(structs, ",")),
+		cs.new(strings.Join(refs, ",")),
+		cs.new(concordance.RefsEndMark),
 		C.longlong(fromLine),
 		C.longlong(maxItems),
 		C.longlong(maxContext),
 		shuffleInt,
-		C.CString(viewContextStruct))
+		cs.new(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
@@ -230,22 +255,24 @@ func GetConcordanceWithCollPhrase(
 	} else {
 		shuffleInt = 0
 	}
+	var cs cStrings
+	defer cs.free()
 	ans := C.conc_examples_with_coll_phrase(
-		C.CString(corpusPath),
-		C.CString(subcPath),
-		C.CString(query),
-		C.CString(collQuery+";"),
-		C.CString(strconv.Itoa(lftCtx)),
-		C.CString(strconv.Itoa(rgtCtx)),
-		C.CString(strings.Join(attrs, ",")),
-		C.CString(strings.Join(structs, ",")),
-		C.CString(strings.Join(refs, ",")),
-		C.CString(concordance.RefsEndMark),
+		cs.new(corpusPath),
+		cs.new(subcPath),
+		cs.new(query),
+		cs.new(collQuery+";"),
+		cs.new(strconv.Itoa(lftCtx)),
+		cs.new(strconv.Itoa(rgtCtx)),
+		cs.new(strings.Join(attrs, ",")),
+		cs.new(strings.Join(structs, ",")),
+		cs.new(strings.Join(refs, ",")),
+		cs.new(concordance.RefsEndMark),
 		C.longlong(fromLine),
 		C.longlong(maxItems),
 		C.longlong(maxContext),
 		shuffleInt,
-		C.CString(viewContextStruct))
+		cs.new(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
@@ -294,7 +321,9 @@ func GetConcordanceWithCollPhrase(
 
 func CalcFreqDist(corpusID, subcID, query, fcrit string, flimit int) (*Freqs, error) {
 	var ret Freqs
-	ans := C.freq_dist(C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(fcrit), C.longlong(flimit))
+	var cs cStrings
+	defer cs.free()
+	ans := C.freq_dist(cs.new(corpusID), cs.new(subcID), cs.new(query), cs.new(fcrit), C.longlong(flimit))
 	defer func() { // the 'new' was called before any possible error so we have to do this
 		C.delete_int_vector(ans.freqs)
 		C.delete_int_vector(ans.norms)
@@ -363,8 +392,10 @@ func GetCollcations(
 	minCorpFreq int64,
 	maxItems int,
 ) (GoColls, error) {
+	var cs cStrings
+	defer cs.free()
 	colls := C.collocations(
-		C.CString(corpusID), C.CString(subcID), C.CString(query), C.CString(attrName),
+		cs.new(corpusID), cs.new(subcID), cs.new(query), cs.new(attrName),
 		C.char(measure), C.char(measure), C.longlong(minCorpFreq), C.longlong(minFreq),
 		C.int(srchRange[0]), C.int(srchRange[1]), C.int(maxItems))
 	if colls.err != nil {
@@ -372,6 +403,7 @@ func GetCollcations(
 		defer C.free(unsafe.Pointer(colls.err))
 		return GoColls{}, err
 	}
+	defer C.coll_examples_free(colls.items, C.int(colls.resultSize))
 	items := make([]*GoCollItem, colls.resultSize)
 	for i := 0; i < int(colls.resultSize); i++ {
 		tmp := C.get_coll_item(colls, C.int(i))
@@ -381,7 +413,6 @@ func GetCollcations(
 			Freq:  int64(tmp.freq),
 		}
 	}
-	//C.coll_examples_free(colls.items, colls.numItems)
 	return GoColls{
 		Colls:      items,
 		ConcSize:   int64(colls.concSize),
@@ -402,8 +433,10 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 				),
 			}
 	}
+	var cs cStrings
+	defer cs.free()
 	norms := C.get_attr_values_sizes(
-		C.CString(corpusPath), C.CString(attrSplit[0]), C.CString(attrSplit[1]))
+		cs.new(corpusPath), cs.new(attrSplit[0]), cs.new(attrSplit[1]))
 	if norms.err != nil {
 		err := errors.New(C.GoString(norms.err))
 		defer C.free(unsafe.Pointer(norms.err))
@@ -427,7 +460,18 @@ func GetTextTypesNorms(corpusPath string, attr string) (map[string]int64, error)
 // GetCorpusConf returns a corpus configuration item
 // stored in a corpus configuration file (aka "registry file")
 func GetCorpusConf(corpusPath string, prop string) (string, error) {
-	ans := (C.get_corpus_conf(C.open_corpus(C.CString(corpusPath)).value, C.CString(prop)))
+	var cs cStrings
+	defer cs.free()
+	corp := C.open_corpus(cs.new(corpusPath))
+	if corp.err != nil {
+		err := errors.New(C.GoString(corp.err))
+		defer C.free(unsafe.Pointer(corp.err))
+		return "", err
+	}
+	defer C.close_corpus(corp.value)
+	// the returned value points into the corpus object so it must
+	// be copied (C.GoString) before the corpus is closed
+	ans := C.get_corpus_conf(corp.value, cs.new(prop))
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -437,7 +481,9 @@ func GetCorpusConf(corpusPath string, prop string) (string, error) {
 }
 
 func GetPosAttrSize(corpusPath string, name string) (int, error) {
-	ans := C.get_posattr_size(C.CString(corpusPath), C.CString(name))
+	var cs cStrings
+	defer cs.free()
+	ans := C.get_posattr_size(cs.new(corpusPath), cs.new(name))
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -447,7 +493,9 @@ func GetPosAttrSize(corpusPath string, name string) (int, error) {
 }
 
 func GetStructSize(corpusPath string, name string) (int, error) {
-	ans := C.get_struct_size(C.CString(corpusPath), C.CString(name))
+	var cs cStrings
+	defer cs.free()
+	ans := C.get_struct_size(cs.new(corpusPath), cs.new(name))
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -472,7 +520,9 @@ type GoStructAttr struct {
 // items and Truncated is set to true for that entry. A limit <= 0
 // means no cap is applied.
 func GetStructAttrValues(corpusPath string, limit int) ([]GoStructAttr, error) {
-	ans := C.get_struct_attr_values(C.CString(corpusPath), C.longlong(limit))
+	var cs cStrings
+	defer cs.free()
+	ans := C.get_struct_attr_values(cs.new(corpusPath), C.longlong(limit))
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -498,12 +548,14 @@ func GetStructAttrValues(corpusPath string, limit int) ([]GoStructAttr, error) {
 }
 
 func GetCorpRegion(corpusPath string, lftCtx, rgtCtx int64, structs, attrs []string) (GoTokenContext, error) {
+	var cs cStrings
+	defer cs.free()
 	ans := C.get_corp_region(
-		C.CString(corpusPath),
+		cs.new(corpusPath),
 		C.longlong(lftCtx),
 		C.longlong(rgtCtx),
-		C.CString(strings.Join(attrs, ",")),
-		C.CString(strings.Join(structs, ",")),
+		cs.new(strings.Join(attrs, ",")),
+		cs.new(strings.Join(structs, ",")),
 	)
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))

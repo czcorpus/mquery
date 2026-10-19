@@ -115,7 +115,7 @@ func extractTextPropsStrucattrs(reg *parser.Document) corp.TextTypeProperties {
 				if key != "" {
 					commonProps[corp.TextProperty(key)] = corp.TTPropertyConf{
 						Name:         fmt.Sprintf("%s.%s", strct.Name, attr.Name),
-						IsInOverview: true,
+						IsInOverview: false, // we possibly cannot change all the attrs in overview
 						DateFormat:   dateFormat,
 					}
 				}
