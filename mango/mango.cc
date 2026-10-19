@@ -144,31 +144,6 @@ CompileFrqRetVal compile_subc_freqs(const char* corpusPath, const char* subcPath
     return ans;
 }
 
-FreqsRetval freq_dist_from_conc(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
-    Corpus* corpusObj = (Corpus*)corpus;
-    Concordance* concObj = (Concordance *)conc;
-
-    auto xwords = new vector<string>;
-    vector<string>& words = *xwords;
-    auto xfreqs = new vector<PosInt>;
-    vector<PosInt>& freqs = *xfreqs;
-    auto xnorms = new vector<PosInt>;
-    vector<PosInt>& norms = *xnorms;
-
-    corpusObj->freq_dist (concObj->RS(), fcrit, flimit, words, freqs, norms);
-    FreqsRetval ans {
-        static_cast<void*>(xwords),
-        static_cast<void*>(xfreqs),
-        static_cast<void*>(xnorms),
-        0, // TODO
-        0, // TODO
-        0, // TODO
-        nullptr
-    };
-    return ans;
-}
-
-
 FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* query, const char* fcrit, PosInt flimit) {
     string cPath(corpusPath);
     Corpus* corp = nullptr;
@@ -286,12 +261,15 @@ char** process_kwic_lines(
     if (conc->size() < limit) {
         limit = conc->size();
     }
+    if (limit < 0) {
+        limit = 0;
+    }
     // calloc so that unfilled items are nullptr and the whole array
     // can be safely released via conc_examples_free
     char** lines = (char**)calloc(limit, sizeof(char*));
     int i = 0;
     try {
-        while (kl->nextline()) {
+        while (i < limit && kl->nextline()) {
             auto lft = kl->get_left();
             auto kwc = kl->get_kwic();
             auto rgt = kl->get_right();
@@ -319,9 +297,6 @@ char** process_kwic_lines(
             }
             lines[i] = strdup(buffer.str().c_str());
             i++;
-            if (i == limit) {
-                break;
-            }
         }
 
     } catch (...) {
@@ -534,6 +509,13 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 conc = new Concordance(corp, corp->filter_query(eval_cqpquery(query, corp)));
             }
             conc->sync();
+
+            // collocation - must be applied before any size checks
+            // as the filter removes lines without the collocation
+            int currColl = conc->numofcolls() + 1;
+            conc->set_collocation(currColl, collQuery, lctx, rctx, 1); // TODO `rank` arg.
+            conc->delete_pnfilter(currColl, true);
+
             if (conc->size() == 0 && fromLine == 0) {
                 KWICRowsRetval ans {
                     nullptr,
@@ -567,15 +549,13 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 return ans;
             }
 
-            // collocation
-            int currColl = conc->numofcolls() + 1;
-            conc->set_collocation(currColl, collQuery, lctx, rctx, 1); // TODO `rank` arg.
-            conc->delete_pnfilter(currColl, true);
-
             if (shuffle) {
                 conc->shuffle();
             }
             PosInt concSize = conc->size();
+            if (limit + fromLine > concSize) {
+                limit = concSize - fromLine;
+            }
             std::string cppContextStruct(viewContextStruct);
             std::string halfLeft = "-" + std::to_string(int(std::floor(maxContext / 2.0)));
             std::string halfRight = std::to_string(int(std::ceil(maxContext / 2.0)));
@@ -591,14 +571,14 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 maxContext,
                 false
             );
-            if (conc->size() < limit) {
-                limit = conc->size();
+            if (limit < 0) {
+                limit = 0;
             }
             // calloc so that unfilled items are nullptr and the whole array
             // can be safely released via conc_examples_free
             lines = (char**)calloc(limit, sizeof(char*));
             int i = 0;
-            while (kl->nextline()) {
+            while (i < limit && kl->nextline()) {
                 auto lft = kl->get_left();
                 auto kwc = kl->get_kwic();
                 auto rgt = kl->get_right();
@@ -626,9 +606,6 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 }
                 lines[i] = strdup(buffer.str().c_str());
                 i++;
-                if (i == limit) {
-                    break;
-                }
             }
             // We've allocated memory for `limit` rows,
             // but it's possible that there is less rows
@@ -758,7 +735,7 @@ CollsRetVal collocations(
         ans.corpusSize = corp->size();
         conc->sync();
         ans.concSize = conc->size();
-        ans.searchSize = corp->size();
+        ans.searchSize = subc != nullptr ? subc->search_size() : corp->size();
         collocs = new CollocItems(conc, string(attrName), sortFunCode, minfreq, minbgr, fromw, tow, maxitems);
         items = (CollItem*) malloc(maxitems * sizeof(CollItem));
         int i = 0;
@@ -1016,7 +993,7 @@ CorpRegionRetval get_corp_region(
         region = new CorpRegion(corp, attrs, structs);
         const std::vector<std::string>& xreg = region->region(fromPos, toPos, ' ', '\x1F');
 
-        std:stringstream buff;
+        std::stringstream buff;
         for (size_t i = 0; i < xreg.size(); i++) {
             if (i > 0) buff << " ";
             buff << xreg[i];
