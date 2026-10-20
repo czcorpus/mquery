@@ -57,10 +57,21 @@ func NormRound(val float64) float64 {
 	return math.Round(val*1000) / 1000
 }
 
+// IsUserError tells whether err has been caused by the user's input (e.g.
+// an invalid query) rather than by a system failure. Besides MQuery's own
+// input errors, these are Manatee's query errors - syntax errors and
+// references to attributes or structures the corpus does not have
+// (AttrNotFound). The latter counts only along with a position in the query,
+// as Manatee reports also an attribute missing due to a corpus misconfiguration
+// as AttrNotFound, which is a system error.
 func IsUserError(err error) bool {
 	switch err.(type) {
 	case *merror.InputError, merror.InputError:
 		return true
 	}
-	return strings.Contains(strings.ToLower(err.Error()), "syntax error,")
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "syntax error,") {
+		return true
+	}
+	return strings.Contains(msg, "attrnotfound") && strings.Contains(msg, "near position")
 }
