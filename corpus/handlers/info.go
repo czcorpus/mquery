@@ -35,11 +35,14 @@ type subcInfo struct {
 } // @name SubcInfo
 
 type corpusCompactInfo struct {
-	ID          string     `json:"id"`
-	FullName    string     `json:"fullName"`
-	Description string     `json:"description"`
-	Flags       []string   `json:"flags"`
-	Subcorpora  []subcInfo `json:"subcorpora"`
+	ID          string `json:"id"`
+	FullName    string `json:"fullName"`
+	Description string `json:"description"`
+	// Language is the corpus language as specified in the corpus
+	// registry file (a language name in English, e.g. "Czech")
+	Language   string     `json:"language,omitempty"`
+	Flags      []string   `json:"flags"`
+	Subcorpora []subcInfo `json:"subcorpora"`
 } // @name CorpusCompactInfo
 
 type corplistResponse struct {
@@ -160,6 +163,7 @@ func (a *Actions) Corplist(ctx *gin.Context) {
 				ID:          v.ID,
 				FullName:    getTranslation(v.FullName, lang),
 				Description: getTranslation(v.Description, lang),
+				Language:    v.Language(),
 				Flags:       v.SrchKeywords,
 				Subcorpora:  subcorpora,
 			},

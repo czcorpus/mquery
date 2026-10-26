@@ -39,11 +39,15 @@ type MQCorpusSetup struct {
 	InternalNetworkAccessOnly bool `json:"internalNetworkAccessOnly"`
 	fullConcTextPropsAttrs    []string
 	allPosAttrs               corp.PosAttrList
-	syncedWithRegistry        string
+	// language is the LANGUAGE value of the corpus registry file (a language
+	// name in English, e.g. "Czech"), empty if not specified
+	language           string
+	syncedWithRegistry string
 }
 
 // SyncWithRegistry loads values which are available only in corpus
-// registry file (all positional attributes, all structural attributes).
+// registry file (all positional attributes, all structural attributes,
+// the corpus language).
 // For positional attributes defined also in the JSON configuration,
 // the JSON-defined descriptions take precedence.
 // The function is expected to be called during configuration loading
@@ -58,6 +62,7 @@ func (cs *MQCorpusSetup) SyncWithRegistry(registryDir string) {
 	}
 	cs.fullConcTextPropsAttrs = tmp.fullConcTextPropsAttrs
 	cs.allPosAttrs = tmp.PosAttrs
+	cs.language = tmp.language
 	for i, posattr := range cs.allPosAttrs {
 		if jsonAttr := cs.CorpusSetup.GetPosAttr(posattr.Name); len(jsonAttr.Description) > 0 {
 			cs.allPosAttrs[i].Description = jsonAttr.Description
@@ -72,6 +77,14 @@ func (cs *MQCorpusSetup) SyncWithRegistry(registryDir string) {
 		}
 	}
 	cs.syncedWithRegistry = registryDir
+}
+
+// Language returns the corpus language as specified by the LANGUAGE
+// entry of the corpus registry file (typically a language name in English,
+// e.g. "Czech"), or an empty string if the registry doesn't specify it or
+// the configuration has not been synced with the registry.
+func (cs *MQCorpusSetup) Language() string {
+	return cs.language
 }
 
 func (cs *MQCorpusSetup) FullConcTextPropsAttrs() []string {
