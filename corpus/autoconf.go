@@ -178,8 +178,8 @@ func loadRegistry(registryDir, corpusID string) (*parser.Document, error) {
 }
 
 // AutogenerateMinConf is for obtaining values needed even in case zero conf mode is disabled
-// (currently, these are all the structural attributes - see `fullConcTextPropsAttrs` - and
-// all the positional attributes). Please note that `PosAttrs` in the returned value
+// (currently, these are all the structural attributes - see `fullConcTextPropsAttrs` -,
+// all the positional attributes and the corpus language). Please note that `PosAttrs` in the returned value
 // contains all the registry-defined attributes.
 func AutogenerateMinConf(registryDir, corpusID string) *MQCorpusSetup {
 	reg, err := loadRegistry(registryDir, corpusID)
@@ -198,6 +198,7 @@ func AutogenerateMinConf(registryDir, corpusID string) *MQCorpusSetup {
 			}),
 		},
 		fullConcTextPropsAttrs: getAllTextProps(reg),
+		language:               reg.Entries.Get("LANGUAGE").Value(),
 	}
 }
 
@@ -219,6 +220,7 @@ func AutogenerateConf(registryDir, corpusID string) *MQCorpusSetup {
 			ViewContextStruct:    getSentenceStruct(reg),
 		},
 		fullConcTextPropsAttrs: getAllTextProps(reg),
+		language:               reg.Entries.Get("LANGUAGE").Value(),
 	}
 	if err := newConf.ValidateAndDefaults(); err != nil {
 		log.Error().Err(err).Str("corpus", corpusID).Msg("failed to validate corpus autoconfiguration; corpus won't be available")

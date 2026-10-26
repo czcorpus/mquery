@@ -30,7 +30,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func writeTestRegistry(t *testing.T, registryDir, dataDir, corpusID string) {
+// writeTestRegistry writes a minimal registry file of the corpus. An empty
+// language omits the LANGUAGE entry.
+func writeTestRegistry(t *testing.T, registryDir, dataDir, corpusID, language string) {
 	reg := fmt.Sprintf(
 		"NAME \"%s\"\nPATH \"%s\"\n"+
 			"ATTRIBUTE word {\n\tLABEL \"word form\"\n}\n"+
@@ -39,6 +41,9 @@ func writeTestRegistry(t *testing.T, registryDir, dataDir, corpusID string) {
 			"STRUCTURE doc {\n\tATTRIBUTE title\n\tATTRIBUTE year\n}\n",
 		corpusID, dataDir,
 	)
+	if language != "" {
+		reg += fmt.Sprintf("LANGUAGE \"%s\"\n", language)
+	}
 	require.NoError(t, os.WriteFile(filepath.Join(registryDir, corpusID), []byte(reg), 0644))
 }
 
@@ -52,8 +57,8 @@ func createTestCorporaSetup(t *testing.T) *CorporaSetup {
 	}
 	mktokencov := filepath.Join(root, "mktokencov")
 	require.NoError(t, os.WriteFile(mktokencov, []byte{}, 0755))
-	for _, c := range []string{"plain", "par_cs", "par_en"} {
-		writeTestRegistry(t, registryDir, dataDir, c)
+	for c, lang := range map[string]string{"plain": "", "par_cs": "Czech", "par_en": "English"} {
+		writeTestRegistry(t, registryDir, dataDir, c, lang)
 	}
 
 	posAttrs := corp.PosAttrList{
@@ -131,6 +136,21 @@ func TestSyncWithRegistryPosAttrs(t *testing.T) {
 		assert.Equal(t, "lemma (json)", c.GetPosAttr("lemma").Description["en"])
 		assert.True(t, c.GetPosAttr("foo").IsZero())
 	}
+}
+
+func TestSyncWithRegistryLanguage(t *testing.T) {
+	cs := createTestCorporaSetup(t)
+	require.NoError(t, cs.ValidateAndDefaults("corpora"))
+
+	for corpusID, want := range map[string]string{"plain": "", "par_cs": "Czech", "par_en": "English"} {
+		c := cs.GetCorp(corpusID)
+		require.NotNil(t, c)
+		assert.Equal(t, want, c.Language(), corpusID)
+	}
+	// zero conf corpora get the language too
+	auto := AutogenerateConf(cs.RegistryDir, "par_en")
+	require.NotNil(t, auto)
+	assert.Equal(t, "English", auto.Language())
 }
 
 func TestGetPosAttrNotSynced(t *testing.T) {
