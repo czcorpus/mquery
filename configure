@@ -27,6 +27,7 @@ fi
 
 # check system and prepare env variables
 WITH_PCRE2=false
+WITH_LEGACY_PCRE=false
 
 for arg in "$@"; do
 	case $arg in
@@ -34,11 +35,22 @@ for arg in "$@"; do
 		WITH_PCRE2=true
 		shift
 		;;
+		--with-legacy-pcre)
+		WITH_LEGACY_PCRE=true
+		shift
+		;;
 	esac
 done
 
+if [ "$WITH_PCRE2" = true ] && [ "$WITH_LEGACY_PCRE" = true ]; then
+	echo "error: --with-pcre2 and --with-legacy-pcre cannot be used together" >&2
+	exit 1
+fi
+
 if [ "$WITH_PCRE2" = true ]; then
 	eval $(manabuild -no-build -with-pcre2)
+elif [ "$WITH_LEGACY_PCRE" = true ]; then
+	eval $(manabuild -no-build -legacy-deps)
 else
 	eval $(manabuild -no-build)
 fi

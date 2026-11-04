@@ -74,8 +74,9 @@ If you prefer to install MQuery manually without Docker:
    1. make sure `/usr/local/go/bin` and `~/go/bin` are in your `$PATH` so you can run any installed Go tools without specifying a full path
 2. Install Manatee-open from the [download page](https://nlp.fi.muni.cz/trac/noske). No specific language bindings are required.
    1. `configure --with-pcre --disable-python && make && sudo make install && sudo ldconfig`
+   2. if your system does not provide PCRE1 (e.g. Ubuntu 26.04+), see [PCRE variants](#pcre-variants) below
 3. Get MQuery sources (`git clone --depth 1 https://github.com/czcorpus/mquery.git`)
-4. Run `./configure`
+4. Run `./configure` (optionally with `--with-pcre2` or `--with-legacy-pcre`, see [PCRE variants](#pcre-variants))
 5. Run `make`
 6. Run `make install`
       * the application will be installed in `/opt/mquery`
@@ -86,6 +87,21 @@ If you prefer to install MQuery manually without Docker:
 9. start the service:
       * `systemctl start mquery-server`
       * `systemctl start mquery-worker-all.target`
+
+### PCRE variants
+
+MQuery must be configured with the same PCRE library variant that your `libmanatee.so` was built with. The `configure` script supports three variants (only one can be used at a time):
+
+* *(no option)* - system-installed PCRE1 (`libpcre3-dev` on Debian/Ubuntu); this is the default
+* `--with-pcre2` - PCRE2 (`libpcre2-dev`); use only if `libmanatee.so` is built with PCRE2 (this is what the Docker image uses)
+* `--with-legacy-pcre` - for systems that no longer provide PCRE1 (e.g. Ubuntu 26.04+). PCRE 8.45 (the last PCRE1 release) is downloaded, built and installed into `/opt/pcre1`. If PCRE1 is already installed there, it is reused.
+   * to install into `/opt/pcre1`, run `./configure` with enough permissions, or install PCRE 8.45 into `/opt/pcre1` yourself beforehand
+   * building PCRE requires build tools (`build-essential`, `automake`, `autoconf`, `autoconf-archive`, `libtool`, `pkg-config`, `libltdl-dev`)
+   * Manatee-open must be built against the same PCRE1 installation, e.g.:
+     ```
+     PATH=/opt/pcre1/bin:$PATH ./configure --with-pcre --disable-python \
+       CPPFLAGS=-I/opt/pcre1/include LDFLAGS="-L/opt/pcre1/lib -Wl,-rpath,/opt/pcre1/lib"
+     ```
 
 
 ## Authentication
