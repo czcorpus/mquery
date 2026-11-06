@@ -1,8 +1,8 @@
 FROM czcorpus/kontext-manatee:2.225.8-noble
 
 RUN apt-get update && apt-get install wget tar curl git bison libpcre2-dev -y \
-    && wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+    && wget https://go.dev/dl/go1.25.12.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.25.12.linux-amd64.tar.gz
 
 WORKDIR /opt
 RUN git clone https://github.com/czcorpus/manabuild \
