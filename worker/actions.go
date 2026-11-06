@@ -300,7 +300,7 @@ func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 
 	res3, err := mango.GetCorpRegion(
 		args.CorpusPath,
-		int64(args.Idx+args.KWICLen+1),
+		int64(args.Idx+args.KWICLen),
 		int64(args.Idx+args.RightCtx+args.KWICLen),
 		args.Structs,
 		args.Attrs,
