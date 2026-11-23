@@ -13,6 +13,9 @@ type Env struct {
 	Lang         string
 	PageSize     int
 	ContextWidth int
+	// HistoryPath is a file storing submitted queries ("" = no persistence)
+	HistoryPath string
+	HistorySize int
 
 	// attrCache maps corpus ID => ordered positional attributes
 	attrCache map[string][]corpusAttr
@@ -43,6 +46,7 @@ func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
 		Lang:          lang,
 		PageSize:      pageSize,
 		ContextWidth:  contextWidth,
+		HistorySize:   DefaultHistorySize,
 		attrCache:     make(map[string][]corpusAttr),
 		freqAttr:      make(map[string]string),
 		freqMaxItems:  freqMaxItemsSteps[0],
@@ -81,6 +85,10 @@ type Feature struct {
 	Description      string
 	InputLabel       string
 	InputPlaceholder string
+	// QueryType identifies the kind of input; the last query is shared
+	// among features of the same type (e.g. a CQL query typed for
+	// a concordance is offered for frequencies too)
+	QueryType string
 	// NewView creates a result view; nil means "not implemented yet"
 	NewView func(env *Env, corpus api.CorpusItem, query string) ResultView
 }
@@ -89,6 +97,8 @@ func (f Feature) Implemented() bool {
 	return f.NewView != nil
 }
 
+const queryTypeCQL = "cql"
+
 func DefaultFeatures() []Feature {
 	return []Feature{
 		{
@@ -96,6 +106,7 @@ func DefaultFeatures() []Feature {
 			Description:      "search for a query and show matching lines (KWIC)",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
+			QueryType:        queryTypeCQL,
 			NewView:          newConcView,
 		},
 		{
@@ -103,6 +114,7 @@ func DefaultFeatures() []Feature {
 			Description:      "frequency distribution of a positional attribute",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [tag="N.*"]`,
+			QueryType:        queryTypeCQL,
 			NewView:          newFreqsView,
 		},
 		{
@@ -110,6 +122,7 @@ func DefaultFeatures() []Feature {
 			Description:      "frequency distribution by text metadata",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
+			QueryType:        queryTypeCQL,
 			NewView:          newTTypesView,
 		},
 		{
@@ -117,6 +130,7 @@ func DefaultFeatures() []Feature {
 			Description:      "collocation candidates of a query",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
+			QueryType:        queryTypeCQL,
 			NewView:          newCollsView,
 		},
 	}

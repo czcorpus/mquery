@@ -10,7 +10,6 @@ import (
 	"mquery/cmd/mymquery/api"
 
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -59,8 +58,9 @@ type concView struct {
 	// attrPicker is open when selecting the displayed attribute
 	attrPicker *selectList
 
-	detail   bool
-	detailVP viewport.Model
+	// detail is a modal with the selected line's tokens or text properties
+	detail     *modal
+	detailMode detailMode
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -82,7 +82,6 @@ func newConcViewWithNote(env *Env, corpus api.CorpusItem, query, note string) *c
 		note:      note,
 		spinner:   sp,
 		infoAttrs: attrNames(env.attrCache[corpus.ID]),
-		detailVP:  viewport.New(0, 0),
 		ctx:       ctx,
 		cancel:    cancel,
 	}
@@ -114,10 +113,8 @@ func (v *concView) Close() {
 
 func (v *concView) SetSize(w, h int) {
 	v.width, v.height = w, h
-	v.detailVP.Width = w
-	v.detailVP.Height = max(1, h-1)
-	if v.detail {
-		v.detailVP.SetContent(v.detailContent())
+	if v.detail != nil {
+		v.detail.SetSize(w, h)
 	}
 	v.nav.fix(len(v.lines()), v.listHeight())
 }
@@ -235,7 +232,7 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		if v.attrPicker != nil {
 			return v.updateAttrPicker(msg)
 		}
-		if v.detail {
+		if v.detail != nil {
 			return v.updateDetail(msg)
 		}
 		return v.updateList(msg)
@@ -274,23 +271,52 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		v.attrPicker = newSelectList(
 			"Displayed attribute", attrSelectItems(names, v.env, v.corpus.ID), v.dispAttrName())
 	case "enter":
-		if len(v.lines()) > 0 {
-			v.openDetail()
-		}
+		v.openDetail(detailTokens)
+	case "t":
+		v.openDetail(detailTextTypes)
 	}
 	return v, nil
 }
 
-func (v *concView) openDetail() {
-	v.detail = true
-	v.detailVP.SetContent(v.detailContent())
-	v.detailVP.GotoTop()
+func (v *concView) openDetail(mode detailMode) {
+	if len(v.lines()) == 0 {
+		return
+	}
+	if v.detail == nil {
+		v.detail = newModal("", func(int) string { return "" })
+		v.detail.SetSize(v.width, v.height)
+	}
+	v.detailMode = mode
+	v.refreshDetail()
+}
+
+func (v *concView) refreshDetail() {
+	pos := fmt.Sprintf("line %s of %s",
+		formatInt(v.rowsOffset+v.nav.cursor+1), formatInt(v.resp.ConcSize))
+	switch v.detailMode {
+	case detailTextTypes:
+		v.detail.SetContent("Text types", pos, v.textTypesContent)
+	default:
+		v.detail.SetContent("Tokens", pos, v.tokensContent)
+	}
 }
 
 func (v *concView) updateDetail(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "enter", "backspace":
-		v.detail = false
+	case "esc", "backspace":
+		v.detail = nil
+		return v, nil
+	case "enter", "t":
+		// the key which opens a detail also closes it (or switches to it from the other one)
+		mode := detailTokens
+		if msg.String() == "t" {
+			mode = detailTextTypes
+		}
+		if mode == v.detailMode {
+			v.detail = nil
+		} else {
+			v.openDetail(mode)
+		}
 		return v, nil
 	case "q":
 		return v, tea.Quit
@@ -298,20 +324,18 @@ func (v *concView) updateDetail(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		if v.nav.cursor > 0 {
 			v.nav.cursor--
 			v.nav.fix(len(v.lines()), v.listHeight())
-			v.openDetail()
+			v.refreshDetail()
 		}
 		return v, nil
 	case "right", "l":
 		if v.nav.cursor < len(v.lines())-1 {
 			v.nav.cursor++
 			v.nav.fix(len(v.lines()), v.listHeight())
-			v.openDetail()
+			v.refreshDetail()
 		}
 		return v, nil
 	}
-	var cmd tea.Cmd
-	v.detailVP, cmd = v.detailVP.Update(msg)
-	return v, cmd
+	return v, v.detail.Update(msg)
 }
 
 // ---------------------------------- rendering
@@ -337,6 +361,9 @@ func (v *concView) View() string {
 	if v.attrPicker != nil {
 		return placeOverlay(body, v.attrPicker.View(v.width), v.width, v.height)
 	}
+	if v.detail != nil {
+		return v.detail.View(body)
+	}
 	return body
 }
 
@@ -347,9 +374,6 @@ func (v *concView) baseView() string {
 	}
 	if v.resp == nil {
 		return v.spinner.View() + " searching…"
-	}
-	if v.detail {
-		return v.detailView()
 	}
 	var b strings.Builder
 	b.WriteString(v.summary() + "\n\n")
@@ -494,53 +518,65 @@ func fitRight(s string, w int, base lipgloss.Style) string {
 	return s + base.Render(strings.Repeat(" ", w-sw))
 }
 
-func (v *concView) detailView() string {
-	title := fmt.Sprintf("  %s  line %s of %s",
-		titleStyle.Render("Line detail"),
-		formatInt(v.rowsOffset+v.nav.cursor+1), formatInt(v.resp.ConcSize))
-	return ansi.Truncate(title, v.width, "…") + "\n" + v.detailVP.View()
-}
+type detailMode int
 
-func (v *concView) detailContent() string {
+const (
+	detailTokens detailMode = iota
+	detailTextTypes
+)
+
+func (v *concView) selectedLine() (concordance.Line, bool) {
 	lines := v.lines()
 	if v.nav.cursor >= len(lines) {
+		return concordance.Line{}, false
+	}
+	return lines[v.nav.cursor], true
+}
+
+func (v *concView) textTypesContent(width int) string {
+	line, ok := v.selectedLine()
+	if !ok {
 		return ""
 	}
-	line := lines[v.nav.cursor]
 	var b strings.Builder
-	b.WriteString("\n")
 	if line.Ref != "" {
-		b.WriteString("  " + mutedStyle.Render("ref: ") + line.Ref + "\n\n")
+		b.WriteString(mutedStyle.Render("ref: ") + line.Ref + "\n\n")
 	}
+	if len(line.Props) == 0 {
+		b.WriteString(mutedStyle.Render("No text properties available for this line."))
+		return b.String()
+	}
+	keys := make([]string, 0, len(line.Props))
+	keyW := 0
+	for k := range line.Props {
+		keys = append(keys, k)
+		keyW = max(keyW, ansi.StringWidth(k))
+	}
+	sort.Strings(keys)
+	valIndent := keyW + 2
+	valStyle := lipgloss.NewStyle().Width(max(20, width-valIndent))
+	for _, k := range keys {
+		val := valStyle.Render(line.Props[k])
+		val = strings.ReplaceAll(strings.TrimRight(val, " \n"), "\n", "\n"+strings.Repeat(" ", valIndent))
+		b.WriteString(mutedStyle.Render(padRight(k, keyW)) + "  " + val + "\n")
+	}
+	return b.String()
+}
+
+func (v *concView) tokensContent(width int) string {
+	line, ok := v.selectedLine()
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
 	if line.ErrMsg != "" {
-		b.WriteString("  " + errorStyle.Render("Error: ") +
-			lipgloss.NewStyle().Width(max(20, v.width-4)).Render(line.ErrMsg) + "\n\n")
+		b.WriteString(errorStyle.Render("Error: ") +
+			lipgloss.NewStyle().Width(max(20, width-7)).Render(line.ErrMsg) + "\n\n")
 	}
-
-	if len(line.Props) > 0 {
-		b.WriteString("  " + boldStyle.Render("Text properties") + "\n")
-		keys := make([]string, 0, len(line.Props))
-		keyW := 0
-		for k := range line.Props {
-			keys = append(keys, k)
-			keyW = max(keyW, ansi.StringWidth(k))
-		}
-		sort.Strings(keys)
-		valIndent := 4 + keyW + 2
-		valStyle := lipgloss.NewStyle().Width(max(20, v.width-valIndent-1))
-		for _, k := range keys {
-			val := valStyle.Render(line.Props[k])
-			val = strings.ReplaceAll(strings.TrimRight(val, " \n"), "\n", "\n"+strings.Repeat(" ", valIndent))
-			b.WriteString("    " + mutedStyle.Render(padRight(k, keyW)) + "  " + val + "\n")
-		}
-		b.WriteString("\n")
-	}
-
 	toks := line.Text.Tokens()
 	if len(toks) == 0 {
 		return b.String()
 	}
-	b.WriteString("  " + boldStyle.Render("Tokens") + "\n")
 	cols := append([]string{"word"}, v.attrs...)
 	widths := make([]int, len(cols))
 	for i, c := range cols {
@@ -554,7 +590,7 @@ func (v *concView) detailContent() string {
 	numW := len(fmt.Sprint(len(toks)))
 	row := func(cells []string, st lipgloss.Style, marker string) string {
 		var r strings.Builder
-		r.WriteString("  " + marker + " ")
+		r.WriteString(marker + " ")
 		for i, c := range cells {
 			if i > 0 {
 				r.WriteString("  ")
@@ -587,10 +623,14 @@ func (v *concView) Help() string {
 	if v.attrPicker != nil {
 		return v.attrPicker.Help()
 	}
-	if v.detail {
-		return "↑/↓ scroll • ←/→ prev/next line • esc close detail • q quit"
+	if v.detail != nil {
+		other := "t text types"
+		if v.detailMode == detailTextTypes {
+			other = "enter tokens"
+		}
+		return v.detail.Help() + " • ←/→ prev/next line • " + other + " • esc close • q quit"
 	}
-	return "↑/↓ move • enter line detail • a displayed attribute • ←/→ page • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter tokens • t text types • a displayed attribute • ←/→ page • r reload • esc edit query • q quit"
 }
 
 // ---------------------------------- helpers

@@ -40,20 +40,37 @@ type App struct {
 
 	featureIdx int
 	corpus     *api.CorpusItem
-	// queries stores the last query per feature
-	queries map[int]string
+	// queries stores the last query per query type (see Feature.QueryType)
+	queries map[string]string
+	history *queryHistory
+	// historyErr is a pending history save error to be shown in the query screen
+	historyErr error
 }
 
 func NewApp(env *Env) *App {
 	features := DefaultFeatures()
+	history := newQueryHistory(env.HistoryPath, env.HistorySize)
+	menu := newMenu(features)
+	if err := history.Load(); err != nil {
+		menu.notice = "failed to load query history: " + err.Error()
+	}
+	queries := make(map[string]string)
+	if history.Len() > 0 {
+		queries[queryTypeCQL] = history.Recent(0)
+	}
 	return &App{
 		env:      env,
 		features: features,
-		menu:     newMenu(features),
+		menu:     menu,
 		corpSel:  newCorpSel(env),
-		query:    newQuery(),
-		queries:  make(map[int]string),
+		query:    newQuery(history),
+		queries:  queries,
+		history:  history,
 	}
+}
+
+func (a *App) queryType() string {
+	return a.features[a.featureIdx].QueryType
 }
 
 func (a *App) Init() tea.Cmd {
@@ -97,7 +114,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.toQuery()
 
 	case changeCorpusMsg:
-		a.queries[a.featureIdx] = a.query.input.Value()
+		a.queries[a.queryType()] = a.query.input.Value()
 		if a.corpus != nil {
 			a.corpSel.Select(a.corpus.ID)
 		}
@@ -105,7 +122,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case querySubmittedMsg:
-		a.queries[a.featureIdx] = msg.query
+		a.queries[a.queryType()] = msg.query
+		if a.queryType() == queryTypeCQL {
+			a.historyErr = a.history.Add(msg.query)
+		}
 		a.closeResults()
 		a.screen = scrResult
 		return a, a.pushResult(a.features[a.featureIdx].NewView(a.env, *a.corpus, msg.query))
@@ -125,7 +145,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.screen = scrMenu
 		case scrQuery:
-			a.queries[a.featureIdx] = a.query.input.Value()
+			a.queries[a.queryType()] = a.query.input.Value()
 			a.query.input.Blur()
 			a.screen = scrMenu
 		case scrResult:
@@ -173,7 +193,12 @@ func (a *App) updateActive(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (a *App) toQuery() tea.Cmd {
 	a.screen = scrQuery
-	return a.query.Reset(a.features[a.featureIdx], a.queries[a.featureIdx])
+	cmd := a.query.Reset(a.features[a.featureIdx], a.queries[a.queryType()])
+	if a.historyErr != nil {
+		a.query.notice = "failed to save query history: " + a.historyErr.Error()
+		a.historyErr = nil
+	}
+	return cmd
 }
 
 func (a *App) pushResult(v ResultView) tea.Cmd {

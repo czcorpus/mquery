@@ -34,22 +34,32 @@ adding a function means adding `api/<x>.go`, `ui/<x>.go` and one
 registry entry in `ui/feature.go`.
 
 Session state is kept across screens: the selected corpus and the last
-query for each feature.
+query. The last query is shared among features with the same `QueryType`
+(all current features take CQL), so e.g. a concordance query is prefilled
+when switching to frequencies. Drill-down queries of nested views do not
+change it.
 
 ## Milestones
 
 ### M0 – core shell ✅
 - [x] menu with all functions (unimplemented ones are shown but disabled)
 - [x] corpus selection from `/corplist` (filterable with `/`)
-- [x] query input (CQL; prefilled with the last query for the feature)
+- [x] query input (CQL; prefilled with the last query, shared by features with the same `QueryType`)
+- [x] query history (`ui/history.go`): submitted CQL queries, deduplicated, max. `-history-size`
+      (default 100), stored in `-history-file` (default `$XDG_STATE_HOME/mymquery/history`,
+      one query per line; empty = memory only). `↑/↓` (`ctrl+p/n`) browse it in the query input,
+      going past the newest restores the typed draft. The last stored query prefills the input
+      on startup
 - [x] header showing function / corpus / query, contextual footer help
 - [x] HTTP errors shown inline (MQuery's `{"error": ...}` is decoded)
 
 ### M1 – concordance (`GET /concordance/:corpusId`) ✅ (first iteration)
 - [x] KWIC layout: right-aligned left context, highlighted KWIC, right context
 - [x] selectable line cursor, scrolling, paging (`rowsOffset`/`maxRows`)
-- [x] `enter` opens a detail of the line: all positional attributes of
-      every token in a table, text properties and ref
+- [x] line detail in a modal (`←/→` browse lines, `esc` closes):
+      `enter` → all positional attributes of every token in a table,
+      `t` → text properties and ref. The same key toggles the modal off,
+      the other one switches between the two
 - [x] `a` opens a picker for the attribute displayed in the lines (word, lemma, tag …),
       attribute order, sizes and descriptions are taken from `/info/:corpusId`
 - [x] lines with `errMsg` are shown as errors and are not dropped
@@ -115,11 +125,38 @@ query for each feature.
   optional hints per item, optional custom values with a validator
   (`withCustom(placeholder, parsePositiveInt(min, max))`). Intended for: text type
   attributes (M3), collocation measure/window/attr (M4)
+- `modal` (`ui/modal.go`): scrollable bordered window over a dimmed view, with a title,
+  subtitle and scroll position. The box fits the content (grow-only while open so it
+  does not jump when the content changes). The owner handles open/close and its own keys,
+  the modal handles scrolling (`↑/↓`, `pgup/pgdn`, `g/G`). Used by the M1 line detail
 - `listNav`: cursor + scroll for single-line-row lists
 - `freqTable` (`ui/freqtable.go`): sortable frequency table with bars, optional `base` column;
   plus shared min freq / max items pickers (used by M2, M3)
 
 ### Later / cross-cutting
-- config file (API URL, headers, defaults), query history
+- config file (API URL, headers, defaults)
+- query history: a searchable picker (`ctrl+r`, `selectList`), maybe remember corpus per entry
 - subcorpus selection in the corpus picker (`/corplist` already returns them)
 - export of the current result (TSV/JSON)
+- select list: rank prefix matches above "contains" matches (typing `le` currently
+  offers `lempos` before `lemma` because of the corpus attribute order)
+- text types: sorting by ipm reorders only the top `maxItems` by freq (server-side limit);
+  maybe hint this in the UI or fetch more items when sorting by ipm
+- build: `mymquery` is not part of the generated Makefile (`./configure`); it is pure Go,
+  so `go build -o mymquery ./cmd/mymquery` works. Consider adding the binary to `.gitignore`
+
+### Known server-side / library issues (found while building the TUI)
+- mquery-common line parser: lines containing multi-word tokens (e.g. BNC `away from`)
+  come back with `errMsg: unparseable Manatee KWIC line: expected 4N elms…`
+  (the parser splits on whitespace). The TUI shows them as ⚠ lines
+- mquery-common `TokenSlice.UnmarshalJSON` has no element type for `"close"` markup
+  → `showMarkup=1` will likely fail to decode (blocks M1 "showing structures")
+- `/text-types` on KSP fails with `FileAccessError (…/KSP/doc.date.token)` – missing
+  struct attr `.token` coverage file (see the mktokencov follow-up)
+- `/freqs` response field `examplesQueryTpl` is never filled
+- `/collocations` with `minItems` > number of results returns an empty body (handler just returns)
+
+### Testing notes
+- unit tests: `go test ./cmd/mymquery/...` (CQL helpers, select list, collocation window)
+- manual: run in a detached tmux session and use `capture-pane -p` (`-e` for colours);
+  send keys one by one (a burst like `/bnc` is parsed as one multi-rune key)

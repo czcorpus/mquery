@@ -46,6 +46,8 @@ func main() {
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
 	contextWidth := flag.Int("context-width", 20, "concordance context width in tokens (max. 50)")
+	historyFile := flag.String("history-file", ui.DefaultHistoryPath(), "file for storing query history (empty = do not store)")
+	historySize := flag.Int("history-size", ui.DefaultHistorySize, "max. number of stored queries")
 	timeout := flag.Duration("timeout", 90*time.Second, "HTTP request timeout")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\nA terminal UI for MQuery.\n\nOptions:\n", os.Args[0])
@@ -67,6 +69,8 @@ func main() {
 		os.Exit(2)
 	}
 	env := ui.NewEnv(client, *lang, *pageSize, *contextWidth)
+	env.HistoryPath = *historyFile
+	env.HistorySize = *historySize
 	p := tea.NewProgram(ui.NewApp(env), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

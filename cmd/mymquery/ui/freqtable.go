@@ -246,17 +246,21 @@ func (t *freqTable) view(width, height int) string {
 	return b.String()
 }
 
-// bar renders a horizontal bar with 1/8 cell resolution
+// bar renders a half-height horizontal bar (so it does not fill the whole
+// row height) with 1/2 cell resolution
 func bar(val, maxVal float64, width int) string {
 	if maxVal <= 0 || width <= 0 {
 		return ""
 	}
-	eighths := int(math.Round(val / maxVal * float64(width*8)))
-	if eighths == 0 && val > 0 {
-		eighths = 1
+	halves := int(math.Round(val / maxVal * float64(width*2)))
+	if halves == 0 && val > 0 {
+		halves = 1
 	}
-	partial := []string{"", "▏", "▎", "▍", "▌", "▋", "▊", "▉"}
-	return strings.Repeat("█", eighths/8) + partial[eighths%8]
+	ans := strings.Repeat("▄", halves/2)
+	if halves%2 == 1 {
+		ans += "▖"
+	}
+	return ans
 }
 
 // itemsInfo describes the number of items with respect to the limit
