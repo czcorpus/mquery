@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
@@ -29,9 +30,10 @@ func (e *Error) Error() string {
 }
 
 type Client struct {
-	baseURL *url.URL
-	headers map[string]string
-	http    *http.Client
+	baseURL       *url.URL
+	headers       map[string]string
+	http          *http.Client
+	authenticated bool
 }
 
 func NewClient(baseURL string, headers map[string]string, timeout time.Duration) (*Client, error) {
@@ -42,15 +44,59 @@ func NewClient(baseURL string, headers map[string]string, timeout time.Duration)
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, fmt.Errorf("invalid API URL %q: scheme must be http or https", baseURL)
 	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
 	return &Client{
 		baseURL: u,
 		headers: headers,
-		http:    &http.Client{Timeout: timeout},
+		http:    &http.Client{Timeout: timeout, Jar: jar},
 	}, nil
 }
 
 func (c *Client) BaseURL() string {
 	return c.baseURL.String()
+}
+
+// Authenticated reports whether a successful Login was performed.
+func (c *Client) Authenticated() bool {
+	return c.authenticated
+}
+
+// Login authenticates using a personal access token as described in
+// https://wiki.korpus.cz/doku.php/en:manualy:api – the token is POSTed
+// as the `personal_access_token` form field to `loginURL` and the returned
+// session cookie is kept in the client's cookie jar and sent along with
+// all subsequent API requests.
+func (c *Client) Login(ctx context.Context, loginURL, token string) error {
+	lu, err := url.Parse(loginURL)
+	if err != nil || (lu.Scheme != "http" && lu.Scheme != "https") {
+		return fmt.Errorf("invalid login URL %q", loginURL)
+	}
+	form := url.Values{"personal_access_token": {token}}
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, lu.String(), strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("login failed: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("login failed: %w", decodeError(resp.StatusCode, body))
+	}
+	if len(c.http.Jar.Cookies(c.baseURL)) == 0 {
+		return fmt.Errorf(
+			"login to %s returned no session cookie usable for %s (invalid token or a different domain?)",
+			lu.Host, c.baseURL.Host)
+	}
+	c.authenticated = true
+	return nil
 }
 
 // get performs a GET request on base URL + path elements

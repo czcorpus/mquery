@@ -52,6 +52,12 @@ change it.
       on startup
 - [x] header showing function / corpus / query, contextual footer help
 - [x] HTTP errors shown inline (MQuery's `{"error": ...}` is decoded)
+- [x] `.env` support (`-env-file`, default `./.env`; `-no-env-file` skips it; real env vars take precedence):
+      `API_URL` (or `MQUERY_API_URL`), `API_TOKEN`, `LOGIN_URL` (default `https://korpus.cz/login`).
+      With `API_TOKEN` set, the app logs in on startup (POST `personal_access_token`,
+      see https://wiki.korpus.cz/doku.php/en:manualy:api) and sends the session cookie
+      with every request; failed login aborts startup. Header shows `api: <url>` on the
+      right, plus `(authenticated)` when logged in
 
 ### M1 – concordance (`GET /concordance/:corpusId`) ✅ (first iteration)
 - [x] KWIC layout: right-aligned left context, highlighted KWIC, right context

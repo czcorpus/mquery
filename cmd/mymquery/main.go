@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,7 +15,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const defaultAPIURL = "http://localhost:8989"
+const (
+	defaultAPIURL   = "http://localhost:8989"
+	defaultLoginURL = "https://korpus.cz/login"
+)
 
 type headerFlags map[string]string
 
@@ -35,13 +39,63 @@ func (h headerFlags) Set(s string) error {
 	return nil
 }
 
+// envFileArgs pre-scans the command line for `-env-file` and `-no-env-file`.
+// They must be known before the other flags are defined, because the .env
+// file provides their defaults.
+func envFileArgs(args []string) (path string, skip bool) {
+	path = ".env"
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "--" {
+			break
+		}
+		if !strings.HasPrefix(a, "-") {
+			continue // a value of another flag (we don't know which ones take values)
+		}
+		name, val, hasVal := strings.Cut(strings.TrimLeft(a, "-"), "=")
+		switch name {
+		case "env-file":
+			if hasVal {
+				path = val
+			} else if i+1 < len(args) {
+				i++
+				path = args[i]
+			}
+		case "no-env-file":
+			skip = !hasVal || val == "true" || val == "1"
+		}
+	}
+	return
+}
+
 func main() {
-	apiURL := os.Getenv("MQUERY_API_URL")
+	envPath, skipEnvFile := envFileArgs(os.Args[1:])
+	dotenv := map[string]string{}
+	if !skipEnvFile {
+		var err error
+		dotenv, err = loadDotEnv(envPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to read %s: %s\n", envPath, err)
+			os.Exit(2)
+		}
+	}
+	apiURL := envLookup(dotenv, "MQUERY_API_URL")
+	if apiURL == "" {
+		apiURL = envLookup(dotenv, "API_URL")
+	}
 	if apiURL == "" {
 		apiURL = defaultAPIURL
 	}
+	loginURL := envLookup(dotenv, "LOGIN_URL")
+	if loginURL == "" {
+		loginURL = defaultLoginURL
+	}
+	apiToken := envLookup(dotenv, "API_TOKEN")
 	headers := make(headerFlags)
-	flag.StringVar(&apiURL, "api", apiURL, "MQuery API URL (env: MQUERY_API_URL)")
+	flag.String("env-file", envPath, "file with environment variables (API_URL, API_TOKEN, LOGIN_URL)")
+	flag.Bool("no-env-file", skipEnvFile, "do not read the env file (real environment variables still apply)")
+	flag.StringVar(&apiURL, "api", apiURL, "MQuery API URL (env: MQUERY_API_URL or API_URL)")
+	flag.StringVar(&loginURL, "login-url", loginURL, "login URL used when API_TOKEN is set (env: LOGIN_URL)")
 	flag.Var(headers, "H", "additional HTTP header 'Name: value' (can be repeated)")
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
@@ -67,6 +121,15 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
+	}
+	if apiToken != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+		err := client.Login(ctx, loginURL, apiToken)
+		cancel()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 	env := ui.NewEnv(client, *lang, *pageSize, *contextWidth)
 	env.HistoryPath = *historyFile

@@ -263,6 +263,21 @@ func (a *App) header() string {
 		parts = append(parts, seg.Render("query: "+a.activeResult().Query()))
 	}
 	content := strings.Join(parts, seg.Render(" │ "))
-	content = ansi.Truncate(content, max(0, a.width-2), "…")
+
+	// API URL (+ auth state) is right-aligned; if space is short,
+	// the left part is truncated first, then the API info itself
+	apiInfo := seg.Render("api: " + a.env.Client.BaseURL())
+	if a.env.Client.Authenticated() {
+		apiInfo += seg.Render(" ") + headerAuthStyle.Render("(authenticated)")
+	}
+	avail := max(0, a.width-2)
+	apiW := ansi.StringWidth(apiInfo)
+	if apiW+3 > avail {
+		return headerStyle.Width(a.width).Render(ansi.Truncate(content, avail, "…"))
+	}
+	leftAvail := avail - apiW - 3
+	content = ansi.Truncate(content, leftAvail, "…")
+	gap := avail - ansi.StringWidth(content) - apiW
+	content += seg.Render(strings.Repeat(" ", gap)) + apiInfo
 	return headerStyle.Width(a.width).Render(content)
 }
