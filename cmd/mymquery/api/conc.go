@@ -19,6 +19,11 @@ type ConcordanceArgs struct {
 	// ShowTextProps: 0 = none, 1 = basic, 2 = all
 	ShowTextProps int
 	NoShuffle     bool
+	// Coll is an optional collocate query (CQL); only lines with
+	// the collocate within CollRange are returned
+	Coll string
+	// CollRange is [left, right] relative to KWIC (negative = left)
+	CollRange [2]int
 }
 
 func (a ConcordanceArgs) values() url.Values {
@@ -44,6 +49,10 @@ func (a ConcordanceArgs) values() url.Values {
 	}
 	if a.NoShuffle {
 		v.Set("noShuffle", "1")
+	}
+	if a.Coll != "" {
+		v.Set("coll", a.Coll)
+		v.Set("collRange", strconv.Itoa(a.CollRange[0])+","+strconv.Itoa(a.CollRange[1]))
 	}
 	return v
 }

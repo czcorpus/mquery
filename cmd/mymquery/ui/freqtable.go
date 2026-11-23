@@ -28,7 +28,11 @@ const (
 )
 
 func newFLimitPicker(current int) *selectList {
-	return newSelectList("Minimum frequency", intSelectItems(freqFLimitPresets), fmt.Sprint(current)).
+	return newMinFreqPicker("Minimum frequency", current)
+}
+
+func newMinFreqPicker(title string, current int) *selectList {
+	return newSelectList(title, intSelectItems(freqFLimitPresets), fmt.Sprint(current)).
 		withCustom("filter or type a number", parsePositiveInt(1, freqFLimitLimit))
 }
 

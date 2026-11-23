@@ -21,6 +21,18 @@ func attrNames(attrs []corpusAttr) []string {
 	return ans
 }
 
+// pickerID identifies which option is being edited via a selectList
+type pickerID int
+
+const (
+	pickNone pickerID = iota
+	pickAttr
+	pickFLimit
+	pickMaxItems
+	pickMeasure
+	pickWindow
+)
+
 // viewSeq provides unique view IDs so that async responses
 // can be matched to the view which requested them
 var viewSeq int

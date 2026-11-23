@@ -35,9 +35,12 @@ type concView struct {
 	corpus api.CorpusItem
 	query  string
 	// note is an optional info shown in the summary line
-	note   string
-	width  int
-	height int
+	note string
+	// coll is an optional collocate filter (CQL) with a range relative to KWIC
+	coll      string
+	collRange [2]int
+	width     int
+	height    int
 
 	spinner    spinner.Model
 	loading    bool
@@ -93,6 +96,14 @@ func (v *concView) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// withColl restricts the concordance to lines with a collocate matching `coll`
+// within the range [left, right] (relative to KWIC, negative = left)
+func (v *concView) withColl(coll string, left, right int) *concView {
+	v.coll = coll
+	v.collRange = [2]int{left, right}
+	return v
+}
+
 func (v *concView) Title() string { return "Concordance" }
 
 func (v *concView) Query() string { return v.query }
@@ -123,6 +134,8 @@ func (v *concView) fetch() tea.Cmd {
 		MaxRows:       v.env.PageSize,
 		ContextWidth:  v.env.ContextWidth,
 		ShowTextProps: 2,
+		Coll:          v.coll,
+		CollRange:     v.collRange,
 	}
 	return tea.Batch(
 		v.spinner.Tick,

@@ -18,16 +18,6 @@ import (
 
 const freqsSummaryHeight = 2 // summary line + empty line
 
-// freqsPicker identifies which option is being edited via a selectList
-type freqsPicker int
-
-const (
-	pickNone freqsPicker = iota
-	pickAttr
-	pickFLimit
-	pickMaxItems
-)
-
 type freqsLoadedMsg struct {
 	viewID int
 	reqID  int
@@ -59,7 +49,7 @@ type freqsView struct {
 	flimit    int
 
 	picker    *selectList
-	pickerFor freqsPicker
+	pickerFor pickerID
 
 	table freqTable
 
@@ -252,7 +242,7 @@ func (v *freqsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	return v, nil
 }
 
-func (v *freqsView) openPicker(p freqsPicker, s *selectList) {
+func (v *freqsView) openPicker(p pickerID, s *selectList) {
 	v.picker, v.pickerFor = s, p
 }
 

@@ -28,6 +28,13 @@ type Env struct {
 	ttAttr        map[string]string        // corpus ID => attribute
 	ttMaxItems    int
 	ttFLimit      int
+
+	// collocation settings
+	collMeasure  string
+	collAttr     map[string]string // corpus ID => attribute
+	collWindow   [2]int            // left, right (both >= 0)
+	collMinFreq  int
+	collMaxItems int
 }
 
 func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
@@ -44,6 +51,11 @@ func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
 		ttAttr:        make(map[string]string),
 		ttMaxItems:    freqMaxItemsSteps[0],
 		ttFLimit:      1,
+		collMeasure:   collDefaultMeasure,
+		collAttr:      make(map[string]string),
+		collWindow:    [2]int{5, 5},
+		collMinFreq:   3,
+		collMaxItems:  freqMaxItemsSteps[0],
 	}
 }
 
@@ -105,6 +117,7 @@ func DefaultFeatures() []Feature {
 			Description:      "collocation candidates of a query",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
+			NewView:          newCollsView,
 		},
 	}
 }

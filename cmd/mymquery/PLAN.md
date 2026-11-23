@@ -57,7 +57,7 @@ query for each feature.
 - [ ] showing structures (`showMarkup=1`). Note: `TokenSlice.UnmarshalJSON`
       in mquery-common has no element type for `"close"` markup, so that has
       to be fixed in mquery-common first
-- [ ] collocate highlighting (`coll`, `collRange`)
+- [x] collocate filter + highlighting (`coll`, `collRange`) – used by the M4 drill-down
 - [ ] maybe: a horizontal "interlinear" mode showing word/lemma/tag stacked
 
 ### M2 – token frequencies (`GET /freqs/:corpusId`) ✅ (first iteration)
@@ -95,11 +95,19 @@ query for each feature.
 - [ ] overview mode (`/text-types-overview`: all overview attributes at once)
 - [ ] `/text-types-norms` – not needed, `base` in the response already gives the text type size
 
-### M4 – collocations (`GET /collocations/:corpusId`)
-- options: `measure` (logDice, T-score, MI, …), `srchLeft`/`srchRight`,
-  `srchAttr`, `minCollFreq`, `maxItems`
-- table: collocate | score | freq
-- `enter` → concordance filtered with `coll` (reuses M1)
+### M4 – collocations (`GET /collocations/:corpusId`) ✅ (first iteration)
+- [x] table: collocate | score | freq | bar (score; freq when sorted by freq; negative scores = no bar)
+- [x] `c` measure picker (all 9 MQuery measures with short descriptions, default logDice)
+- [x] `a` attribute picker (`srchAttr`, default: last used → `lemma` → `word`)
+- [x] `w` window picker (presets incl. left/right-only, or typed `L,R` / `N`, 0–50, not both 0)
+- [x] `f` min. collocate freq (`minCollFreq`, default 3), `m`/`+`/`-` max items
+- [x] `s` sorts by score / freq / value
+- [x] `enter` → nested concordance filtered by `coll=[attr="value"]` and `collRange`
+      (window `L,R` → `-L,R`; left-only → `-L,-1`; right-only → `1,R`). Counts verified to match
+      collocate freqs; collocates are highlighted in the lines. The attr/window are taken from
+      the response the table shows, not from (possibly failed) newer settings
+- [ ] `minCorpFreq` (server uses `minCollFreq` by default)
+- [ ] `/collocations-extended` (collocates with examples)
 
 ### Shared UI components
 - `selectList` (`ui/selectlist.go`): modal "pick one" box drawn over the view

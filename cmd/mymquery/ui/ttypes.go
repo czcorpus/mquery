@@ -126,7 +126,7 @@ type ttypesView struct {
 	flimit   int
 
 	picker    *selectList
-	pickerFor freqsPicker
+	pickerFor pickerID
 
 	table freqTable
 
