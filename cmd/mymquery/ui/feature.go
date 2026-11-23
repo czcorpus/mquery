@@ -15,7 +15,13 @@ type Env struct {
 	ContextWidth int
 
 	// attrCache maps corpus ID => ordered positional attributes
-	attrCache map[string][]string
+	attrCache map[string][]corpusAttr
+
+	// token frequency settings (kept for the whole session)
+	freqAttr      map[string]string // corpus ID => attribute
+	freqMatchCase bool
+	freqMaxItems  int
+	freqFLimit    int
 }
 
 func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
@@ -24,7 +30,10 @@ func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
 		Lang:         lang,
 		PageSize:     pageSize,
 		ContextWidth: contextWidth,
-		attrCache:    make(map[string][]string),
+		attrCache:    make(map[string][]corpusAttr),
+		freqAttr:     make(map[string]string),
+		freqMaxItems: freqMaxItemsSteps[0],
+		freqFLimit:   1,
 	}
 }
 
@@ -34,6 +43,10 @@ type ResultView interface {
 	Update(msg tea.Msg) (ResultView, tea.Cmd)
 	View() string
 	SetSize(width, height int)
+	// Title is a name of the view shown in the header (e.g. "Concordance")
+	Title() string
+	// Query is the query the view shows results for
+	Query() string
 	// Help returns a short key help shown in the footer
 	Help() string
 	// Close is called when the view is left (e.g. to cancel requests)
@@ -68,6 +81,7 @@ func DefaultFeatures() []Feature {
 			Description:      "frequency distribution of a positional attribute",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [tag="N.*"]`,
+			NewView:          newFreqsView,
 		},
 		{
 			Title:            "Text type frequencies",

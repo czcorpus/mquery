@@ -22,10 +22,6 @@ const (
 	detailMaxColWidth = 40
 )
 
-// concViewSeq provides unique IDs so that responses for an already
-// closed view are ignored
-var concViewSeq int
-
 type concLoadedMsg struct {
 	viewID int
 	reqID  int
@@ -33,17 +29,13 @@ type concLoadedMsg struct {
 	err    error
 }
 
-type concAttrsMsg struct {
-	viewID   int
-	corpusID string
-	attrs    []string
-}
-
 type concView struct {
 	id     int
 	env    *Env
 	corpus api.CorpusItem
 	query  string
+	// note is an optional info shown in the summary line
+	note   string
 	width  int
 	height int
 
@@ -57,11 +49,12 @@ type concView struct {
 	// infoAttrs is the corpus attribute order as provided by /info
 	infoAttrs []string
 	// attrs are positional attributes (except `word`) available in the result
-	attrs  []string
-	cursor int
-	scroll int
+	attrs []string
+	nav   listNav
 	// dispAttr: 0 = word, i > 0 => attrs[i-1]
 	dispAttr int
+	// attrPicker is open when selecting the displayed attribute
+	attrPicker *selectList
 
 	detail   bool
 	detailVP viewport.Model
@@ -71,17 +64,21 @@ type concView struct {
 }
 
 func newConcView(env *Env, corpus api.CorpusItem, query string) ResultView {
-	concViewSeq++
+	return newConcViewWithNote(env, corpus, query, "")
+}
+
+func newConcViewWithNote(env *Env, corpus api.CorpusItem, query, note string) *concView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return &concView{
-		id:        concViewSeq,
+		id:        nextViewID(),
 		env:       env,
 		corpus:    corpus,
 		query:     query,
+		note:      note,
 		spinner:   sp,
-		infoAttrs: env.attrCache[corpus.ID],
+		infoAttrs: attrNames(env.attrCache[corpus.ID]),
 		detailVP:  viewport.New(0, 0),
 		ctx:       ctx,
 		cancel:    cancel,
@@ -91,10 +88,14 @@ func newConcView(env *Env, corpus api.CorpusItem, query string) ResultView {
 func (v *concView) Init() tea.Cmd {
 	cmds := []tea.Cmd{v.fetch()}
 	if v.infoAttrs == nil {
-		cmds = append(cmds, v.fetchAttrs())
+		cmds = append(cmds, fetchCorpusAttrs(v.env, v.ctx, v.corpus.ID, v.id))
 	}
 	return tea.Batch(cmds...)
 }
+
+func (v *concView) Title() string { return "Concordance" }
+
+func (v *concView) Query() string { return v.query }
 
 func (v *concView) Close() {
 	v.cancel()
@@ -107,7 +108,7 @@ func (v *concView) SetSize(w, h int) {
 	if v.detail {
 		v.detailVP.SetContent(v.detailContent())
 	}
-	v.fixScroll()
+	v.nav.fix(len(v.lines()), v.listHeight())
 }
 
 func (v *concView) fetch() tea.Cmd {
@@ -132,23 +133,6 @@ func (v *concView) fetch() tea.Cmd {
 	)
 }
 
-// fetchAttrs loads the corpus attribute order. It is not essential,
-// so errors are ignored (we fall back to alphabetical order).
-func (v *concView) fetchAttrs() tea.Cmd {
-	client, ctx, corpusID, lang, viewID := v.env.Client, v.ctx, v.corpus.ID, v.env.Lang, v.id
-	return func() tea.Msg {
-		info, err := client.CorpusInfo(ctx, corpusID, lang)
-		if err != nil {
-			return nil
-		}
-		attrs := make([]string, len(info.AttrList))
-		for i, a := range info.AttrList {
-			attrs[i] = a.Name
-		}
-		return concAttrsMsg{viewID: viewID, corpusID: corpusID, attrs: attrs}
-	}
-}
-
 func (v *concView) lines() []concordance.Line {
 	if v.resp == nil {
 		return nil
@@ -158,24 +142,6 @@ func (v *concView) lines() []concordance.Line {
 
 func (v *concView) listHeight() int {
 	return max(1, v.height-concSummaryHeight)
-}
-
-func (v *concView) fixScroll() {
-	n := len(v.lines())
-	if v.cursor >= n {
-		v.cursor = max(0, n-1)
-	}
-	if v.cursor < 0 {
-		v.cursor = 0
-	}
-	h := v.listHeight()
-	if v.cursor < v.scroll {
-		v.scroll = v.cursor
-	}
-	if v.cursor >= v.scroll+h {
-		v.scroll = v.cursor - h + 1
-	}
-	v.scroll = max(0, min(v.scroll, max(0, n-h)))
 }
 
 func (v *concView) updateAttrs() {
@@ -231,16 +197,16 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		v.resp = msg.resp
-		v.cursor, v.scroll = 0, 0
+		v.nav.reset()
 		v.updateAttrs()
 		return v, nil
 
-	case concAttrsMsg:
-		if msg.viewID != v.id {
-			return v, nil
+	case corpusAttrsMsg:
+		if msg.viewID != v.id || msg.err != nil {
+			return v, nil // attr order is not essential; we fall back to alphabetical
 		}
 		v.env.attrCache[msg.corpusID] = msg.attrs
-		v.infoAttrs = msg.attrs
+		v.infoAttrs = attrNames(msg.attrs)
 		v.updateAttrs()
 		return v, nil
 
@@ -253,6 +219,9 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		return v, cmd
 
 	case tea.KeyMsg:
+		if v.attrPicker != nil {
+			return v.updateAttrPicker(msg)
+		}
 		if v.detail {
 			return v.updateDetail(msg)
 		}
@@ -273,19 +242,10 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	if v.loading && v.resp == nil {
 		return v, nil
 	}
+	if v.nav.handleKey(msg.String(), len(v.lines()), v.listHeight()) {
+		return v, nil
+	}
 	switch msg.String() {
-	case "up", "k":
-		v.cursor--
-	case "down", "j":
-		v.cursor++
-	case "pgup", "ctrl+u":
-		v.cursor -= v.listHeight()
-	case "pgdown", "ctrl+d":
-		v.cursor += v.listHeight()
-	case "home", "g":
-		v.cursor = 0
-	case "end", "G":
-		v.cursor = len(v.lines()) - 1
 	case "right", "l", "n":
 		if v.hasNextPage() && !v.loading {
 			v.rowsOffset += v.env.PageSize
@@ -297,15 +257,14 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 			return v, v.fetch()
 		}
 	case "a":
-		v.dispAttr = (v.dispAttr + 1) % (len(v.attrs) + 1)
-	case "A":
-		v.dispAttr = (v.dispAttr + len(v.attrs)) % (len(v.attrs) + 1)
+		names := append([]string{"word"}, v.attrs...)
+		v.attrPicker = newSelectList(
+			"Displayed attribute", attrSelectItems(names, v.env, v.corpus.ID), v.dispAttrName())
 	case "enter":
 		if len(v.lines()) > 0 {
 			v.openDetail()
 		}
 	}
-	v.fixScroll()
 	return v, nil
 }
 
@@ -323,16 +282,16 @@ func (v *concView) updateDetail(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	case "q":
 		return v, tea.Quit
 	case "left", "h":
-		if v.cursor > 0 {
-			v.cursor--
-			v.fixScroll()
+		if v.nav.cursor > 0 {
+			v.nav.cursor--
+			v.nav.fix(len(v.lines()), v.listHeight())
 			v.openDetail()
 		}
 		return v, nil
 	case "right", "l":
-		if v.cursor < len(v.lines())-1 {
-			v.cursor++
-			v.fixScroll()
+		if v.nav.cursor < len(v.lines())-1 {
+			v.nav.cursor++
+			v.nav.fix(len(v.lines()), v.listHeight())
 			v.openDetail()
 		}
 		return v, nil
@@ -344,7 +303,31 @@ func (v *concView) updateDetail(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 
 // ---------------------------------- rendering
 
+func (v *concView) updateAttrPicker(msg tea.KeyMsg) (ResultView, tea.Cmd) {
+	res, val := v.attrPicker.Update(msg)
+	if res == selectChosen {
+		v.dispAttr = 0
+		for i, a := range v.attrs {
+			if a == val {
+				v.dispAttr = i + 1
+			}
+		}
+	}
+	if res != selectPending {
+		v.attrPicker = nil
+	}
+	return v, nil
+}
+
 func (v *concView) View() string {
+	body := v.baseView()
+	if v.attrPicker != nil {
+		return placeOverlay(body, v.attrPicker.View(v.width), v.width, v.height)
+	}
+	return body
+}
+
+func (v *concView) baseView() string {
 	if v.err != nil {
 		return errorStyle.Render(v.err.Error()) + "\n\n" +
 			mutedStyle.Render("r retry • esc edit query")
@@ -363,9 +346,9 @@ func (v *concView) View() string {
 		return b.String()
 	}
 	numW := len(fmt.Sprint(v.rowsOffset + len(lines)))
-	end := min(len(lines), v.scroll+v.listHeight())
-	for i := v.scroll; i < end; i++ {
-		b.WriteString(v.renderRow(i, lines[i], i == v.cursor, numW))
+	from, end := v.nav.visibleRange(len(lines), v.listHeight())
+	for i := from; i < end; i++ {
+		b.WriteString(v.renderRow(i, lines[i], i == v.nav.cursor, numW))
 		if i < end-1 {
 			b.WriteString("\n")
 		}
@@ -383,6 +366,9 @@ func (v *concView) summary() string {
 		fmt.Sprintf("lines %d–%d", v.rowsOffset+min(1, len(r.Lines)), v.rowsOffset+len(r.Lines)),
 		fmt.Sprintf("page %d/%d", page, max(1, pages)),
 		"showing: " + accentStyle.Render(v.dispAttrName()),
+	}
+	if v.note != "" {
+		parts = append(parts, mutedStyle.Render(v.note))
 	}
 	s := "  " + strings.Join(parts, mutedStyle.Render(" • "))
 	if v.loading {
@@ -498,16 +484,16 @@ func fitRight(s string, w int, base lipgloss.Style) string {
 func (v *concView) detailView() string {
 	title := fmt.Sprintf("  %s  line %s of %s",
 		titleStyle.Render("Line detail"),
-		formatInt(v.rowsOffset+v.cursor+1), formatInt(v.resp.ConcSize))
+		formatInt(v.rowsOffset+v.nav.cursor+1), formatInt(v.resp.ConcSize))
 	return ansi.Truncate(title, v.width, "…") + "\n" + v.detailVP.View()
 }
 
 func (v *concView) detailContent() string {
 	lines := v.lines()
-	if v.cursor >= len(lines) {
+	if v.nav.cursor >= len(lines) {
 		return ""
 	}
-	line := lines[v.cursor]
+	line := lines[v.nav.cursor]
 	var b strings.Builder
 	b.WriteString("\n")
 	if line.Ref != "" {
@@ -585,10 +571,13 @@ func (v *concView) detailContent() string {
 }
 
 func (v *concView) Help() string {
+	if v.attrPicker != nil {
+		return v.attrPicker.Help()
+	}
 	if v.detail {
 		return "↑/↓ scroll • ←/→ prev/next line • esc close detail • q quit"
 	}
-	return "↑/↓ move • enter line detail • a/A switch attribute • ←/→ page • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter line detail • a displayed attribute • ←/→ page • r reload • esc edit query • q quit"
 }
 
 // ---------------------------------- helpers
