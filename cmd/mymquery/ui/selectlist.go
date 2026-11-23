@@ -140,7 +140,7 @@ func (s *selectList) View(maxWidth int) string {
 		labelW = max(labelW, ansi.StringWidth(it.label()))
 		hintW = max(hintW, ansi.StringWidth(it.Hint))
 	}
-	innerW := 2 + labelW // marker + label
+	innerW := 2 + labelW + 2 // marker + label + current value mark
 	if hintW > 0 {
 		innerW += 2 + hintW
 	}

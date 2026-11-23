@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -15,24 +13,10 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
-const (
-	freqsChromeHeight = 3 // summary line + empty line + table header
-	freqsMinBarWidth  = 10
-)
-
-var (
-	freqMaxItemsSteps = []int{20, 50, 100, 200, 500, 1000}
-	freqFLimitPresets = []int{1, 2, 3, 5, 10, 20, 50, 100, 500, 1000}
-)
-
-const (
-	freqMaxItemsLimit = 10000
-	freqFLimitLimit   = 1_000_000_000
-)
+const freqsSummaryHeight = 2 // summary line + empty line
 
 // freqsPicker identifies which option is being edited via a selectList
 type freqsPicker int
@@ -43,20 +27,6 @@ const (
 	pickFLimit
 	pickMaxItems
 )
-
-type freqSort int
-
-const (
-	freqSortByFreq freqSort = iota
-	freqSortByValue
-)
-
-func (s freqSort) String() string {
-	if s == freqSortByValue {
-		return "value"
-	}
-	return "freq"
-}
 
 type freqsLoadedMsg struct {
 	viewID int
@@ -91,10 +61,7 @@ type freqsView struct {
 	picker    *selectList
 	pickerFor freqsPicker
 
-	// items are response items in the current sort order
-	items  []api.FreqItem
-	sortBy freqSort
-	nav    listNav
+	table freqTable
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -114,8 +81,10 @@ func newFreqsView(env *Env, corpus api.CorpusItem, query string) ResultView {
 		matchCase: env.freqMatchCase,
 		maxItems:  env.freqMaxItems,
 		flimit:    env.freqFLimit,
-		ctx:       ctx,
-		cancel:    cancel,
+		// all items share the same base (corpus size) so ipm order == freq order
+		table:  newFreqTable(freqSortByFreq, freqSortByValue),
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
@@ -137,11 +106,11 @@ func (v *freqsView) Close() { v.cancel() }
 
 func (v *freqsView) SetSize(w, h int) {
 	v.width, v.height = w, h
-	v.nav.fix(len(v.items), v.listHeight())
+	v.table.fix(v.tableHeight())
 }
 
-func (v *freqsView) listHeight() int {
-	return max(1, v.height-freqsChromeHeight)
+func (v *freqsView) tableHeight() int {
+	return max(2, v.height-freqsSummaryHeight)
 }
 
 // chooseAttr picks the last used attribute for the corpus,
@@ -160,10 +129,6 @@ func (v *freqsView) fetch() tea.Cmd {
 	v.reqID++
 	v.loading = true
 	v.err = nil
-	v.env.freqAttr[v.corpus.ID] = v.attr
-	v.env.freqMatchCase = v.matchCase
-	v.env.freqMaxItems = v.maxItems
-	v.env.freqFLimit = v.flimit
 	reqID, viewID := v.reqID, v.id
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.FreqsArgs{
@@ -180,20 +145,6 @@ func (v *freqsView) fetch() tea.Cmd {
 			return freqsLoadedMsg{viewID: viewID, reqID: reqID, resp: resp, err: err}
 		},
 	)
-}
-
-func (v *freqsView) sortItems() {
-	if v.resp == nil {
-		v.items = nil
-		return
-	}
-	v.items = slices.Clone(v.resp.Freqs)
-	switch v.sortBy {
-	case freqSortByFreq:
-		sort.SliceStable(v.items, func(i, j int) bool { return v.items[i].Freq > v.items[j].Freq })
-	case freqSortByValue:
-		sort.SliceStable(v.items, func(i, j int) bool { return v.items[i].Value < v.items[j].Value })
-	}
 }
 
 func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
@@ -224,8 +175,13 @@ func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		v.resp = msg.resp
-		v.sortItems()
-		v.nav.reset()
+		// remember only settings which work
+		v.env.freqAttr[v.corpus.ID] = v.attr
+		v.env.freqMatchCase = v.matchCase
+		v.env.freqMaxItems = v.maxItems
+		v.env.freqFLimit = v.flimit
+		v.table.valueHeader = v.attr
+		v.table.setData(msg.resp.Freqs, msg.resp.ConcSize)
 		return v, nil
 
 	case spinner.TickMsg:
@@ -257,7 +213,7 @@ func (v *freqsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	if v.attr == "" {
 		return v, nil // still loading corpus attributes
 	}
-	if v.nav.handleKey(key, len(v.items), v.listHeight()) {
+	if v.table.handleKey(key, v.tableHeight()) {
 		return v, nil
 	}
 	switch key {
@@ -271,38 +227,26 @@ func (v *freqsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		v.openPicker(pickAttr, newSelectList(
 			"Attribute", attrSelectItems(v.attrs, v.env, v.corpus.ID), v.attr))
 	case "f":
-		v.openPicker(pickFLimit, newSelectList(
-			"Minimum frequency", intSelectItems(freqFLimitPresets), fmt.Sprint(v.flimit)).
-			withCustom("filter or type a number", parsePositiveInt(1, freqFLimitLimit)))
+		v.openPicker(pickFLimit, newFLimitPicker(v.flimit))
 	case "m":
-		v.openPicker(pickMaxItems, newSelectList(
-			"Max. items", intSelectItems(freqMaxItemsSteps), fmt.Sprint(v.maxItems)).
-			withCustom("filter or type a number", parsePositiveInt(1, freqMaxItemsLimit)))
+		v.openPicker(pickMaxItems, newMaxItemsPicker(v.maxItems))
 	case "i":
 		v.matchCase = !v.matchCase
 		return v, v.fetch()
-	case "+", "=":
-		// a custom maxItems may lie between the steps
-		for _, s := range freqMaxItemsSteps {
-			if s > v.maxItems {
-				v.maxItems = s
-				return v, v.fetch()
-			}
+	case "+", "=", "-":
+		dir := 1
+		if key == "-" {
+			dir = -1
 		}
-	case "-":
-		for i := len(freqMaxItemsSteps) - 1; i >= 0; i-- {
-			if s := freqMaxItemsSteps[i]; s < v.maxItems {
-				v.maxItems = s
-				return v, v.fetch()
-			}
+		if n, ok := stepMaxItems(v.maxItems, dir); ok {
+			v.maxItems = n
+			return v, v.fetch()
 		}
 	case "s":
-		v.sortBy = (v.sortBy + 1) % 2
-		v.sortItems()
-		v.nav.reset()
+		v.table.cycleSort()
 	case "enter":
-		if len(v.items) > 0 && !v.loading {
-			return v, pushResult(v.concordanceFor(v.items[v.nav.cursor]))
+		if it, ok := v.table.selected(); ok && !v.loading {
+			return v, pushResult(v.concordanceFor(it))
 		}
 	}
 	return v, nil
@@ -364,64 +308,12 @@ func (v *freqsView) View() string {
 func (v *freqsView) baseView() string {
 	if v.err != nil {
 		return errorStyle.Render(v.err.Error()) + "\n\n" +
-			mutedStyle.Render("r retry • a switch attribute • esc edit query")
+			mutedStyle.Render("r retry • a attribute • esc edit query")
 	}
 	if v.resp == nil {
 		return v.spinner.View() + " calculating frequencies…"
 	}
-	var b strings.Builder
-	b.WriteString(v.summary() + "\n\n")
-	if len(v.items) == 0 {
-		b.WriteString(mutedStyle.Render("  No results."))
-		return b.String()
-	}
-
-	numW := len(fmt.Sprint(len(v.items)))
-	valW := ansi.StringWidth(v.attr)
-	var maxFreq int64
-	for _, it := range v.items {
-		valW = max(valW, ansi.StringWidth(it.Value))
-		maxFreq = max(maxFreq, it.Freq)
-	}
-	freqW := max(4, len(formatInt(int(maxFreq))))
-	const ipmW, pctW = 10, 6
-	fixedW := 2 + numW + 2 + 2 + freqW + 2 + ipmW + 2 + pctW + 2
-	valW = min(valW, max(10, v.width-fixedW-freqsMinBarWidth))
-	barW := max(0, v.width-fixedW-valW-1)
-
-	header := fmt.Sprintf("  %*s  %s  %*s  %*s  %*s  ",
-		numW, "#", padRight(v.attr, valW), freqW, "freq", ipmW, "ipm", pctW, "%")
-	b.WriteString(mutedStyle.Underline(true).Render(header) + "\n")
-
-	from, to := v.nav.visibleRange(len(v.items), v.listHeight())
-	for i := from; i < to; i++ {
-		it := v.items[i]
-		sel := i == v.nav.cursor
-		base := lipgloss.NewStyle()
-		marker := "  "
-		if sel {
-			base = base.Background(colSelBg)
-			marker = accentStyle.Bold(true).Render("❯ ")
-		}
-		var pct float64
-		if v.resp.ConcSize > 0 {
-			pct = float64(it.Freq) / float64(v.resp.ConcSize) * 100
-		}
-		val := it.Value
-		if ansi.StringWidth(val) > valW {
-			val = ansi.Truncate(val, valW, "…")
-		}
-		row := base.Foreground(colMuted).Render(fmt.Sprintf("%*d  ", numW, i+1)) +
-			base.Bold(sel).Render(padRight(val, valW)) +
-			base.Render(fmt.Sprintf("  %*s  %*.2f  %*.1f  ",
-				freqW, formatInt(int(it.Freq)), ipmW, it.IPM, pctW, pct)) +
-			base.Foreground(colAccent).Render(padRight(bar(it.Freq, maxFreq, barW), barW))
-		b.WriteString(marker + row)
-		if i < to-1 {
-			b.WriteString("\n")
-		}
-	}
-	return b.String()
+	return v.summary() + "\n\n" + v.table.view(v.width, v.tableHeight())
 }
 
 func (v *freqsView) summary() string {
@@ -430,17 +322,13 @@ func (v *freqsView) summary() string {
 	if v.matchCase {
 		caseInfo = "respected"
 	}
-	items := fmt.Sprintf("%d items", len(r.Freqs))
-	if len(r.Freqs) >= v.maxItems {
-		items += fmt.Sprintf(" (limit %d, + for more)", v.maxItems)
-	}
 	parts := []string{
 		boldStyle.Render(formatInt(int(r.ConcSize))) + " hits",
 		"attr: " + accentStyle.Render(v.attr),
 		"case: " + caseInfo,
 		"min freq: " + accentStyle.Render(fmt.Sprint(v.flimit)),
-		items,
-		"sorted by " + v.sortBy.String(),
+		itemsInfo(len(r.Freqs), v.maxItems),
+		"sorted by " + v.table.sortBy().String(),
 	}
 	s := "  " + strings.Join(parts, mutedStyle.Render(" • "))
 	if v.loading {
@@ -450,19 +338,6 @@ func (v *freqsView) summary() string {
 		s += "  " + errorStyle.Render(v.notice)
 	}
 	return ansi.Truncate(s, v.width, "…")
-}
-
-// bar renders a horizontal bar with 1/8 cell resolution
-func bar(val, maxVal int64, width int) string {
-	if maxVal <= 0 || width <= 0 {
-		return ""
-	}
-	eighths := int(math.Round(float64(val) / float64(maxVal) * float64(width*8)))
-	if eighths == 0 && val > 0 {
-		eighths = 1
-	}
-	partial := []string{"", "▏", "▎", "▍", "▌", "▋", "▊", "▉"}
-	return strings.Repeat("█", eighths/8) + partial[eighths%8]
 }
 
 func (v *freqsView) Help() string {

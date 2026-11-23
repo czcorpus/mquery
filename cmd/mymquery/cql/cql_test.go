@@ -59,3 +59,20 @@ func TestRestrictByValues(t *testing.T) {
 	assert.False(t, merged)
 	assert.Equal(t, `[word="away"] [word="from"]`, q)
 }
+
+func TestWithinStructAttr(t *testing.T) {
+	q, err := WithinStructAttr(`[lemma="house"] | [lemma="home"]`, "bncdoc.alltyp", "Spoken demographic")
+	assert.NoError(t, err)
+	assert.Equal(t, `([lemma="house"] | [lemma="home"]) within <bncdoc alltyp="Spoken demographic"/>`, q)
+
+	q, err = WithinStructAttr(`[word="a"]`, "doc.title", `Who? "Me" (1.)`)
+	assert.NoError(t, err)
+	assert.Equal(t, `([word="a"]) within <doc title="Who\? \"Me\" \(1\.\)"/>`, q)
+
+	q, err = WithinStructAttr(`[word="a"]`, "doc.author", "")
+	assert.NoError(t, err)
+	assert.Equal(t, `([word="a"]) within <doc author=""/>`, q)
+
+	_, err = WithinStructAttr(`[word="a"]`, "author", "x")
+	assert.Error(t, err)
+}

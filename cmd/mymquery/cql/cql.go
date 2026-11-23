@@ -3,6 +3,7 @@
 package cql
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
@@ -94,4 +95,15 @@ func RestrictByValues(query, attr string, values []string, ignoreCase bool) (ans
 		parts[i] = "[" + cond + "]"
 	}
 	return strings.Join(parts, " "), merged
+}
+
+// WithinStructAttr restricts a query to structures with the given attribute
+// value, e.g. `(q) within <doc author="X"/>`. The structAttr must be in
+// the `struct.attr` form.
+func WithinStructAttr(query, structAttr, value string) (string, error) {
+	st, attr, ok := strings.Cut(structAttr, ".")
+	if !ok || st == "" || attr == "" {
+		return "", fmt.Errorf("invalid structural attribute %q (expected struct.attr)", structAttr)
+	}
+	return fmt.Sprintf(`(%s) within <%s %s="%s"/>`, query, st, attr, EscapeValue(value)), nil
 }

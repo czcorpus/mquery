@@ -50,8 +50,8 @@ query for each feature.
 - [x] selectable line cursor, scrolling, paging (`rowsOffset`/`maxRows`)
 - [x] `enter` opens a detail of the line: all positional attributes of
       every token in a table, text properties and ref
-- [x] `a` switches the attribute displayed in the lines (word → lemma → tag …),
-      attribute order is taken from `/info/:corpusId`
+- [x] `a` opens a picker for the attribute displayed in the lines (word, lemma, tag …),
+      attribute order, sizes and descriptions are taken from `/info/:corpusId`
 - [x] lines with `errMsg` are shown as errors and are not dropped
 - [ ] options form: contextWidth, contextStruct, noShuffle, subcorpus, showTextProps
 - [ ] showing structures (`showMarkup=1`). Note: `TokenSlice.UnmarshalJSON`
@@ -60,23 +60,56 @@ query for each feature.
 - [ ] collocate highlighting (`coll`, `collRange`)
 - [ ] maybe: a horizontal "interlinear" mode showing word/lemma/tag stacked
 
-### M2 – token frequencies (`GET /freqs/:corpusId`)
-- query = CQL; options: `attr` (default lemma), `matchCase`, `maxItems`, `flimit`
-- table view: value | freq | ipm (sortable by column), plus a simple inline bar
-- `enter` on a row → open a concordance for that value (reuses M1)
-- word-list mode (regexp input): check which endpoint fits best,
-  as there is no dedicated word-list endpoint yet
+### M2 – token frequencies (`GET /freqs/:corpusId`) ✅ (first iteration)
+- [x] table: value | freq | ipm | % of hits | bar (1/8-cell resolution)
+- [x] `a` attribute picker (from `/info`; default: last used for the corpus → `lemma` → `word`)
+- [x] `f` min. frequency (`flimit`) picker: presets or a typed number
+- [x] `m` max. items picker (presets or a typed number up to 10000), `+`/`-` step through presets
+- [x] `i` toggles `matchCase`, `s` sorts by freq/value
+- [x] settings (attr per corpus, case, maxItems, flimit) are kept for the session
+- [x] `enter` on a row → nested concordance (result views form a stack, `esc` returns).
+      The query is built client-side (`cql.RestrictByValues`): each `[...]` position of the
+      original query gets `& attr="value"` (with `(?i)` when case is ignored). Queries that
+      are not a plain sequence of positions (`within`, `{n}`, `|`, …) fall back to value-only
+      conditions; the concordance summary says so.
+- [ ] word-list mode (regexp input) – there is no dedicated endpoint; maybe
+      `/freqs` with `[word="<regexp>"]` and `attr=word` is good enough
+- [ ] note: MQuery's `examplesQueryTpl` in the response is never filled – if it gets
+      implemented server-side, it could replace the client-side query building
 
-### M3 – text type frequencies (`GET /text-types/:corpusId`)
-- options: `attr` chosen from `/text-types-overview` or the corpus's text properties
-- table: value | freq | ipm | norm (from `/text-types-norms` when available)
-- maybe: `/text-types-avail-values` for drilling into a struct attribute
+### M3 – text type frequencies (`GET /text-types/:corpusId`) ✅ (first iteration)
+- [x] table: value | freq | text size (`base`) | ipm (relative to the text type size) | % of hits | bar
+- [x] `s` sorts by freq / ipm / value; when sorted by ipm, the bar shows ipm.
+      Note: the server returns the top `maxItems` *by freq*, so sorting by ipm only reorders those
+- [x] `a` structural attribute picker combining
+      - configured text properties (`/info?attachConf=1` → e.g. `author` = `bncdoc.author`)
+      - all attributes from `/text-types-avail-values` (it skips attributes with too many values,
+        e.g. authors/titles, hence the combination)
+      - a typed custom `struct.attr`
+      default: last used for the corpus → `text-type` property → first overview property → first item
+- [x] `f` min freq, `m`/`+`/`-` max items (shared pickers with M2)
+- [x] empty values are shown as `(empty)`
+- [x] `enter` → nested concordance `(query) within <struct attr="value"/>`
+      (counts verified to match the frequencies)
+- [x] settings are remembered for the session only after a successful response
+- [ ] overview mode (`/text-types-overview`: all overview attributes at once)
+- [ ] `/text-types-norms` – not needed, `base` in the response already gives the text type size
 
 ### M4 – collocations (`GET /collocations/:corpusId`)
 - options: `measure` (logDice, T-score, MI, …), `srchLeft`/`srchRight`,
   `srchAttr`, `minCollFreq`, `maxItems`
 - table: collocate | score | freq
 - `enter` → concordance filtered with `coll` (reuses M1)
+
+### Shared UI components
+- `selectList` (`ui/selectlist.go`): modal "pick one" box drawn over the view
+  (`placeOverlay`), filter by typing (exact match first), current value marked `●`,
+  optional hints per item, optional custom values with a validator
+  (`withCustom(placeholder, parsePositiveInt(min, max))`). Intended for: text type
+  attributes (M3), collocation measure/window/attr (M4)
+- `listNav`: cursor + scroll for single-line-row lists
+- `freqTable` (`ui/freqtable.go`): sortable frequency table with bars, optional `base` column;
+  plus shared min freq / max items pickers (used by M2, M3)
 
 ### Later / cross-cutting
 - config file (API URL, headers, defaults), query history

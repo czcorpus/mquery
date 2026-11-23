@@ -22,18 +22,28 @@ type Env struct {
 	freqMatchCase bool
 	freqMaxItems  int
 	freqFLimit    int
+
+	// text type frequency settings
+	ttAttrOptions map[string]ttAttrOptions // corpus ID => available struct. attributes
+	ttAttr        map[string]string        // corpus ID => attribute
+	ttMaxItems    int
+	ttFLimit      int
 }
 
 func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
 	return &Env{
-		Client:       client,
-		Lang:         lang,
-		PageSize:     pageSize,
-		ContextWidth: contextWidth,
-		attrCache:    make(map[string][]corpusAttr),
-		freqAttr:     make(map[string]string),
-		freqMaxItems: freqMaxItemsSteps[0],
-		freqFLimit:   1,
+		Client:        client,
+		Lang:          lang,
+		PageSize:      pageSize,
+		ContextWidth:  contextWidth,
+		attrCache:     make(map[string][]corpusAttr),
+		freqAttr:      make(map[string]string),
+		freqMaxItems:  freqMaxItemsSteps[0],
+		freqFLimit:    1,
+		ttAttrOptions: make(map[string]ttAttrOptions),
+		ttAttr:        make(map[string]string),
+		ttMaxItems:    freqMaxItemsSteps[0],
+		ttFLimit:      1,
 	}
 }
 
@@ -88,6 +98,7 @@ func DefaultFeatures() []Feature {
 			Description:      "frequency distribution by text metadata",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
+			NewView:          newTTypesView,
 		},
 		{
 			Title:            "Collocations",
