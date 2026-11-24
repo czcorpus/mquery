@@ -58,25 +58,34 @@ func windowLabel(w [2]int) string {
 
 // parseWindow accepts `L,R`, `L R` or a single `N` (= N,N)
 func parseWindow(s string) (string, error) {
+	w, err := parseWindowPair(s)
+	if err != nil {
+		return "", err
+	}
+	return windowValue(w), nil
+}
+
+// parseWindowPair is like parseWindow but returns the parsed [left, right] pair
+func parseWindowPair(s string) ([2]int, error) {
+	var w [2]int
 	fields := strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })
 	if len(fields) == 1 {
 		fields = append(fields, fields[0])
 	}
 	if len(fields) != 2 {
-		return "", fmt.Errorf("expected left,right (e.g. 3,5)")
+		return w, fmt.Errorf("expected left,right (e.g. 3,5)")
 	}
-	var w [2]int
 	for i, f := range fields {
 		n, err := strconv.Atoi(f)
 		if err != nil || n < 0 || n > collMaxWindow {
-			return "", fmt.Errorf("values must be integers between 0 and %d", collMaxWindow)
+			return w, fmt.Errorf("values must be integers between 0 and %d", collMaxWindow)
 		}
 		w[i] = n
 	}
 	if w[0] == 0 && w[1] == 0 {
-		return "", fmt.Errorf("at least one side must be greater than 0")
+		return w, fmt.Errorf("at least one side must be greater than 0")
 	}
-	return windowValue(w), nil
+	return w, nil
 }
 
 func windowSelectItems() []selectItem {

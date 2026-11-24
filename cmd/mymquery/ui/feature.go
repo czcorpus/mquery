@@ -89,8 +89,19 @@ type Feature struct {
 	// among features of the same type (e.g. a CQL query typed for
 	// a concordance is offered for frequencies too)
 	QueryType string
+	// HasColl enables an optional collocate filter in the query input;
+	// the view returned by NewView must implement collFilterable
+	HasColl bool
 	// NewView creates a result view; nil means "not implemented yet"
 	NewView func(env *Env, corpus api.CorpusItem, query string) ResultView
+}
+
+// collFilterable is implemented by views supporting a collocate filter
+// (see Feature.HasColl)
+type collFilterable interface {
+	// setCollFilter restricts results to those with a collocate matching
+	// the CQL query `coll` within `window` ([left, right], both >= 0)
+	setCollFilter(coll string, window [2]int)
 }
 
 func (f Feature) Implemented() bool {
@@ -107,6 +118,7 @@ func DefaultFeatures() []Feature {
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
 			QueryType:        queryTypeCQL,
+			HasColl:          true,
 			NewView:          newConcView,
 		},
 		{

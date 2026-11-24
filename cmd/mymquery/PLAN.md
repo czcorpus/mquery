@@ -74,6 +74,10 @@ change it.
       in mquery-common has no element type for `"close"` markup, so that has
       to be fixed in mquery-common first
 - [x] collocate filter + highlighting (`coll`, `collRange`) – used by the M4 drill-down
+- [x] collocate filter in the query input: the concordance query screen has extra fields
+      "Collocate (CQL)" and "Collocate window" (`left,right`, shared with the collocations
+      window setting); `tab`/`shift+tab` switch fields, an empty collocate = no filter.
+      Changing the corpus from the query screen moved from `tab` to `ctrl+o`
 - [ ] maybe: a horizontal "interlinear" mode showing word/lemma/tag stacked
 
 ### M2 – token frequencies (`GET /freqs/:corpusId`) ✅ (first iteration)

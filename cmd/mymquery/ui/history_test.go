@@ -39,7 +39,7 @@ func TestQueryHistoryBrowsing(t *testing.T) {
 	h.add("first")
 	h.add("second")
 	m := newQuery(h)
-	m.Reset(Feature{QueryType: queryTypeCQL}, "draft")
+	m.Reset(Feature{QueryType: queryTypeCQL}, "draft", "", [2]int{5, 5})
 
 	press := func(k tea.KeyType) {
 		m, _ = m.Update(tea.KeyMsg{Type: k})
@@ -57,7 +57,7 @@ func TestQueryHistoryBrowsing(t *testing.T) {
 	assert.Equal(t, "draft", m.input.Value())
 
 	// no history for non-CQL inputs
-	m.Reset(Feature{QueryType: "other"}, "x")
+	m.Reset(Feature{QueryType: "other"}, "x", "", [2]int{5, 5})
 	press(tea.KeyUp)
 	assert.Equal(t, "x", m.input.Value())
 }

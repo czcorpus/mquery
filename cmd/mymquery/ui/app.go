@@ -43,6 +43,8 @@ type App struct {
 	corpus     *api.CorpusItem
 	// queries stores the last query per query type (see Feature.QueryType)
 	queries map[string]string
+	// collQuery is the last collocate query (for features with Feature.HasColl)
+	collQuery string
 	history *queryHistory
 	// historyErr is a pending history save error to be shown in the query screen
 	historyErr error
@@ -136,7 +138,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.toQuery()
 
 	case changeCorpusMsg:
-		a.queries[a.queryType()] = a.query.input.Value()
+		a.saveQueryInput()
 		if a.corpus != nil {
 			a.corpSel.Select(a.corpus.ID)
 		}
@@ -148,9 +150,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.queryType() == queryTypeCQL {
 			a.historyErr = a.history.Add(msg.query)
 		}
+		feat := a.features[a.featureIdx]
+		view := feat.NewView(a.env, *a.corpus, msg.query)
+		if feat.HasColl {
+			a.collQuery = msg.coll
+			if msg.coll != "" {
+				a.env.collWindow = msg.collWindow
+				if cf, ok := view.(collFilterable); ok {
+					cf.setCollFilter(msg.coll, msg.collWindow)
+				}
+			}
+		}
 		a.closeResults()
 		a.screen = scrResult
-		return a, a.pushResult(a.features[a.featureIdx].NewView(a.env, *a.corpus, msg.query))
+		return a, a.pushResult(view)
 
 	case pushResultMsg:
 		if a.screen != scrResult {
@@ -167,8 +180,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.screen = scrMenu
 		case scrQuery:
-			a.queries[a.queryType()] = a.query.input.Value()
-			a.query.input.Blur()
+			a.saveQueryInput()
+			a.query.Blur()
 			a.screen = scrMenu
 		case scrResult:
 			top := len(a.results) - 1
@@ -215,12 +228,20 @@ func (a *App) updateActive(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (a *App) toQuery() tea.Cmd {
 	a.screen = scrQuery
-	cmd := a.query.Reset(a.features[a.featureIdx], a.queries[a.queryType()])
+	cmd := a.query.Reset(a.features[a.featureIdx], a.queries[a.queryType()], a.collQuery, a.env.collWindow)
 	if a.historyErr != nil {
 		a.query.notice = "failed to save query history: " + a.historyErr.Error()
 		a.historyErr = nil
 	}
 	return cmd
+}
+
+// saveQueryInput stores the (unsubmitted) query screen input in the session
+func (a *App) saveQueryInput() {
+	a.queries[a.queryType()] = a.query.input.Value()
+	if a.query.hasColl {
+		a.collQuery = a.query.collInput.Value()
+	}
 }
 
 func (a *App) pushResult(v ResultView) tea.Cmd {

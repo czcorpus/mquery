@@ -103,6 +103,13 @@ func (v *concView) withColl(coll string, left, right int) *concView {
 	return v
 }
 
+// setCollFilter implements collFilterable (collocate filter from the query input)
+func (v *concView) setCollFilter(coll string, window [2]int) {
+	left, right := collConcRange(window)
+	v.withColl(coll, left, right)
+	v.note = fmt.Sprintf("collocate %s, %s", coll, windowLabel(window))
+}
+
 func (v *concView) Title() string { return "Concordance" }
 
 func (v *concView) Query() string { return v.query }
