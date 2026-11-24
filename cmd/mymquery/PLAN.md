@@ -52,11 +52,15 @@ change it.
 - [x] corpus selection from `/corplist` (filterable with `/`)
 - [x] query input (CQL; prefilled with the last query, shared by features with the same `QueryType`)
 - [x] query history (`ui/history.go`): submitted CQL queries, deduplicated, max. `-history-size`
-      (default 100), stored in `-history-file` (default `$XDG_STATE_HOME/mymquery/history`,
-      one query per line; empty = memory only). `↑/↓` (`ctrl+p/n`) browse it in the query input,
+      (default 100), stored in the local DB (see below; `-db ""` = memory only). `↑/↓` (`ctrl+p/n`) browse it in the query input,
       going past the newest restores the typed draft. The last stored query prefills the input
       on startup
 - [x] header showing function / corpus / query, contextual footer help
+- [x] local SQLite database (`storage/`, pure Go `modernc.org/sqlite`, pinned to v1.59 as newer
+      versions require go 1.26): `-db` (default `$XDG_STATE_HOME/mymquery/mymquery.db`), WAL +
+      busy timeout so more instances can share it, migrations tracked by `PRAGMA user_version`.
+      Table `queries` logs every submitted query with time, corpus and feature (`Feature.ID`);
+      the history shows distinct queries ordered by their last use
 - [x] HTTP errors shown inline (MQuery's `{"error": ...}` is decoded)
 - [x] `.env` support (`-env-file`, default `./.env`; `-no-env-file` skips it; real env vars take precedence):
       `API_URL` (or `MQUERY_API_URL`), `API_TOKEN`, `LOGIN_URL` (default `https://korpus.cz/login`).
@@ -159,7 +163,7 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 - [ ] streaming of answers
 - [ ] a list of all stored results (also from previous conversations) + jump to the chat from anywhere
 - [ ] subcorpus support in result views (then chat results with `subcorpus` get their dedicated view)
-- [ ] persist chat sessions (transcript + results) to disk
+- [ ] persist chat sessions (transcript + results) to the local DB, a session list + resume
 - [ ] markdown rendering of answers (glamour?); clickable `[rN]` references
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network
@@ -183,7 +187,7 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 
 ### Later / cross-cutting
 - config file (API URL, headers, defaults)
-- query history: a searchable picker (`ctrl+r`, `selectList`), maybe remember corpus per entry
+- query history: a searchable picker (`ctrl+r`, `selectList`), maybe filter by corpus (already stored)
 - subcorpus selection in the corpus picker (`/corplist` already returns them)
 - [x] `e` saves the token freqs / text types / collocations table as CSV (`ui/savecsv.go`):
       a path dialog prefilled with `<token-freqs|text-types|colls>-<hash>.csv`, where the hash

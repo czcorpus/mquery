@@ -1,18 +1,20 @@
 package ui
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
+	"mquery/cmd/mymquery/storage"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestQueryHistoryAddDedupAndLimit(t *testing.T) {
-	h := newQueryHistory("", 3)
+	h := newQueryHistory(nil, 3)
 	for _, q := range []string{"a", "b", "a", "  ", "c\nd", "e"} {
-		assert.NoError(t, h.Add(q))
+		assert.NoError(t, h.Add("syn", "conc", q))
 	}
 	assert.Equal(t, []string{"a", "c d", "e"}, h.items)
 	assert.Equal(t, "e", h.Recent(0))
@@ -20,22 +22,22 @@ func TestQueryHistoryAddDedupAndLimit(t *testing.T) {
 }
 
 func TestQueryHistoryPersistence(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "sub", "history")
-	h := newQueryHistory(path, 10)
-	assert.NoError(t, h.Load()) // missing file is OK
-	assert.NoError(t, h.Add(`[lemma="house"]`))
-	assert.NoError(t, h.Add(`[word="dog"]`))
+	db, err := storage.Open(filepath.Join(t.TempDir(), "test.db"))
+	require.NoError(t, err)
+	defer db.Close()
+	h := newQueryHistory(db, 10)
+	assert.NoError(t, h.Load())
+	assert.NoError(t, h.Add("syn", "conc", `[lemma="house"]`))
+	assert.NoError(t, h.Add("syn", "freqs", `[word="dog"]`))
+	assert.NoError(t, h.Add("syn", "freqs", "  "))
 
-	h2 := newQueryHistory(path, 10)
+	h2 := newQueryHistory(db, 10)
 	assert.NoError(t, h2.Load())
 	assert.Equal(t, []string{`[lemma="house"]`, `[word="dog"]`}, h2.items)
-
-	_, err := os.Stat(path + ".tmp")
-	assert.True(t, os.IsNotExist(err))
 }
 
 func TestQueryHistoryBrowsing(t *testing.T) {
-	h := newQueryHistory("", 10)
+	h := newQueryHistory(nil, 10)
 	h.add("first")
 	h.add("second")
 	m := newQuery(h)

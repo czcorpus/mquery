@@ -12,6 +12,7 @@ import (
 	"mquery/cmd/mymquery/agent"
 	"mquery/cmd/mymquery/api"
 	"mquery/cmd/mymquery/llm"
+	"mquery/cmd/mymquery/storage"
 	"mquery/cmd/mymquery/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -112,7 +113,7 @@ func main() {
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
 	contextWidth := flag.Int("context-width", 20, "concordance context width in tokens (max. 50)")
-	historyFile := flag.String("history-file", ui.DefaultHistoryPath(), "file for storing query history (empty = do not store)")
+	dbPath := flag.String("db", storage.DefaultPath(), "SQLite database for query history (empty = do not store anything)")
 	historySize := flag.Int("history-size", ui.DefaultHistorySize, "max. number of stored queries")
 	timeout := flag.Duration("timeout", 90*time.Second, "HTTP request timeout")
 	flag.Usage = func() {
@@ -144,8 +145,16 @@ func main() {
 		}
 	}
 	env := ui.NewEnv(client, *lang, *pageSize, *contextWidth)
-	env.HistoryPath = *historyFile
 	env.HistorySize = *historySize
+	if *dbPath != "" {
+		db, err := storage.Open(*dbPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer db.Close()
+		env.DB = db
+	}
 	if geminiAPIKey == "" {
 		env.ChatUnavailable = "AI chat requires GEMINI_API_KEY (environment or the .env file)"
 

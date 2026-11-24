@@ -71,7 +71,7 @@ func fetchServerInfo(client *api.Client) tea.Cmd {
 
 func NewApp(env *Env) *App {
 	features := DefaultFeatures()
-	history := newQueryHistory(env.HistoryPath, env.HistorySize)
+	history := newQueryHistory(env.DB, env.HistorySize)
 	menu := newMenu(features)
 	if err := history.Load(); err != nil {
 		menu.notice = "failed to load query history: " + err.Error()
@@ -165,7 +165,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case querySubmittedMsg:
 		a.queries[a.queryType()] = msg.query
 		if a.queryType() == queryTypeCQL {
-			a.historyErr = a.history.Add(msg.query)
+			a.historyErr = a.history.Add(a.corpus.ID, a.features[a.featureIdx].ID, msg.query)
 		}
 		feat := a.features[a.featureIdx]
 		view := feat.NewView(a.env, *a.corpus, msg.query)

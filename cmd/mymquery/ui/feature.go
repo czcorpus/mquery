@@ -3,6 +3,7 @@ package ui
 import (
 	"mquery/cmd/mymquery/agent"
 	"mquery/cmd/mymquery/api"
+	"mquery/cmd/mymquery/storage"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -14,8 +15,8 @@ type Env struct {
 	Lang         string
 	PageSize     int
 	ContextWidth int
-	// HistoryPath is a file storing submitted queries ("" = no persistence)
-	HistoryPath string
+	// DB is a local database (query history etc.; nil = no persistence)
+	DB          *storage.DB
 	HistorySize int
 
 	// Chat is an AI chat session (nil = the chat is not configured)
@@ -87,6 +88,8 @@ type ResultView interface {
 
 // Feature is a single application function (concordance, freqs, ...)
 type Feature struct {
+	// ID is a stable identifier (e.g. stored with the query history)
+	ID               string
 	Title            string
 	Description      string
 	InputLabel       string
@@ -122,6 +125,7 @@ const queryTypeCQL = "cql"
 func DefaultFeatures() []Feature {
 	return []Feature{
 		{
+			ID:               "conc",
 			Title:            "Concordance",
 			Description:      "search for a query and show matching lines (KWIC)",
 			InputLabel:       "CQL query",
@@ -131,6 +135,7 @@ func DefaultFeatures() []Feature {
 			NewView:          newConcView,
 		},
 		{
+			ID:               "freqs",
 			Title:            "Token frequencies",
 			Description:      "frequency distribution of a positional attribute",
 			InputLabel:       "CQL query",
@@ -139,6 +144,7 @@ func DefaultFeatures() []Feature {
 			NewView:          newFreqsView,
 		},
 		{
+			ID:               "ttypes",
 			Title:            "Text type frequencies",
 			Description:      "frequency distribution by text metadata",
 			InputLabel:       "CQL query",
@@ -147,6 +153,7 @@ func DefaultFeatures() []Feature {
 			NewView:          newTTypesView,
 		},
 		{
+			ID:               "colls",
 			Title:            "Collocations",
 			Description:      "collocation candidates of a query",
 			InputLabel:       "CQL query",
@@ -155,6 +162,7 @@ func DefaultFeatures() []Feature {
 			NewView:          newCollsView,
 		},
 		{
+			ID:          "chat",
 			Title:       "AI chat",
 			Description: "ask a language model which queries the corpora for you",
 			Chat:        true,
