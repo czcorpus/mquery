@@ -26,6 +26,7 @@ import (
 	"mquery/rdb"
 	"mquery/rdb/results"
 	"path/filepath"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/mquery-common/concordance"
@@ -258,6 +259,18 @@ func (w *Worker) textTypeNorms(args rdb.TextTypeNormsArgs) results.TextTypeNorms
 	return ans
 }
 
+// joinErrMsgs combines parsing error messages of multiple
+// concordance regions into a single message
+func joinErrMsgs(msgs ...string) string {
+	nonEmpty := make([]string, 0, len(msgs))
+	for _, m := range msgs {
+		if m != "" {
+			nonEmpty = append(nonEmpty, m)
+		}
+	}
+	return strings.Join(nonEmpty, "; ")
+}
+
 func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 	var ans results.TokenContext
 	res1, err := mango.GetCorpRegion(
@@ -289,13 +302,14 @@ func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 		return ans
 	}
 	tmp = parser.Parse([]string{res2.Text})
-	for _, v := range tmp[0].Text {
-		if vt, ok := v.(*concordance.Token); ok {
-			vt.Strong = true
-		}
-	}
 	if len(tmp) > 0 {
+		for _, v := range tmp[0].Text {
+			if vt, ok := v.(*concordance.Token); ok {
+				vt.Strong = true
+			}
+		}
 		ans.Context.Text = append(ans.Context.Text, tmp[0].Text...)
+		ans.Context.ErrMsg = joinErrMsgs(ans.Context.ErrMsg, tmp[0].ErrMsg)
 	}
 
 	res3, err := mango.GetCorpRegion(
@@ -312,6 +326,7 @@ func (w *Worker) tokenContext(args rdb.TokenContextArgs) results.TokenContext {
 	tmp = parser.Parse([]string{res3.Text})
 	if len(tmp) > 0 {
 		ans.Context.Text = append(ans.Context.Text, tmp[0].Text...)
+		ans.Context.ErrMsg = joinErrMsgs(ans.Context.ErrMsg, tmp[0].ErrMsg)
 	}
 
 	ans.Context.Ref = fmt.Sprintf("#%d", args.Idx)
