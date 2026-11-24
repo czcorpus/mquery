@@ -128,26 +128,71 @@ func TestSessionToolError(t *testing.T) {
 	assert.Contains(t, backend.requests[1].Messages[2].ToolResult.Content, "not found")
 }
 
-func TestSessionRollbackOnError(t *testing.T) {
-	tb, _ := newTestToolbox(t)
+func TestSessionRetry(t *testing.T) {
+	tb, paths := newTestToolbox(t)
 	backend := &scriptedBackend{
 		responses: []llm.CompletionResult{
 			{Content: "hello", Usage: llm.Usage{InputTokens: 1}},
-			{ToolCalls: []llm.ToolCall{{Name: CorpusListToolName}}, Usage: llm.Usage{InputTokens: 10}},
+			{ToolCalls: []llm.ToolCall{{Name: "freqs", Args: `{"corpus_id":"syn","q":"x"}`}}, Usage: llm.Usage{InputTokens: 10}},
 			{},
+			{Content: "done [r1]", Usage: llm.Usage{InputTokens: 100}},
 		},
 		errs: []error{nil, nil, errors.New("boom")},
 	}
 	sess := NewSession(backend, tb, NewStore())
 	_, err := sess.Run(context.Background(), "hi", PromptOptions{}, func(Event) {})
 	require.NoError(t, err)
-	_, err = sess.Run(context.Background(), "list corpora", PromptOptions{}, func(Event) {})
+	assert.False(t, sess.CanRetry())
+	_, err = sess.Retry(context.Background(), PromptOptions{}, func(Event) {})
+	assert.Error(t, err)
+
+	_, err = sess.Run(context.Background(), "frequencies", PromptOptions{}, func(Event) {})
 	assert.ErrorContains(t, err, "boom")
-	assert.Len(t, sess.messages, 2)
-	// results of the failed turn are kept
+	assert.True(t, sess.CanRetry())
+	assert.Equal(t, "frequencies", sess.messages[sess.turnStart].Content)
+	// progress up to the last completed step (tool results) is kept
+	require.Len(t, sess.messages, 5)
+	assert.Equal(t, llm.RoleTool, sess.messages[4].Role)
 	assert.Len(t, sess.Store().All(), 1)
 	// usage of the failed turn is counted
 	assert.Equal(t, 11, sess.Usage().InputTokens)
+
+	ans, err := sess.Retry(context.Background(), PromptOptions{}, func(Event) {})
+	require.NoError(t, err)
+	assert.Equal(t, "done [r1]", ans.Text)
+	assert.False(t, sess.CanRetry())
+	// the tool was not called again
+	assert.Len(t, *paths, 1)
+	assert.Len(t, sess.Store().All(), 1)
+	// the retried request continued from the tool results
+	assert.Len(t, backend.requests[3].Messages, 5)
+	assert.Len(t, sess.messages, 6)
+}
+
+func TestSessionNewMessageDiscardsFailedTurn(t *testing.T) {
+	tb, _ := newTestToolbox(t)
+	backend := &scriptedBackend{
+		responses: []llm.CompletionResult{
+			{Content: "hello"},
+			{},
+			{Content: "second answer"},
+		},
+		errs: []error{nil, context.Canceled},
+	}
+	sess := NewSession(backend, tb, NewStore())
+	_, err := sess.Run(context.Background(), "hi", PromptOptions{}, func(Event) {})
+	require.NoError(t, err)
+	_, err = sess.Run(context.Background(), "failing", PromptOptions{}, func(Event) {})
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, sess.CanRetry())
+	assert.Len(t, sess.messages, 3)
+
+	_, err = sess.Run(context.Background(), "another", PromptOptions{}, func(Event) {})
+	require.NoError(t, err)
+	assert.False(t, sess.CanRetry())
+	msgs := backend.requests[2].Messages
+	require.Len(t, msgs, 3)
+	assert.Equal(t, "another", msgs[2].Content)
 }
 
 func TestContentForModelTruncates(t *testing.T) {

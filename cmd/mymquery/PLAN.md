@@ -144,7 +144,9 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 - [x] `agent` package: agent loop (max 15 iterations), builtin `corpus_list` tool (MCP has none),
       session `Store` of all tool results (`r1`, `r2`, …; failed calls too). The model gets
       results prefixed with `result_id: rN`, truncated to 40 kB; it is asked to cite `[rN]`.
-      A failed/cancelled turn is rolled back from the conversation (its results remain stored)
+      A failed/cancelled turn keeps its progress up to the last completed step (user message or
+      a complete set of tool results): `ctrl+r` continues from there (tool calls are not repeated,
+      new iteration budget), a new message discards the failed turn
 - [x] chat screen (menu item 5): transcript (viewport) + textarea; `enter` send, `alt+enter`
       newline, `esc` cancels a running turn, `ctrl+n` new conversation, `tab` browses results
       (`↑/↓`, `enter` opens, `esc` returns to the chat with the selection kept)

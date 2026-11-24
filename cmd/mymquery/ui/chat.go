@@ -85,6 +85,8 @@ type chatModel struct {
 	cancel  context.CancelFunc
 	// activity describes what the running turn is doing right now
 	activity string
+	// canRetry is true if the last turn failed and can be retried
+	canRetry bool
 }
 
 func newChat(env *Env) chatModel {
@@ -151,34 +153,50 @@ func (m *chatModel) add(e chatEntry) {
 	m.refresh(true)
 }
 
-func (m *chatModel) submit(corpusID string) tea.Cmd {
-	text := strings.TrimSpace(m.input.Value())
-	if text == "" || m.running {
+// submit sends the input (or with `retry`, it continues the last failed turn)
+func (m *chatModel) submit(corpusID string, retry bool) tea.Cmd {
+	if m.running || (retry && !m.canRetry) {
 		return nil
 	}
-	m.input.Reset()
-	m.add(chatEntry{kind: entryUser, text: text})
+	sess := m.env.Chat
+	opts := agent.PromptOptions{CorpusID: corpusID}
+	var run func(ctx context.Context, emit func(agent.Event)) (agent.TurnResult, error)
+	if retry {
+		m.add(chatEntry{kind: entryInfo, text: "↻ retrying (completed steps are not repeated)"})
+		run = func(ctx context.Context, emit func(agent.Event)) (agent.TurnResult, error) {
+			return sess.Retry(ctx, opts, emit)
+		}
+
+	} else {
+		text := strings.TrimSpace(m.input.Value())
+		if text == "" {
+			return nil
+		}
+		m.input.Reset()
+		m.add(chatEntry{kind: entryUser, text: text})
+		run = func(ctx context.Context, emit func(agent.Event)) (agent.TurnResult, error) {
+			return sess.Run(ctx, text, opts, emit)
+		}
+	}
+	m.canRetry = false
 	m.running = true
 	m.activity = "thinking"
 	m.runID++
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
 	ch := make(chan tea.Msg)
-	runID, sess := m.runID, m.env.Chat
+	runID := m.runID
+	// Note: the sends below must not give up on a cancelled ctx (a `select`
+	// with ctx.Done() would randomly drop the final message after esc and
+	// the chat would wait forever). The UI keeps reading the channel until
+	// chatDoneMsg arrives; the only case nobody listens is the app exit.
 	go func() {
 		defer close(ch)
 		emit := func(e agent.Event) {
-			select {
-			case ch <- chatEventMsg{runID: runID, event: e, ch: ch}:
-			case <-ctx.Done():
-			}
+			ch <- chatEventMsg{runID: runID, event: e, ch: ch}
 		}
-		ans, err := sess.Run(ctx, text, agent.PromptOptions{CorpusID: corpusID}, emit)
-		select {
-		case ch <- chatDoneMsg{runID: runID, ans: ans, err: err}:
-		case <-ctx.Done():
-			// nobody may be listening anymore (the chat was closed)
-		}
+		ans, err := run(ctx, emit)
+		ch <- chatDoneMsg{runID: runID, ans: ans, err: err}
 	}()
 	m.refresh(true)
 	return tea.Batch(m.spinner.Tick, waitChat(ch))
@@ -198,7 +216,7 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case chatEventMsg:
 		if msg.runID != m.runID {
-			return m, nil
+			return m, waitChat(msg.ch) // keep draining so the sender is never blocked
 		}
 		switch e := msg.event.(type) {
 		case agent.AssistantText:
@@ -220,10 +238,12 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 		m.cancel()
 		m.cancel = nil
 		if msg.err != nil {
+			m.canRetry = true
+			const hint = " - ctrl+r retries the request, a new message discards it"
 			if errors.Is(msg.err, context.Canceled) {
-				m.add(chatEntry{kind: entryInfo, text: "(cancelled - the model does not remember this request)"})
+				m.add(chatEntry{kind: entryInfo, text: "(cancelled" + hint + ")"})
 			} else {
-				m.add(chatEntry{kind: entryError, text: msg.err.Error() + " (the model does not remember this request)"})
+				m.add(chatEntry{kind: entryError, text: msg.err.Error() + hint})
 			}
 			return m, nil
 		}
@@ -258,6 +278,11 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		return m, func() tea.Msg { return chatSubmitMsg{} }
+	case "ctrl+r":
+		if m.canRetry && !m.running {
+			return m, func() tea.Msg { return chatSubmitMsg{retry: true} }
+		}
+		return m, nil
 	case "esc":
 		if m.running {
 			m.cancel()
@@ -278,6 +303,7 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 			return m, nil
 		}
 		m.env.Chat.Reset()
+		m.canRetry = false
 		m.add(chatEntry{kind: entryInfo, text: "── new conversation (stored results remain available) ──"})
 		return m, nil
 	case "pgup", "pgdown":
@@ -462,11 +488,18 @@ func (m chatModel) Help() string {
 	if m.running {
 		return "esc cancel • pgup/pgdn scroll"
 	}
-	return "enter send • alt+enter newline • tab browse results • pgup/pgdn scroll • ctrl+n new conversation • esc menu"
+	retry := ""
+	if m.canRetry {
+		retry = " • ctrl+r retry"
+	}
+	return "enter send" + retry + " • alt+enter newline • tab browse results • pgup/pgdn scroll • ctrl+n new conversation • esc menu"
 }
 
-// chatSubmitMsg asks the app to submit the chat input (the app adds context, e.g. the corpus)
-type chatSubmitMsg struct{}
+// chatSubmitMsg asks the app to submit the chat input or to retry the last
+// failed turn (the app adds context, e.g. the corpus)
+type chatSubmitMsg struct {
+	retry bool
+}
 
 // chatUsageInfo returns model and token usage info for the header
 func chatUsageInfo(env *Env) string {

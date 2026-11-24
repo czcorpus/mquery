@@ -188,7 +188,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.corpus != nil {
 			corpusID = a.corpus.ID
 		}
-		return a, a.chat.submit(corpusID)
+		return a, a.chat.submit(corpusID, msg.retry)
 
 	case openChatResultMsg:
 		a.closeResults()

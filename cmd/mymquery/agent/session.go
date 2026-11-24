@@ -59,6 +59,16 @@ type Session struct {
 	messages []llm.Message
 	// usage is the token usage of the whole session
 	usage llm.Usage
+
+	// turnStart is the index of the current/last turn's user message
+	turnStart int
+	// checkpoint is the length of `messages` after the last completed step
+	// of the current turn (the user message, a complete set of tool results);
+	// it is a consistent state the loop can continue from
+	checkpoint int
+	// failed is true if the last turn failed (then `messages` end at
+	// the checkpoint, and the turn can be retried)
+	failed bool
 }
 
 func NewSession(backend llm.Backend, tools *Toolbox, store *Store) *Session {
@@ -83,31 +93,61 @@ func (s *Session) Usage() llm.Usage { return s.usage }
 func (s *Session) Reset() {
 	s.messages = nil
 	s.usage = llm.Usage{}
+	s.turnStart, s.checkpoint, s.failed = 0, 0, false
+}
+
+// CanRetry tells whether the last turn failed and can be retried
+func (s *Session) CanRetry() bool {
+	return s.failed
 }
 
 // Run processes a user's message: it iterates (calling tools as requested
 // by the model) until the model provides a final answer. The emit function
-// is called (synchronously) with progress events. On an error (incl.
-// a cancellation), the conversation is restored to its state before the
-// call. Run must not be called concurrently.
+// is called (synchronously) with progress events.
+//
+// On an error (incl. a cancellation), the turn's progress is kept up to its
+// last completed step so it can be continued via Retry. If Run is called
+// instead, the failed turn is discarded.
+//
+// Run and Retry must not be called concurrently.
 func (s *Session) Run(
 	ctx context.Context, userInput string, opts PromptOptions, emit func(Event),
 ) (TurnResult, error) {
-	snapshot := len(s.messages)
-	ans, err := s.run(ctx, userInput, opts, emit)
+	if s.failed {
+		s.messages = s.messages[:s.turnStart]
+		s.failed = false
+	}
+	s.turnStart = len(s.messages)
+	s.messages = append(s.messages, llm.Message{Role: llm.RoleUser, Content: userInput})
+	return s.finishTurn(s.loop(ctx, opts, emit))
+}
+
+// Retry continues the last (failed) turn from its last completed step
+// (i.e. successful tool calls are not repeated). The turn gets a new
+// iteration budget.
+func (s *Session) Retry(ctx context.Context, opts PromptOptions, emit func(Event)) (TurnResult, error) {
+	if !s.failed {
+		return TurnResult{}, fmt.Errorf("there is no failed request to retry")
+	}
+	s.failed = false
+	return s.finishTurn(s.loop(ctx, opts, emit))
+}
+
+func (s *Session) finishTurn(ans TurnResult, err error) (TurnResult, error) {
 	// tokens are billed even if the turn fails
 	s.usage = s.usage.Add(ans.Usage)
 	if err != nil {
-		s.messages = s.messages[:snapshot]
+		s.messages = s.messages[:s.checkpoint]
+		s.failed = true
 		return TurnResult{}, err
 	}
 	return ans, nil
 }
 
-func (s *Session) run(
-	ctx context.Context, userInput string, opts PromptOptions, emit func(Event),
-) (TurnResult, error) {
-	s.messages = append(s.messages, llm.Message{Role: llm.RoleUser, Content: userInput})
+// loop runs completions and tool calls until a final answer is obtained.
+// It expects s.messages to end with a user message or tool results.
+func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)) (TurnResult, error) {
+	s.checkpoint = len(s.messages)
 	var turn TurnResult
 	for range s.MaxIterations {
 		resp, err := llm.CreateCompletionWithRetry(ctx, s.backend, llm.CompletionRequest{
@@ -149,6 +189,7 @@ func (s *Session) run(
 				},
 			})
 		}
+		s.checkpoint = len(s.messages)
 	}
 	return turn, fmt.Errorf("max. number of iterations (%d) reached without a final answer", s.MaxIterations)
 }
