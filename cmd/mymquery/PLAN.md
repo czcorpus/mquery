@@ -29,6 +29,7 @@ cmd/mymquery/
     conc.go        concordance result view
     chat.go        AI chat screen (M5)
     chatresult.go  stored chat results → result views (or a raw view)
+    chatlist.go    saved chats list (open / delete)
   llm/             provider-neutral chat completion + tool calling (ported from NLQL)
     genai.go       Gemini backend
   agent/           AI chat: in-process MQuery MCP server, agent loop, result store
@@ -173,7 +174,13 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       (Gemini thought signatures are saved). `Session.Load` restores a chat: an incomplete last turn
       (failed, interrupted by quitting) can be retried, result IDs continue the numbering, opaque
       state is dropped if the chat was run by another vendor
-- [ ] a list of saved chats (open/resume, delete); rebuilding the transcript from saved messages
+- [x] saved chats list (`ctrl+o` in the chat input; replaces the transcript): newest first, the open
+      chat marked `●` and preselected; `enter` opens a chat (the transcript is rebuilt from saved
+      messages – tool messages are mapped to results via their `result_id:` prefix; an incomplete
+      last turn offers `ctrl+r`), `d` + `y` deletes (deleting the open chat starts a new one).
+      Results of a reopened chat open in their views without requerying
+- [ ] saved chats: filtering/search, renaming, opening the list right from the menu
+- [ ] note: `chats.updated_at` has a 1 s resolution (fine for sorting in practice)
 - [ ] markdown rendering of answers (glamour?); clickable `[rN]` references
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network

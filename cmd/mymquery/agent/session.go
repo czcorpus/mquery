@@ -255,5 +255,18 @@ func (s *Session) contentForModel(res *Result) string {
 			"\n[... truncated, %d of %d bytes shown; the user can see the full result]",
 			cut, len(res.Content))
 	}
-	return fmt.Sprintf("result_id: %s\n%s", res.ID, content)
+	return resultIDPrefix + res.ID + "\n" + content
+}
+
+const resultIDPrefix = "result_id: "
+
+// ResultIDOf returns the result ID a tool message content (as sent
+// to the model) refers to ("" if none)
+func ResultIDOf(toolContent string) string {
+	rest, ok := strings.CutPrefix(toolContent, resultIDPrefix)
+	if !ok {
+		return ""
+	}
+	id, _, _ := strings.Cut(rest, "\n")
+	return id
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"mquery/cmd/mymquery/agent"
+	"mquery/cmd/mymquery/llm"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -87,6 +88,8 @@ type chatModel struct {
 	activity string
 	// canRetry is true if the last turn failed and can be retried
 	canRetry bool
+	// list shows saved chats instead of the transcript (nil = not shown)
+	list *chatList
 	// persistWarned is true if the running turn already reported
 	// a failure to save the conversation
 	persistWarned bool
@@ -115,7 +118,7 @@ func newChat(env *Env) chatModel {
 // Activate is called when the chat screen is entered; the input is focused
 // unless the user was browsing results
 func (m *chatModel) Activate() tea.Cmd {
-	if m.browsing {
+	if m.browsing || m.list != nil {
 		return nil
 	}
 	return m.input.Focus()
@@ -273,6 +276,9 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyMsg:
+		if m.list != nil {
+			return m.updateList(msg)
+		}
 		if m.browsing {
 			return m.updateBrowsing(msg)
 		}
@@ -312,16 +318,24 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 			return m, nil
 		}
 		saved := m.env.Chat.ChatID() != 0
-		m.env.Chat.Reset()
-		m.canRetry = false
-		m.entries = nil
-		m.resultLines = nil
-		m.vp.SetYOffset(0)
+		m.newConversation()
 		if saved {
 			m.add(chatEntry{kind: entryInfo, text: "── new conversation (the previous one is saved) ──"})
 		} else {
 			m.add(chatEntry{kind: entryInfo, text: "── new conversation ──"})
 		}
+		return m, nil
+	case "ctrl+o":
+		if m.running {
+			return m, nil
+		}
+		if m.env.DB == nil {
+			m.add(chatEntry{kind: entryInfo, text: "chats are not saved (the -db option is empty)"})
+			return m, nil
+		}
+		items, err := m.env.DB.ListChats(chatListMaxItems)
+		m.list = newChatList(items, m.env.Chat.ChatID(), err)
+		m.input.Blur()
 		return m, nil
 	case "pgup", "pgdown":
 		var cmd tea.Cmd
@@ -331,6 +345,103 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+// newConversation resets the session and clears the transcript
+func (m *chatModel) newConversation() {
+	m.env.Chat.Reset()
+	m.canRetry = false
+	m.browsing = false
+	m.entries = nil
+	m.resultLines = nil
+	m.vp.SetYOffset(0)
+}
+
+func (m chatModel) updateList(msg tea.KeyMsg) (chatModel, tea.Cmd) {
+	switch m.list.Update(msg, m.listHeight()) {
+	case chatListClose:
+		m.list = nil
+		m.refresh(false)
+		return m, m.input.Focus()
+
+	case chatListOpen:
+		info, _ := m.list.selected()
+		if info.ID != m.env.Chat.ChatID() {
+			chat, err := m.env.DB.LoadChat(info.ID)
+			if err != nil {
+				m.list.notice = "failed to load the chat: " + err.Error()
+				return m, nil
+			}
+			m.openChat(chat)
+		}
+		m.list = nil
+		return m, m.input.Focus()
+
+	case chatListDelete:
+		info, _ := m.list.selected()
+		if err := m.env.DB.DeleteChat(info.ID); err != nil {
+			m.list.notice = "failed to delete the chat: " + err.Error()
+			return m, nil
+		}
+		m.list.remove(info.ID)
+		if info.ID == m.env.Chat.ChatID() {
+			m.newConversation()
+			m.add(chatEntry{kind: entryInfo, text: "── the chat was deleted, new conversation ──"})
+		}
+	}
+	return m, nil
+}
+
+func (m *chatModel) listHeight() int {
+	return max(1, m.height)
+}
+
+// openChat loads a saved chat into the session and rebuilds the transcript
+func (m *chatModel) openChat(chat agent.SavedChat) {
+	m.newConversation()
+	sess := m.env.Chat
+	sess.Load(chat)
+	m.entries = chatEntriesFromMessages(sess.Messages(), sess.Store())
+	m.entries = append([]chatEntry{{
+		kind: entryInfo,
+		text: fmt.Sprintf("── saved chat from %s ──", chat.Info.Created.Format("2006-01-02 15:04")),
+	}}, m.entries...)
+	if sess.CanRetry() {
+		m.canRetry = true
+		m.entries = append(m.entries, chatEntry{
+			kind: entryInfo,
+			text: "(the last request did not finish - ctrl+r retries it, a new message discards it)",
+		})
+	}
+	m.refresh(true)
+}
+
+// chatEntriesFromMessages creates a transcript of a conversation
+func chatEntriesFromMessages(msgs []llm.Message, store *agent.Store) []chatEntry {
+	var ans []chatEntry
+	for _, msg := range msgs {
+		switch msg.Role {
+		case llm.RoleUser:
+			ans = append(ans, chatEntry{kind: entryUser, text: msg.Content})
+		case llm.RoleAssistant:
+			text := strings.TrimSpace(msg.Content)
+			if len(msg.ToolCalls) > 0 {
+				if text != "" {
+					ans = append(ans, chatEntry{kind: entryInterim, text: text})
+				}
+			} else {
+				if text == "" {
+					text = "(empty answer)"
+				}
+				ans = append(ans, chatEntry{kind: entryAssistant, text: text})
+			}
+		case llm.RoleTool:
+			if res, ok := store.Get(agent.ResultIDOf(msg.ToolResult.Content)); ok {
+				ans = append(ans, chatEntry{kind: entryResult, result: res})
+			}
+		}
+	}
+	return ans
 }
 
 func (m chatModel) updateBrowsing(msg tea.KeyMsg) (chatModel, tea.Cmd) {
@@ -491,6 +602,9 @@ func formatToolArgs(args map[string]any) string {
 }
 
 func (m chatModel) View() string {
+	if m.list != nil {
+		return m.list.View(m.vp.Width, m.listHeight())
+	}
 	input := m.input.View()
 	if m.browsing {
 		input = mutedStyle.Render(input)
@@ -499,6 +613,9 @@ func (m chatModel) View() string {
 }
 
 func (m chatModel) Help() string {
+	if m.list != nil {
+		return m.list.Help()
+	}
 	if m.browsing {
 		return "↑/↓ select result • enter open • pgup/pgdn scroll • tab/esc back to input • q quit"
 	}
@@ -509,7 +626,7 @@ func (m chatModel) Help() string {
 	if m.canRetry {
 		retry = " • ctrl+r retry"
 	}
-	return "enter send" + retry + " • alt+enter newline • tab browse results • pgup/pgdn scroll • ctrl+n new conversation • esc menu"
+	return "enter send" + retry + " • alt+enter newline • tab browse results • pgup/pgdn scroll • ctrl+n new conversation • ctrl+o saved chats • esc menu"
 }
 
 // chatSubmitMsg asks the app to submit the chat input or to retry the last
