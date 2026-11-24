@@ -48,25 +48,46 @@ func (i corpusListItem) FilterValue() string {
 	return i.c.ID + " " + i.c.FullName + " " + i.c.Language
 }
 
-// filterCorpora returns corpora containing query (case-insensitive infix)
-// in their ID, full name or language. Exact ID/name matches go first.
+// filterCorpora returns corpora matching all whitespace separated words
+// of the query (in any order). A word matches if it is a case-insensitive
+// infix of the corpus ID, full name or language. Exact ID/name matches
+// (of the whole query) go first.
 func filterCorpora(corpora []api.CorpusItem, query string) []api.CorpusItem {
 	q := strings.ToLower(strings.TrimSpace(query))
 	if q == "" {
 		return corpora
 	}
+	words := strings.Fields(q)
 	var exact, rest []api.CorpusItem
 	for _, c := range corpora {
 		id, name := strings.ToLower(c.ID), strings.ToLower(c.FullName)
+		lang := strings.ToLower(c.Language)
 		switch {
 		case id == q || name == q:
 			exact = append(exact, c)
-		case strings.Contains(id, q) || strings.Contains(name, q) ||
-			strings.Contains(strings.ToLower(c.Language), q):
+		case matchesAllWords(words, id, name, lang):
 			rest = append(rest, c)
 		}
 	}
 	return append(exact, rest...)
+}
+
+// matchesAllWords tells whether each of the words is contained
+// in at least one of the fields
+func matchesAllWords(words []string, fields ...string) bool {
+	for _, w := range words {
+		found := false
+		for _, f := range fields {
+			if strings.Contains(f, w) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 type corpSelModel struct {
