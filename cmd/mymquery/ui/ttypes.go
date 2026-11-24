@@ -38,6 +38,7 @@ type ttAttrOptionsMsg struct {
 type ttLoadedMsg struct {
 	viewID int
 	reqID  int
+	args   api.TextTypesArgs
 	resp   *api.FreqsResponse
 	err    error
 }
@@ -118,7 +119,12 @@ type ttypesView struct {
 	loading      bool
 	err          error
 	resp         *api.FreqsResponse
-	reqID        int
+	// respArgs are the arguments `resp` was calculated with
+	respArgs api.TextTypesArgs
+	reqID    int
+	// notice is a short-lived error message, info a success one
+	notice string
+	info   string
 
 	attrOpts ttAttrOptions
 	attr     string
@@ -127,6 +133,7 @@ type ttypesView struct {
 
 	picker    *selectList
 	pickerFor pickerID
+	saveDlg   *csvDialog
 
 	table freqTable
 
@@ -215,7 +222,7 @@ func (v *ttypesView) fetch() tea.Cmd {
 		v.spinner.Tick,
 		func() tea.Msg {
 			resp, err := client.TextTypes(ctx, corpusID, args)
-			return ttLoadedMsg{viewID: viewID, reqID: reqID, resp: resp, err: err}
+			return ttLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, err: err}
 		},
 	)
 }
@@ -250,6 +257,7 @@ func (v *ttypesView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		v.resp = msg.resp
+		v.respArgs = msg.args
 		// remember only settings which work
 		v.env.ttAttr[v.corpus.ID] = v.attr
 		v.env.ttMaxItems = v.maxItems
@@ -273,6 +281,18 @@ func (v *ttypesView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 }
 
 func (v *ttypesView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
+	v.notice, v.info = "", ""
+	if v.saveDlg != nil {
+		res, path := v.saveDlg.Update(msg)
+		switch res {
+		case selectCancelled:
+			v.saveDlg = nil
+		case selectChosen:
+			v.info = savedInfo(path, len(v.saveDlg.rows)-1)
+			v.saveDlg = nil
+		}
+		return v, nil
+	}
 	if v.picker != nil {
 		return v.updatePicker(msg)
 	}
@@ -311,6 +331,13 @@ func (v *ttypesView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		}
 	case "s":
 		v.table.cycleSort()
+	case "e":
+		if v.resp == nil || v.err != nil {
+			v.notice = "no result to save"
+			return v, nil
+		}
+		v.saveDlg = newCSVDialog("Save text type frequencies as CSV",
+			csvFileName("text-types", v.corpus.ID, v.respArgs), v.table.csvRows())
 	case "enter":
 		if it, ok := v.table.selected(); ok && !v.loading {
 			return v, v.concordanceFor(it)
@@ -368,6 +395,9 @@ func (v *ttypesView) concordanceFor(item api.FreqItem) tea.Cmd {
 
 func (v *ttypesView) View() string {
 	body := v.baseView()
+	if v.saveDlg != nil {
+		return placeOverlay(body, v.saveDlg.View(v.width), v.width, v.height)
+	}
 	if v.picker != nil {
 		return placeOverlay(body, v.picker.View(v.width), v.width, v.height)
 	}
@@ -405,12 +435,21 @@ func (v *ttypesView) summary() string {
 	if v.loading {
 		s += "  " + v.spinner.View()
 	}
+	if v.notice != "" {
+		s += "  " + errorStyle.Render(v.notice)
+	}
+	if v.info != "" {
+		s += "  " + accentStyle.Render(v.info)
+	}
 	return ansi.Truncate(s, v.width, "…")
 }
 
 func (v *ttypesView) Help() string {
+	if v.saveDlg != nil {
+		return v.saveDlg.Help()
+	}
 	if v.picker != nil {
 		return v.picker.Help()
 	}
-	return "↑/↓ move • enter concordance • a attribute • f min freq • m/+/- max items • s sort • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter concordance • a attribute • f min freq • m/+/- max items • s sort • e save CSV • r reload • esc edit query • q quit"
 }

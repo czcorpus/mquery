@@ -21,6 +21,7 @@ const freqsSummaryHeight = 2 // summary line + empty line
 type freqsLoadedMsg struct {
 	viewID int
 	reqID  int
+	args   api.FreqsArgs
 	resp   *api.FreqsResponse
 	err    error
 }
@@ -37,9 +38,13 @@ type freqsView struct {
 	loading bool
 	err     error
 	resp    *api.FreqsResponse
-	reqID   int
+	// respArgs are the arguments `resp` was calculated with
+	respArgs api.FreqsArgs
+	reqID    int
 	// notice is a short-lived message (e.g. a hint for an unavailable action)
 	notice string
+	// info is a short-lived success message
+	info string
 
 	// attrs are positional attributes of the corpus; nil until loaded
 	attrs     []string
@@ -50,6 +55,7 @@ type freqsView struct {
 
 	picker    *selectList
 	pickerFor pickerID
+	saveDlg   *csvDialog
 
 	table freqTable
 
@@ -132,7 +138,7 @@ func (v *freqsView) fetch() tea.Cmd {
 		v.spinner.Tick,
 		func() tea.Msg {
 			resp, err := client.Freqs(ctx, corpusID, args)
-			return freqsLoadedMsg{viewID: viewID, reqID: reqID, resp: resp, err: err}
+			return freqsLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, err: err}
 		},
 	)
 }
@@ -165,6 +171,7 @@ func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		v.resp = msg.resp
+		v.respArgs = msg.args
 		// remember only settings which work
 		v.env.freqAttr[v.corpus.ID] = v.attr
 		v.env.freqMatchCase = v.matchCase
@@ -189,7 +196,10 @@ func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 }
 
 func (v *freqsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
-	v.notice = ""
+	v.notice, v.info = "", ""
+	if v.saveDlg != nil {
+		return v.updateSaveDlg(msg)
+	}
 	if v.picker != nil {
 		return v.updatePicker(msg)
 	}
@@ -234,10 +244,29 @@ func (v *freqsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		}
 	case "s":
 		v.table.cycleSort()
+	case "e":
+		if v.resp == nil || v.err != nil {
+			v.notice = "no result to save"
+			return v, nil
+		}
+		v.saveDlg = newCSVDialog("Save token frequencies as CSV",
+			csvFileName("token-freqs", v.corpus.ID, v.respArgs), v.table.csvRows())
 	case "enter":
 		if it, ok := v.table.selected(); ok && !v.loading {
 			return v, pushResult(v.concordanceFor(it))
 		}
+	}
+	return v, nil
+}
+
+func (v *freqsView) updateSaveDlg(msg tea.KeyMsg) (ResultView, tea.Cmd) {
+	res, path := v.saveDlg.Update(msg)
+	switch res {
+	case selectCancelled:
+		v.saveDlg = nil
+	case selectChosen:
+		v.info = savedInfo(path, len(v.saveDlg.rows)-1)
+		v.saveDlg = nil
 	}
 	return v, nil
 }
@@ -289,6 +318,9 @@ func (v *freqsView) concordanceFor(item api.FreqItem) ResultView {
 
 func (v *freqsView) View() string {
 	body := v.baseView()
+	if v.saveDlg != nil {
+		return placeOverlay(body, v.saveDlg.View(v.width), v.width, v.height)
+	}
 	if v.picker != nil {
 		return placeOverlay(body, v.picker.View(v.width), v.width, v.height)
 	}
@@ -327,12 +359,18 @@ func (v *freqsView) summary() string {
 	if v.notice != "" {
 		s += "  " + errorStyle.Render(v.notice)
 	}
+	if v.info != "" {
+		s += "  " + accentStyle.Render(v.info)
+	}
 	return ansi.Truncate(s, v.width, "…")
 }
 
 func (v *freqsView) Help() string {
+	if v.saveDlg != nil {
+		return v.saveDlg.Help()
+	}
 	if v.picker != nil {
 		return v.picker.Help()
 	}
-	return "↑/↓ move • enter concordance • a attribute • f min freq • m/+/- max items • i case • s sort • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter concordance • a attribute • f min freq • m/+/- max items • i case • s sort • e save CSV • r reload • esc edit query • q quit"
 }

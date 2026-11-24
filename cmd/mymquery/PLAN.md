@@ -135,6 +135,8 @@ change it.
   subtitle and scroll position. The box fits the content (grow-only while open so it
   does not jump when the content changes). The owner handles open/close and its own keys,
   the modal handles scrolling (`↑/↓`, `pgup/pgdn`, `g/G`). Used by the M1 line detail
+- `csvDialog` (`ui/savecsv.go`): modal path input which writes prepared rows as CSV
+  (`~` expansion, overwrite confirmation)
 - `listNav`: cursor + scroll for single-line-row lists
 - `freqTable` (`ui/freqtable.go`): sortable frequency table with bars, optional `base` column;
   plus shared min freq / max items pickers (used by M2, M3)
@@ -143,7 +145,11 @@ change it.
 - config file (API URL, headers, defaults)
 - query history: a searchable picker (`ctrl+r`, `selectList`), maybe remember corpus per entry
 - subcorpus selection in the corpus picker (`/corplist` already returns them)
-- export of the current result (TSV/JSON)
+- [x] `e` saves the token freqs / text types / collocations table as CSV (`ui/savecsv.go`):
+      a path dialog prefilled with `<token-freqs|text-types|colls>-<hash>.csv`, where the hash
+      covers the corpus and all request args (query, attr, limits, …) of the shown result.
+      Rows are in the current sort order, raw numbers; existing files need a second `enter`
+- export of the concordance (TSV/JSON)
 - select list: rank prefix matches above "contains" matches (typing `le` currently
   offers `lempos` before `lemma` because of the corpus attribute order)
 - text types: sorting by ipm reorders only the top `maxItems` by freq (server-side limit);

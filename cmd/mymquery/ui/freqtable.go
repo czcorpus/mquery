@@ -215,6 +215,24 @@ func (t *freqTable) fix(height int) {
 	t.nav.fix(len(t.items), t.rowsHeight(height))
 }
 
+// csvRows returns the items (in the current order) incl. a header row
+// with raw (unformatted) numbers
+func (t *freqTable) csvRows() [][]string {
+	hdr := []string{t.valueHeader, "freq"}
+	if t.baseHeader != "" {
+		hdr = append(hdr, t.baseHeader)
+	}
+	rows := [][]string{append(hdr, "ipm", "pct_of_hits")}
+	for _, it := range t.items {
+		row := []string{it.Value, fmtCSVInt(it.Freq)}
+		if t.baseHeader != "" {
+			row = append(row, fmtCSVInt(it.Base))
+		}
+		rows = append(rows, append(row, fmtCSVFloat(it.IPM), fmtCSVFloat(pctOf(it.Freq, t.concSize))))
+	}
+	return rows
+}
+
 func freqValueLabel(v string) string {
 	if v == "" {
 		return "(empty)"
@@ -280,10 +298,7 @@ func (t *freqTable) view(width, height int) string {
 			base = base.Background(colSelBg)
 			marker = accentStyle.Bold(true).Render("❯ ")
 		}
-		var pct float64
-		if t.concSize > 0 {
-			pct = float64(it.Freq) / float64(t.concSize) * 100
-		}
+		pct := pctOf(it.Freq, t.concSize)
 		valStyle := base.Bold(sel)
 		if it.Value == "" {
 			valStyle = valStyle.Foreground(colMuted).Italic(true)

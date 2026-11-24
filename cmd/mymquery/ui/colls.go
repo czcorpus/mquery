@@ -122,6 +122,7 @@ func (s collSort) String() string {
 type collsLoadedMsg struct {
 	viewID int
 	reqID  int
+	args   api.CollocationsArgs
 	resp   *api.CollocationsResponse
 	err    error
 }
@@ -140,8 +141,12 @@ type collsView struct {
 	resp    *api.CollocationsResponse
 	// respAttr is the attribute `resp` was calculated for
 	respAttr string
+	// respArgs are the arguments `resp` was calculated with
+	respArgs api.CollocationsArgs
 	reqID    int
-	notice   string
+	// notice is a short-lived error message, info a success one
+	notice string
+	info   string
 
 	attrs    []string
 	attr     string
@@ -152,6 +157,7 @@ type collsView struct {
 
 	picker    *selectList
 	pickerFor pickerID
+	saveDlg   *csvDialog
 
 	items  []api.CollItem
 	sortBy collSort
@@ -237,7 +243,7 @@ func (v *collsView) fetch() tea.Cmd {
 		v.spinner.Tick,
 		func() tea.Msg {
 			resp, err := client.Collocations(ctx, corpusID, args)
-			return collsLoadedMsg{viewID: viewID, reqID: reqID, resp: resp, err: err}
+			return collsLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, err: err}
 		},
 	)
 }
@@ -289,6 +295,7 @@ func (v *collsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		}
 		v.resp = msg.resp
 		v.respAttr = v.attr
+		v.respArgs = msg.args
 		// remember only settings which work
 		v.env.collAttr[v.corpus.ID] = v.attr
 		v.env.collMeasure = v.measure
@@ -313,7 +320,18 @@ func (v *collsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 }
 
 func (v *collsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
-	v.notice = ""
+	v.notice, v.info = "", ""
+	if v.saveDlg != nil {
+		res, path := v.saveDlg.Update(msg)
+		switch res {
+		case selectCancelled:
+			v.saveDlg = nil
+		case selectChosen:
+			v.info = savedInfo(path, len(v.saveDlg.rows)-1)
+			v.saveDlg = nil
+		}
+		return v, nil
+	}
 	if v.picker != nil {
 		return v.updatePicker(msg)
 	}
@@ -362,6 +380,13 @@ func (v *collsView) updateKeys(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	case "s":
 		v.sortBy = (v.sortBy + 1) % 3
 		v.applySort()
+	case "e":
+		if v.resp == nil || v.err != nil {
+			v.notice = "no result to save"
+			return v, nil
+		}
+		v.saveDlg = newCSVDialog("Save collocations as CSV",
+			csvFileName("colls", v.corpus.ID, v.respArgs), v.csvRows())
 	case "enter":
 		if len(v.items) > 0 && !v.loading && v.err == nil {
 			return v, pushResult(v.concordanceFor(v.items[v.nav.cursor]))
@@ -426,10 +451,22 @@ func (v *collsView) concordanceFor(item api.CollItem) ResultView {
 	return newConcViewWithNote(v.env, v.corpus, v.query, note).withColl(coll, left, right)
 }
 
+// csvRows returns the collocates (in the current order) incl. a header row
+func (v *collsView) csvRows() [][]string {
+	rows := [][]string{{v.respArgs.SrchAttr, v.respArgs.Measure, "freq"}}
+	for _, it := range v.items {
+		rows = append(rows, []string{it.Value, fmtCSVFloat(it.Score), fmtCSVInt(it.Freq)})
+	}
+	return rows
+}
+
 // ---------------------------------- rendering
 
 func (v *collsView) View() string {
 	body := v.baseView()
+	if v.saveDlg != nil {
+		return placeOverlay(body, v.saveDlg.View(v.width), v.width, v.height)
+	}
 	if v.picker != nil {
 		return placeOverlay(body, v.picker.View(v.width), v.width, v.height)
 	}
@@ -464,6 +501,9 @@ func (v *collsView) summary() string {
 	}
 	if v.notice != "" {
 		s += "  " + errorStyle.Render(v.notice)
+	}
+	if v.info != "" {
+		s += "  " + accentStyle.Render(v.info)
 	}
 	return ansi.Truncate(s, v.width, "…")
 }
@@ -544,8 +584,11 @@ func (v *collsView) table() string {
 }
 
 func (v *collsView) Help() string {
+	if v.saveDlg != nil {
+		return v.saveDlg.Help()
+	}
 	if v.picker != nil {
 		return v.picker.Help()
 	}
-	return "↑/↓ move • enter concordance • c measure • a attribute • w window • f min freq • m/+/- max items • s sort • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter concordance • c measure • a attribute • w window • f min freq • m/+/- max items • s sort • e save CSV • r reload • esc edit query • q quit"
 }
