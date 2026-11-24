@@ -20,9 +20,11 @@ package handlers
 
 import (
 	"fmt"
+	"maps"
 	"mquery/corpus"
 	"mquery/rdb/results"
 	"net/http"
+	"slices"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/mquery-common/corp"
@@ -49,6 +51,35 @@ type corplistResponse struct {
 	Corpora []corpusCompactInfo `json:"corpora"`
 	Locale  string              `json:"locale"`
 } // @name Corplist
+
+// corpusBriefInfo is a minimal corpus info (see the `compact` argument
+// of the corplist action) - e.g. for LLM-based clients where response
+// size matters
+type corpusBriefInfo struct {
+	ID       string `json:"id"`
+	FullName string `json:"fullName"`
+	// Language is the corpus language as specified in the corpus
+	// registry file (a language name in English, e.g. "Czech")
+	Language string   `json:"language,omitempty"`
+	Flags    []string `json:"flags,omitempty"`
+	// Subcorpora contains just subcorpora IDs (sorted)
+	Subcorpora []string `json:"subcorpora,omitempty"`
+} // @name CorpusBriefInfo
+
+type corplistBriefResponse struct {
+	Corpora []corpusBriefInfo `json:"corpora"`
+	Locale  string            `json:"locale"`
+} // @name CorplistBrief
+
+func newCorpusBriefInfo(conf *corpus.MQCorpusSetup, lang string) corpusBriefInfo {
+	return corpusBriefInfo{
+		ID:         conf.ID,
+		FullName:   getTranslation(conf.FullName, lang),
+		Language:   conf.Language(),
+		Flags:      conf.SrchKeywords,
+		Subcorpora: slices.Sorted(maps.Keys(conf.Subcorpora)),
+	}
+}
 
 type corpusInfoResponse struct {
 	Corpus *results.CorpusInfo   `json:"corpus"`
@@ -127,8 +158,11 @@ func (a *Actions) CorpusInfo(ctx *gin.Context) {
 // Corplist godoc
 // @Summary      Corplist
 // @Description  Shows a list of available corpora with their basic properties.
+// @Description  With `compact=1`, each corpus contains only `id`, `fullName`, `language`, `flags` and
+// @Description  `subcorpora` (a sorted list of IDs); empty values are omitted.
 // @Produce      json
 // @Param        lang query string false "An ISO 639-1 locale code of response" default(en)
+// @Param        compact query int false "If 1, then a much smaller response with essential properties only is returned" default(0)
 // @Success      200 {object} corplistResponse
 // @Router       /corplist [get]
 func (a *Actions) Corplist(ctx *gin.Context) {
@@ -142,6 +176,16 @@ func (a *Actions) Corplist(ctx *gin.Context) {
 		return
 	}
 	allCorpora := a.conf.GetAllCorpora("") // TODO
+	if ctx.Query("compact") == "1" {
+		brief := make([]corpusBriefInfo, 0, len(allCorpora))
+		for _, v := range allCorpora {
+			if a.canAccessCorpusConf(ctx, v) {
+				brief = append(brief, newCorpusBriefInfo(v, lang))
+			}
+		}
+		uniresp.WriteJSONResponse(ctx.Writer, &corplistBriefResponse{Corpora: brief, Locale: lang})
+		return
+	}
 	corplist := make([]corpusCompactInfo, 0, len(allCorpora))
 	for _, v := range allCorpora {
 		if !a.canAccessCorpusConf(ctx, v) {
