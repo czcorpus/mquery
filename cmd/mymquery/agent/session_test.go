@@ -1,0 +1,160 @@
+package agent
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"mquery/cmd/mymquery/api"
+	"mquery/cmd/mymquery/llm"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// scriptedBackend returns prepared responses (one per call) and records requests
+type scriptedBackend struct {
+	responses []llm.CompletionResult
+	errs      []error
+	requests  []llm.CompletionRequest
+}
+
+func (b *scriptedBackend) CreateCompletion(_ context.Context, req llm.CompletionRequest) (llm.CompletionResult, error) {
+	i := len(b.requests)
+	// messages slice is reused by the session, so we must copy it
+	req.Messages = append([]llm.Message(nil), req.Messages...)
+	b.requests = append(b.requests, req)
+	if i < len(b.errs) && b.errs[i] != nil {
+		return llm.CompletionResult{}, b.errs[i]
+	}
+	return b.responses[i], nil
+}
+
+func (b *scriptedBackend) ModelName() string  { return "test-model" }
+func (b *scriptedBackend) VendorName() string { return "test" }
+
+func newTestToolbox(t *testing.T) (*Toolbox, *[]string) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path+"?"+r.URL.RawQuery)
+		switch r.URL.Path {
+		case "/freqs/syn":
+			w.Write([]byte(`{"concSize":10,"freqs":[{"word":"pes","freq":10}]}`))
+		case "/corplist":
+			w.Write([]byte(`{"corpora":[{"id":"syn","fullName":"SYN","subcorpora":[{"id":"sub1"}]}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":"not found"}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	client, err := api.NewClient(srv.URL, map[string]string{"X-Test": "1"}, 5*time.Second)
+	require.NoError(t, err)
+	tb, err := NewToolbox(context.Background(), client, "", "test")
+	require.NoError(t, err)
+	t.Cleanup(func() { tb.Close() })
+	return tb, &paths
+}
+
+func TestSessionToolLoop(t *testing.T) {
+	tb, paths := newTestToolbox(t)
+	backend := &scriptedBackend{
+		responses: []llm.CompletionResult{
+			{
+				Content: "Let me check.",
+				ToolCalls: []llm.ToolCall{
+					{Name: "freqs", Args: `{"corpus_id":"syn","q":"[lemma=\"pes\"]","attr":"word"}`},
+					{Name: CorpusListToolName, Args: `{}`},
+				},
+				Usage: llm.Usage{InputTokens: 100, OutputTokens: 10},
+			},
+			{Content: "It is frequent [r1].", Model: "test-model", Usage: llm.Usage{InputTokens: 200, OutputTokens: 5}},
+		},
+	}
+	sess := NewSession(backend, tb, NewStore())
+	var events []Event
+	ans, err := sess.Run(context.Background(), "How frequent is pes?", PromptOptions{CorpusID: "syn"},
+		func(e Event) { events = append(events, e) })
+	require.NoError(t, err)
+
+	assert.Equal(t, "It is frequent [r1].", ans.Text)
+	assert.Equal(t, llm.Usage{InputTokens: 300, OutputTokens: 15}, ans.Usage)
+	assert.Equal(t, ans.Usage, sess.Usage())
+	assert.Contains(t, backend.requests[0].SystemPrompt, "`syn`")
+
+	results := sess.Store().All()
+	require.Len(t, results, 2)
+	assert.Equal(t, "r1", results[0].ID)
+	assert.Equal(t, "freqs", results[0].Tool)
+	assert.True(t, results[0].OK)
+	assert.Equal(t, "word", results[0].StringArg("attr"))
+	assert.Contains(t, results[0].Content, `"pes"`)
+	assert.Equal(t, "r2", results[1].ID)
+	assert.Contains(t, results[1].Content, `"subcorpora":["sub1"]`)
+	require.Len(t, *paths, 2)
+	assert.Contains(t, (*paths)[0], "attr=word")
+
+	// the second request carries tool results with IDs
+	msgs := backend.requests[1].Messages
+	require.Len(t, msgs, 4)
+	assert.Equal(t, llm.RoleTool, msgs[2].Role)
+	assert.True(t, strings.HasPrefix(msgs[2].ToolResult.Content, "result_id: r1\n"))
+	assert.True(t, strings.HasPrefix(msgs[3].ToolResult.Content, "result_id: r2\n"))
+
+	require.Len(t, events, 5)
+	assert.Equal(t, AssistantText{Text: "Let me check."}, events[0])
+	assert.Equal(t, "freqs", events[1].(ToolCallStarted).Tool)
+	assert.Equal(t, "r1", events[2].(ToolCallDone).Result.ID)
+}
+
+func TestSessionToolError(t *testing.T) {
+	tb, _ := newTestToolbox(t)
+	backend := &scriptedBackend{
+		responses: []llm.CompletionResult{
+			{ToolCalls: []llm.ToolCall{{Name: "collocations", Args: `{"corpus_id":"syn","q":"x"}`}}},
+			{Content: "failed"},
+		},
+	}
+	sess := NewSession(backend, tb, NewStore())
+	_, err := sess.Run(context.Background(), "q", PromptOptions{}, func(Event) {})
+	require.NoError(t, err)
+	res, ok := sess.Store().Get("r1")
+	require.True(t, ok)
+	assert.False(t, res.OK)
+	assert.Contains(t, backend.requests[1].Messages[2].ToolResult.Content, "not found")
+}
+
+func TestSessionRollbackOnError(t *testing.T) {
+	tb, _ := newTestToolbox(t)
+	backend := &scriptedBackend{
+		responses: []llm.CompletionResult{
+			{Content: "hello", Usage: llm.Usage{InputTokens: 1}},
+			{ToolCalls: []llm.ToolCall{{Name: CorpusListToolName}}, Usage: llm.Usage{InputTokens: 10}},
+			{},
+		},
+		errs: []error{nil, nil, errors.New("boom")},
+	}
+	sess := NewSession(backend, tb, NewStore())
+	_, err := sess.Run(context.Background(), "hi", PromptOptions{}, func(Event) {})
+	require.NoError(t, err)
+	_, err = sess.Run(context.Background(), "list corpora", PromptOptions{}, func(Event) {})
+	assert.ErrorContains(t, err, "boom")
+	assert.Len(t, sess.messages, 2)
+	// results of the failed turn are kept
+	assert.Len(t, sess.Store().All(), 1)
+	// usage of the failed turn is counted
+	assert.Equal(t, 11, sess.Usage().InputTokens)
+}
+
+func TestContentForModelTruncates(t *testing.T) {
+	sess := NewSession(&scriptedBackend{}, nil, NewStore())
+	sess.MaxResultChars = 4
+	res := sess.Store().Add("freqs", nil, "ab→cdefgh", true)
+	content := sess.contentForModel(res)
+	// "→" takes bytes 2-4, so the cut (at 4) must be moved before it
+	assert.True(t, strings.HasPrefix(content, "result_id: r1\nab\n[... truncated, 2 of 11 bytes"))
+}

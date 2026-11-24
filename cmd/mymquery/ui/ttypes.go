@@ -41,6 +41,8 @@ type ttLoadedMsg struct {
 	args   api.TextTypesArgs
 	resp   *api.FreqsResponse
 	err    error
+	// preloaded is true for data not fetched by the view itself
+	preloaded bool
 }
 
 // loadTTAttrOptions combines configured text properties (incl. attributes
@@ -137,6 +139,9 @@ type ttypesView struct {
 
 	table freqTable
 
+	// preloaded is a response to be used instead of the first fetch
+	preloaded *api.FreqsResponse
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -176,11 +181,14 @@ func (v *ttypesView) Init() tea.Cmd {
 	)
 }
 
-// setAttrOptions chooses the attribute (last used => configured default) and
-// starts the calculation. With no known attribute, the picker is opened.
+// setAttrOptions chooses the attribute (preset => last used => configured
+// default) and starts the calculation. With no known attribute, the picker
+// is opened.
 func (v *ttypesView) setAttrOptions(opts ttAttrOptions) tea.Cmd {
 	v.attrOpts = opts
-	v.attr = v.env.ttAttr[v.corpus.ID]
+	if v.attr == "" {
+		v.attr = v.env.ttAttr[v.corpus.ID]
+	}
 	if v.attr == "" {
 		v.attr = opts.defaultAttr
 	}
@@ -217,6 +225,12 @@ func (v *ttypesView) fetch() tea.Cmd {
 		Attr:     v.attr,
 		MaxItems: v.maxItems,
 		FLimit:   v.flimit,
+	}
+	if resp := v.preloaded; resp != nil {
+		v.preloaded = nil
+		return func() tea.Msg {
+			return ttLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, preloaded: true}
+		}
 	}
 	return tea.Batch(
 		v.spinner.Tick,
@@ -258,10 +272,12 @@ func (v *ttypesView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		}
 		v.resp = msg.resp
 		v.respArgs = msg.args
-		// remember only settings which work
-		v.env.ttAttr[v.corpus.ID] = v.attr
-		v.env.ttMaxItems = v.maxItems
-		v.env.ttFLimit = v.flimit
+		// remember only settings which work (and which were chosen by the user)
+		if !msg.preloaded {
+			v.env.ttAttr[v.corpus.ID] = v.attr
+			v.env.ttMaxItems = v.maxItems
+			v.env.ttFLimit = v.flimit
+		}
 		v.table.valueHeader = v.attr
 		v.table.setData(msg.resp.Freqs, msg.resp.ConcSize)
 		return v, nil

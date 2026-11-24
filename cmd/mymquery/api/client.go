@@ -59,6 +59,17 @@ func (c *Client) BaseURL() string {
 	return c.baseURL.String()
 }
 
+// HTTPClient returns the underlying HTTP client (incl. the cookie jar
+// with a possible session cookie), e.g. to be shared with an MCP server.
+func (c *Client) HTTPClient() *http.Client {
+	return c.http
+}
+
+// Headers returns the additional HTTP headers sent with each API request.
+func (c *Client) Headers() map[string]string {
+	return c.headers
+}
+
 // Authenticated reports whether a successful Login was performed.
 func (c *Client) Authenticated() bool {
 	return c.authenticated

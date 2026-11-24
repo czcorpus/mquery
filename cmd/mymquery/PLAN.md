@@ -2,8 +2,9 @@
 
 A Bubble Tea based TUI client for the MQuery HTTP API. It is a pure HTTP
 client: it uses only the public GET endpoints, no CGO and no `mquery/*`
-server packages. Response types are taken from `mquery-common` where
-possible.
+server packages (the only exception is the CGO-free `mquery/mcp` package,
+embedded for the AI chat). Response types are taken from `mquery-common`
+where possible.
 
 ```
 go build -o mymquery ./cmd/mymquery
@@ -26,6 +27,11 @@ cmd/mymquery/
     corpsel.go     corpus selection (filterable list)
     query.go       query input
     conc.go        concordance result view
+    chat.go        AI chat screen (M5)
+    chatresult.go  stored chat results → result views (or a raw view)
+  llm/             provider-neutral chat completion + tool calling (ported from NLQL)
+    genai.go       Gemini backend
+  agent/           AI chat: in-process MQuery MCP server, agent loop, result store
 ```
 
 Every function is a `Feature` with its own `ResultView`. The app shell
@@ -128,6 +134,34 @@ change it.
       the response the table shows, not from (possibly failed) newer settings
 - [ ] `minCorpFreq` (server uses `minCollFreq` by default)
 - [ ] `/collocations-extended` (collocates with examples)
+
+### M5 – AI chat ✅ (first iteration)
+A chat with an LLM which queries MQuery via an in-process MQuery MCP server
+(`mquery/mcp`, sharing the HTTP client – incl. the session cookie – with the UI).
+- [x] `llm` package: `Backend` interface (non-streaming), Gemini backend (`google.golang.org/genai`)
+      with fallback models and retries on 429/5xx. Config: `GEMINI_API_KEY`, `LLM_MODEL` /
+      `-llm-model` (comma separated, first = primary; default `gemini-3.5-flash-lite,gemini-3.1-flash-lite`)
+- [x] `agent` package: agent loop (max 15 iterations), builtin `corpus_list` tool (MCP has none),
+      session `Store` of all tool results (`r1`, `r2`, …; failed calls too). The model gets
+      results prefixed with `result_id: rN`, truncated to 40 kB; it is asked to cite `[rN]`.
+      A failed/cancelled turn is rolled back from the conversation (its results remain stored)
+- [x] chat screen (menu item 5): transcript (viewport) + textarea; `enter` send, `alt+enter`
+      newline, `esc` cancels a running turn, `ctrl+n` new conversation, `tab` browses results
+      (`↑/↓`, `enter` opens, `esc` returns to the chat with the selection kept)
+- [x] results open in the regular views with the model's settings and preloaded data (no
+      requery): concordance, token freqs, text types, collocations; anything else (or failed /
+      markdown / subcorpus results) in a raw (pretty JSON) view. Settings chosen by the model are
+      not remembered as the user's session settings
+- [x] header: model name and session token usage
+- [ ] more backends: OpenAI-compatible (llama.cpp, Mistral), Anthropic (nlql has them)
+- [ ] streaming of answers
+- [ ] a list of all stored results (also from previous conversations) + jump to the chat from anywhere
+- [ ] subcorpus support in result views (then chat results with `subcorpus` get their dedicated view)
+- [ ] persist chat sessions (transcript + results) to disk
+- [ ] markdown rendering of answers (glamour?); clickable `[rN]` references
+- [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
+      the regular UI when running on an internal network
+- [ ] token costs: `corpus_list` and `corpus_info` outputs are large and re-sent each iteration
 
 ### Shared UI components
 - `selectList` (`ui/selectlist.go`): modal "pick one" box drawn over the view

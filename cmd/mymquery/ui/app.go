@@ -18,6 +18,7 @@ const (
 	scrCorpus
 	scrQuery
 	scrResult
+	scrChat
 )
 
 // header + empty line + footer
@@ -35,9 +36,13 @@ type App struct {
 	menu    menuModel
 	corpSel corpSelModel
 	query   queryModel
+	chat    chatModel
 	// results is a stack of result views; the last one is active
 	// (nested views are e.g. concordances opened from a frequency list)
 	results []ResultView
+	// resultsFromChat is true if the results were opened from the AI chat
+	// (so leaving them returns to the chat instead of the query screen)
+	resultsFromChat bool
 
 	featureIdx int
 	corpus     *api.CorpusItem
@@ -45,7 +50,7 @@ type App struct {
 	queries map[string]string
 	// collQuery is the last collocate query (for features with Feature.HasColl)
 	collQuery string
-	history *queryHistory
+	history   *queryHistory
 	// historyErr is a pending history save error to be shown in the query screen
 	historyErr error
 	// serverVersion is the MQuery server version ("" = not (yet) known)
@@ -81,6 +86,7 @@ func NewApp(env *Env) *App {
 		menu:     menu,
 		corpSel:  newCorpSel(env),
 		query:    newQuery(history),
+		chat:     newChat(env),
 		queries:  queries,
 		history:  history,
 	}
@@ -105,6 +111,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width, a.height = msg.Width, msg.Height
 		a.corpSel.SetSize(a.width, a.bodyHeight())
 		a.query.SetSize(a.width, a.bodyHeight())
+		a.chat.SetSize(a.width, a.bodyHeight())
 		for _, r := range a.results {
 			r.SetSize(a.width, a.bodyHeight())
 		}
@@ -120,11 +127,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			a.closeResults()
+			a.chat.Close()
 			return a, tea.Quit
 		}
 		return a.updateActive(msg)
 
 	case featureSelectedMsg:
+		if a.features[msg.idx].Chat {
+			if a.env.Chat == nil {
+				a.menu.notice = a.env.ChatUnavailable
+				return a, nil
+			}
+			a.featureIdx = msg.idx
+			a.screen = scrChat
+			return a, a.chat.Activate()
+		}
 		a.featureIdx = msg.idx
 		if a.corpus == nil {
 			a.screen = scrCorpus
@@ -162,8 +179,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		a.closeResults()
+		a.resultsFromChat = false
 		a.screen = scrResult
 		return a, a.pushResult(view)
+
+	case chatSubmitMsg:
+		var corpusID string
+		if a.corpus != nil {
+			corpusID = a.corpus.ID
+		}
+		return a, a.chat.submit(corpusID)
+
+	case openChatResultMsg:
+		a.closeResults()
+		a.resultsFromChat = true
+		a.chat.Blur()
+		a.screen = scrResult
+		return a, a.pushResult(newChatResultView(a.env, msg.result))
 
 	case pushResultMsg:
 		if a.screen != scrResult {
@@ -183,11 +215,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.saveQueryInput()
 			a.query.Blur()
 			a.screen = scrMenu
+		case scrChat:
+			a.chat.Blur()
+			a.screen = scrMenu
 		case scrResult:
 			top := len(a.results) - 1
 			a.results[top].Close()
 			a.results = a.results[:top]
 			if len(a.results) == 0 {
+				if a.resultsFromChat {
+					a.screen = scrChat
+					return a, a.chat.Activate()
+				}
 				return a, a.toQuery()
 			}
 		}
@@ -207,6 +246,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.query, cmd = a.query.Update(msg) // cursor blinking
 		cmds = append(cmds, cmd)
 	}
+	// chat events, spinner ticks, cursor blinking
+	a.chat, cmd = a.chat.Update(msg)
+	cmds = append(cmds, cmd)
 	return a, tea.Batch(cmds...)
 }
 
@@ -222,6 +264,8 @@ func (a *App) updateActive(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case scrResult:
 		top := len(a.results) - 1
 		a.results[top], cmd = a.results[top].Update(msg)
+	case scrChat:
+		a.chat, cmd = a.chat.Update(msg)
 	}
 	return a, cmd
 }
@@ -275,6 +319,8 @@ func (a *App) View() string {
 		body, help = a.query.View(), a.query.Help()
 	case scrResult:
 		body, help = a.activeResult().View(), a.activeResult().Help()
+	case scrChat:
+		body, help = a.chat.View(), a.chat.Help()
 	}
 	if a.screen != scrCorpus && a.screen != scrResult {
 		body = lipgloss.NewStyle().Padding(0, 2).Render(body)
@@ -299,10 +345,22 @@ func (a *App) header() string {
 	} else if a.screen != scrMenu {
 		parts = append(parts, seg.Render(a.features[a.featureIdx].Title))
 	}
+	corpusID := ""
 	if a.corpus != nil {
-		parts = append(parts, seg.Render("corpus: ")+headerKeyStyle.Render(a.corpus.ID))
+		corpusID = a.corpus.ID
 	}
-	if a.screen == scrResult {
+	if a.screen == scrResult && a.resultsFromChat {
+		if cv, ok := a.activeResult().(corpusOfView); ok {
+			corpusID = cv.CorpusID()
+		}
+	}
+	if corpusID != "" {
+		parts = append(parts, seg.Render("corpus: ")+headerKeyStyle.Render(corpusID))
+	}
+	if a.screen == scrChat {
+		parts = append(parts, seg.Render(chatUsageInfo(a.env)))
+	}
+	if a.screen == scrResult && a.activeResult().Query() != "" {
 		parts = append(parts, seg.Render("query: "+a.activeResult().Query()))
 	}
 	content := strings.Join(parts, seg.Render(" │ "))

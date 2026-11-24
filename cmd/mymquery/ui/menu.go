@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -79,5 +80,5 @@ func (m menuModel) View() string {
 }
 
 func (m menuModel) Help() string {
-	return "↑/↓ move • enter select • 1-4 quick select • q quit"
+	return fmt.Sprintf("↑/↓ move • enter select • 1-%d quick select • q quit", len(m.features))
 }

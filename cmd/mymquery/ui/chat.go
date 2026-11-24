@@ -1,0 +1,479 @@
+package ui
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"regexp"
+	"slices"
+	"sort"
+	"strings"
+
+	"mquery/cmd/mymquery/agent"
+
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+)
+
+const (
+	chatInputHeight = 3
+	// chatMaxArgWidth limits displayed tool argument values
+	chatMaxArgWidth = 60
+)
+
+type chatEntryKind int
+
+const (
+	entryUser chatEntryKind = iota
+	entryAssistant
+	// entryInterim is an assistant's text produced along with tool calls
+	entryInterim
+	entryResult
+	entryError
+	entryInfo
+)
+
+type chatEntry struct {
+	kind   chatEntryKind
+	text   string
+	result *agent.Result
+}
+
+// chatEventMsg delivers a progress event of a running turn
+type chatEventMsg struct {
+	runID int
+	event agent.Event
+	ch    <-chan tea.Msg
+}
+
+// chatDoneMsg finishes a running turn
+type chatDoneMsg struct {
+	runID int
+	ans   agent.TurnResult
+	err   error
+}
+
+// openChatResultMsg asks the app to show a stored result
+type openChatResultMsg struct {
+	result *agent.Result
+}
+
+type chatModel struct {
+	env     *Env
+	entries []chatEntry
+	input   textarea.Model
+	vp      viewport.Model
+	spinner spinner.Model
+	width   int
+	height  int
+
+	// browsing is true if the transcript (instead of the input) is focused;
+	// then `sel` is an index of the selected result entry
+	browsing bool
+	sel      int
+	// resultLines maps entry index => first line in the rendered transcript
+	resultLines map[int]int
+
+	running bool
+	runID   int
+	cancel  context.CancelFunc
+	// activity describes what the running turn is doing right now
+	activity string
+}
+
+func newChat(env *Env) chatModel {
+	ta := textarea.New()
+	ta.Placeholder = "Ask about the corpora…"
+	ta.ShowLineNumbers = false
+	ta.Prompt = "┃ "
+	ta.CharLimit = 4000
+	ta.SetHeight(chatInputHeight)
+	ta.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "ctrl+j"))
+	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	ta.FocusedStyle.Prompt = accentStyle
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	return chatModel{
+		env:     env,
+		input:   ta,
+		vp:      viewport.New(0, 0),
+		spinner: sp,
+	}
+}
+
+// Activate is called when the chat screen is entered; the input is focused
+// unless the user was browsing results
+func (m *chatModel) Activate() tea.Cmd {
+	if m.browsing {
+		return nil
+	}
+	return m.input.Focus()
+}
+
+func (m *chatModel) Blur() {
+	m.input.Blur()
+}
+
+// Close cancels a running turn (if any)
+func (m *chatModel) Close() {
+	if m.cancel != nil {
+		m.cancel()
+	}
+}
+
+func (m *chatModel) SetSize(w, h int) {
+	m.width, m.height = w, h
+	m.input.SetWidth(max(10, w-4))
+	m.vp.Width = max(10, w-4)
+	m.vp.Height = max(1, h-chatInputHeight-2)
+	m.refresh(false)
+}
+
+// resultIdxs returns indices of result entries
+func (m *chatModel) resultIdxs() []int {
+	var ans []int
+	for i, e := range m.entries {
+		if e.kind == entryResult {
+			ans = append(ans, i)
+		}
+	}
+	return ans
+}
+
+func (m *chatModel) add(e chatEntry) {
+	m.entries = append(m.entries, e)
+	m.refresh(true)
+}
+
+func (m *chatModel) submit(corpusID string) tea.Cmd {
+	text := strings.TrimSpace(m.input.Value())
+	if text == "" || m.running {
+		return nil
+	}
+	m.input.Reset()
+	m.add(chatEntry{kind: entryUser, text: text})
+	m.running = true
+	m.activity = "thinking"
+	m.runID++
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancel = cancel
+	ch := make(chan tea.Msg)
+	runID, sess := m.runID, m.env.Chat
+	go func() {
+		defer close(ch)
+		emit := func(e agent.Event) {
+			select {
+			case ch <- chatEventMsg{runID: runID, event: e, ch: ch}:
+			case <-ctx.Done():
+			}
+		}
+		ans, err := sess.Run(ctx, text, agent.PromptOptions{CorpusID: corpusID}, emit)
+		select {
+		case ch <- chatDoneMsg{runID: runID, ans: ans, err: err}:
+		case <-ctx.Done():
+			// nobody may be listening anymore (the chat was closed)
+		}
+	}()
+	m.refresh(true)
+	return tea.Batch(m.spinner.Tick, waitChat(ch))
+}
+
+func waitChat(ch <-chan tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		msg, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return msg
+	}
+}
+
+func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case chatEventMsg:
+		if msg.runID != m.runID {
+			return m, nil
+		}
+		switch e := msg.event.(type) {
+		case agent.AssistantText:
+			m.add(chatEntry{kind: entryInterim, text: e.Text})
+		case agent.ToolCallStarted:
+			m.activity = "running " + e.Tool
+			m.refresh(true)
+		case agent.ToolCallDone:
+			m.activity = "thinking"
+			m.add(chatEntry{kind: entryResult, result: e.Result})
+		}
+		return m, waitChat(msg.ch)
+
+	case chatDoneMsg:
+		if msg.runID != m.runID {
+			return m, nil
+		}
+		m.running = false
+		m.cancel()
+		m.cancel = nil
+		if msg.err != nil {
+			if errors.Is(msg.err, context.Canceled) {
+				m.add(chatEntry{kind: entryInfo, text: "(cancelled - the model does not remember this request)"})
+			} else {
+				m.add(chatEntry{kind: entryError, text: msg.err.Error() + " (the model does not remember this request)"})
+			}
+			return m, nil
+		}
+		text := msg.ans.Text
+		if text == "" {
+			text = "(empty answer)"
+		}
+		m.add(chatEntry{kind: entryAssistant, text: text})
+		return m, nil
+
+	case spinner.TickMsg:
+		if !m.running {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		m.refresh(false)
+		return m, cmd
+
+	case tea.KeyMsg:
+		if m.browsing {
+			return m.updateBrowsing(msg)
+		}
+		return m.updateInput(msg)
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg) // cursor blinking
+	return m, cmd
+}
+
+func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		return m, func() tea.Msg { return chatSubmitMsg{} }
+	case "esc":
+		if m.running {
+			m.cancel()
+			return m, nil
+		}
+		return m, goBack
+	case "tab":
+		if idxs := m.resultIdxs(); len(idxs) > 0 {
+			m.browsing = true
+			m.input.Blur()
+			m.sel = idxs[len(idxs)-1]
+			m.refresh(false)
+			m.scrollToSel()
+		}
+		return m, nil
+	case "ctrl+n":
+		if m.running {
+			return m, nil
+		}
+		m.env.Chat.Reset()
+		m.add(chatEntry{kind: entryInfo, text: "── new conversation (stored results remain available) ──"})
+		return m, nil
+	case "pgup", "pgdown":
+		var cmd tea.Cmd
+		m.vp, cmd = m.vp.Update(msg)
+		return m, cmd
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m chatModel) updateBrowsing(msg tea.KeyMsg) (chatModel, tea.Cmd) {
+	idxs := m.resultIdxs()
+	pos := slices.Index(idxs, m.sel)
+	switch msg.String() {
+	case "tab", "esc", "i":
+		m.browsing = false
+		m.refresh(false)
+		return m, m.input.Focus()
+	case "q":
+		return m, tea.Quit
+	case "up", "k":
+		if pos > 0 {
+			m.sel = idxs[pos-1]
+		}
+	case "down", "j":
+		if pos >= 0 && pos < len(idxs)-1 {
+			m.sel = idxs[pos+1]
+		}
+	case "home", "g":
+		m.sel = idxs[0]
+	case "end", "G":
+		m.sel = idxs[len(idxs)-1]
+	case "enter":
+		if pos >= 0 {
+			res := m.entries[m.sel].result
+			return m, func() tea.Msg { return openChatResultMsg{result: res} }
+		}
+	case "pgup", "pgdown":
+		var cmd tea.Cmd
+		m.vp, cmd = m.vp.Update(msg)
+		return m, cmd
+	}
+	m.refresh(false)
+	m.scrollToSel()
+	return m, nil
+}
+
+func (m *chatModel) scrollToSel() {
+	line, ok := m.resultLines[m.sel]
+	if !ok {
+		return
+	}
+	if line < m.vp.YOffset {
+		m.vp.SetYOffset(line)
+	} else if line >= m.vp.YOffset+m.vp.Height {
+		m.vp.SetYOffset(line - m.vp.Height + 1)
+	}
+}
+
+// refresh re-renders the transcript; with `follow`, it is scrolled to the end
+func (m *chatModel) refresh(follow bool) {
+	if m.vp.Width == 0 {
+		return
+	}
+	w := m.vp.Width
+	m.resultLines = make(map[int]int)
+	var lines []string
+	for i, e := range m.entries {
+		if e.kind == entryUser || (e.kind == entryResult && (i == 0 || m.entries[i-1].kind != entryResult)) ||
+			e.kind == entryAssistant {
+			if len(lines) > 0 {
+				lines = append(lines, "")
+			}
+		}
+		if e.kind == entryResult {
+			m.resultLines[i] = len(lines)
+		}
+		lines = append(lines, strings.Split(m.renderEntry(i, e, w), "\n")...)
+	}
+	if m.running {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, m.spinner.View()+mutedStyle.Render(m.activity+"… (esc to cancel)"))
+	}
+	if len(m.entries) == 0 && !m.running {
+		lines = append(lines, mutedStyle.Render(ansi.Wordwrap(
+			"Ask a question about the corpora - e.g. \"What are the most frequent "+
+				"adjectives modifying the noun 'house'?\". The model queries MQuery and each "+
+				"result it obtains can be opened as an interactive table.", w, " ")))
+	}
+	m.vp.SetContent(strings.Join(lines, "\n"))
+	if follow {
+		m.vp.GotoBottom()
+	}
+}
+
+var resultRefRegexp = regexp.MustCompile(`\[(r\d+(?:\s*,\s*r\d+)*)\]`)
+
+func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
+	switch e.kind {
+	case entryUser:
+		return accentStyle.Render("❯ ") + boldStyle.Render(ansi.Wordwrap(e.text, w-2, " "))
+	case entryAssistant:
+		text := ansi.Wordwrap(e.text, w, " ")
+		return resultRefRegexp.ReplaceAllStringFunc(text, func(s string) string {
+			return kwicStyle.Render(s)
+		})
+	case entryInterim:
+		return mutedStyle.Render(ansi.Wordwrap(e.text, w, " "))
+	case entryError:
+		return errorStyle.Render(ansi.Wordwrap(e.text, w, " "))
+	case entryInfo:
+		return mutedStyle.Render(ansi.Wordwrap(e.text, w, " "))
+	case entryResult:
+		return m.renderResult(idx, e.result, w)
+	}
+	return ""
+}
+
+func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {
+	selected := m.browsing && idx == m.sel
+	marker := "  "
+	if selected {
+		marker = accentStyle.Render("❯ ")
+	}
+	id := kwicStyle.Render(res.ID)
+	tool := res.Tool
+	if !res.OK {
+		tool = errorStyle.Render(tool + " (failed)")
+	}
+	line := marker + "⚙ " + id + " " + tool + " " + mutedStyle.Render(formatToolArgs(res.Args))
+	line = ansi.Truncate(line, w, "…")
+	if selected {
+		line = lipgloss.NewStyle().Background(colSelBg).Width(w).Render(line)
+	}
+	return line
+}
+
+// formatToolArgs formats arguments as `name=value` (corpus and query first)
+func formatToolArgs(args map[string]any) string {
+	keys := make([]string, 0, len(args))
+	for k := range args {
+		if k != "corpus_id" && k != "q" {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range []string{"q", "corpus_id"} {
+		if _, ok := args[k]; ok {
+			keys = append([]string{k}, keys...)
+		}
+	}
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		var val string
+		if s, ok := args[k].(string); ok {
+			val = s
+		} else {
+			data, _ := json.Marshal(args[k])
+			val = string(data)
+		}
+		parts[i] = k + "=" + ansi.Truncate(val, chatMaxArgWidth, "…")
+	}
+	return strings.Join(parts, " ")
+}
+
+func (m chatModel) View() string {
+	input := m.input.View()
+	if m.browsing {
+		input = mutedStyle.Render(input)
+	}
+	return m.vp.View() + "\n\n" + input
+}
+
+func (m chatModel) Help() string {
+	if m.browsing {
+		return "↑/↓ select result • enter open • pgup/pgdn scroll • tab/esc back to input • q quit"
+	}
+	if m.running {
+		return "esc cancel • pgup/pgdn scroll"
+	}
+	return "enter send • alt+enter newline • tab browse results • pgup/pgdn scroll • ctrl+n new conversation • esc menu"
+}
+
+// chatSubmitMsg asks the app to submit the chat input (the app adds context, e.g. the corpus)
+type chatSubmitMsg struct{}
+
+// chatUsageInfo returns model and token usage info for the header
+func chatUsageInfo(env *Env) string {
+	if env.Chat == nil {
+		return ""
+	}
+	u := env.Chat.Usage()
+	return fmt.Sprintf("%s · tokens in %s / out %s",
+		env.Chat.Backend().ModelName(), formatInt(u.InputTokens), formatInt(u.OutputTokens))
+}

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"mquery/cmd/mymquery/agent"
 	"mquery/cmd/mymquery/api"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,6 +17,11 @@ type Env struct {
 	// HistoryPath is a file storing submitted queries ("" = no persistence)
 	HistoryPath string
 	HistorySize int
+
+	// Chat is an AI chat session (nil = the chat is not configured)
+	Chat *agent.Session
+	// ChatUnavailable explains why Chat is nil
+	ChatUnavailable string
 
 	// attrCache maps corpus ID => ordered positional attributes
 	attrCache map[string][]corpusAttr
@@ -94,6 +100,9 @@ type Feature struct {
 	HasColl bool
 	// NewView creates a result view; nil means "not implemented yet"
 	NewView func(env *Env, corpus api.CorpusItem, query string) ResultView
+	// Chat marks the AI chat (which has its own screen instead of
+	// the query + result views)
+	Chat bool
 }
 
 // collFilterable is implemented by views supporting a collocate filter
@@ -105,7 +114,7 @@ type collFilterable interface {
 }
 
 func (f Feature) Implemented() bool {
-	return f.NewView != nil
+	return f.NewView != nil || f.Chat
 }
 
 const queryTypeCQL = "cql"
@@ -144,6 +153,11 @@ func DefaultFeatures() []Feature {
 			InputPlaceholder: `e.g. [lemma="house"]`,
 			QueryType:        queryTypeCQL,
 			NewView:          newCollsView,
+		},
+		{
+			Title:       "AI chat",
+			Description: "ask a language model which queries the corpora for you",
+			Chat:        true,
 		},
 	}
 }

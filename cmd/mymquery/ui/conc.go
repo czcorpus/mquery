@@ -62,6 +62,9 @@ type concView struct {
 	detail     *modal
 	detailMode detailMode
 
+	// preloaded is a response to be used instead of the first fetch
+	preloaded *api.ConcordanceResponse
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -140,6 +143,12 @@ func (v *concView) fetch() tea.Cmd {
 		ShowTextProps: 2,
 		Coll:          v.coll,
 		CollRange:     v.collRange,
+	}
+	if resp := v.preloaded; resp != nil {
+		v.preloaded = nil
+		return func() tea.Msg {
+			return concLoadedMsg{viewID: viewID, reqID: reqID, resp: resp}
+		}
 	}
 	return tea.Batch(
 		v.spinner.Tick,
@@ -265,7 +274,8 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	switch msg.String() {
 	case "right", "l", "n":
 		if v.hasNextPage() && !v.loading {
-			v.rowsOffset += v.env.PageSize
+			// (a preloaded page may differ in size from PageSize)
+			v.rowsOffset += len(v.resp.Lines)
 			return v, v.fetch()
 		}
 	case "left", "h", "p":
