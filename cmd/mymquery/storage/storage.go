@@ -1,5 +1,5 @@
 // Package storage is a local SQLite database of mymquery
-// (query history, later also AI chat sessions).
+// (query history, AI chat conversations).
 package storage
 
 import (
@@ -37,6 +37,41 @@ var migrations = []string{
 		query TEXT NOT NULL
 	);
 	CREATE INDEX queries_query ON queries(query);`,
+
+	`CREATE TABLE chats (
+		id INTEGER PRIMARY KEY,
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL,
+		title TEXT NOT NULL,
+		vendor TEXT NOT NULL,
+		model TEXT NOT NULL,
+		corpus_id TEXT NOT NULL,
+		input_tokens INTEGER NOT NULL,
+		cached_input_tokens INTEGER NOT NULL,
+		output_tokens INTEGER NOT NULL,
+		reasoning_tokens INTEGER NOT NULL
+	);
+	CREATE TABLE chat_messages (
+		chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+		seq INTEGER NOT NULL,
+		role TEXT NOT NULL,
+		content TEXT NOT NULL,
+		tool_calls TEXT,
+		tool_result TEXT,
+		opaque BLOB,
+		PRIMARY KEY (chat_id, seq)
+	);
+	CREATE TABLE chat_results (
+		chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+		seq INTEGER NOT NULL,
+		result_id TEXT NOT NULL,
+		tool TEXT NOT NULL,
+		args TEXT,
+		content TEXT NOT NULL,
+		ok INTEGER NOT NULL,
+		created_at INTEGER NOT NULL,
+		PRIMARY KEY (chat_id, seq)
+	);`,
 }
 
 type DB struct {
@@ -54,6 +89,9 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// writes are serialized anyway; a single connection also guarantees
+	// the per-connection pragmas apply
+	db.SetMaxOpenConns(1)
 	ans := &DB{db: db}
 	if err := ans.migrate(); err != nil {
 		db.Close()

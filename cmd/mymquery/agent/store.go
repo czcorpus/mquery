@@ -2,6 +2,8 @@ package agent
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -52,18 +54,33 @@ func (r *Result) BoolArg(name string) bool {
 type Store struct {
 	mu    sync.Mutex
 	items []*Result
+	// lastNum is the number of the last assigned ID (r<lastNum>)
+	lastNum int
 }
 
 func NewStore() *Store {
 	return &Store{}
 }
 
+// NewStoreFrom creates a store with previously saved results
+// (new results get IDs following the highest one)
+func NewStoreFrom(results []*Result) *Store {
+	s := &Store{items: append([]*Result(nil), results...)}
+	for _, r := range results {
+		if n, err := strconv.Atoi(strings.TrimPrefix(r.ID, "r")); err == nil {
+			s.lastNum = max(s.lastNum, n)
+		}
+	}
+	return s
+}
+
 // Add stores a new result and assigns it an ID
 func (s *Store) Add(tool string, args map[string]any, content string, ok bool) *Result {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.lastNum++
 	r := &Result{
-		ID:      fmt.Sprintf("r%d", len(s.items)+1),
+		ID:      fmt.Sprintf("r%d", s.lastNum),
 		Tool:    tool,
 		Args:    args,
 		Content: content,

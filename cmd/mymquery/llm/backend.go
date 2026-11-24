@@ -49,8 +49,10 @@ type Message struct {
 	ToolResult ToolResult
 	// Opaque carries backend-specific, message-level state of
 	// a RoleAssistant turn that must be echoed back verbatim on the next
-	// turn. It's copied from CompletionResult.Opaque.
-	Opaque any
+	// turn. It's copied from CompletionResult.Opaque. It is a byte slice
+	// so conversations can be persisted (backends needing a structured
+	// state must encode it).
+	Opaque []byte
 }
 
 // ToolCall is one function/tool invocation requested by the model.
@@ -64,7 +66,7 @@ type ToolCall struct {
 	// Opaque carries backend-specific state that must be echoed back
 	// verbatim alongside this call on the next turn (e.g. Gemini's
 	// thought_signature, required for tool-calling to work correctly).
-	Opaque any
+	Opaque []byte
 }
 
 // ToolResult is the outcome of running a ToolCall, fed back to the model
@@ -127,7 +129,7 @@ type CompletionResult struct {
 	// Opaque is backend-specific, message-level state of this turn the
 	// caller must store as Message.Opaque of the matching RoleAssistant
 	// message when continuing the conversation.
-	Opaque any
+	Opaque []byte
 }
 
 // CompletionError is the error a Backend returns from CreateCompletion

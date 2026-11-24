@@ -113,7 +113,7 @@ func main() {
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
 	contextWidth := flag.Int("context-width", 20, "concordance context width in tokens (max. 50)")
-	dbPath := flag.String("db", storage.DefaultPath(), "SQLite database for query history (empty = do not store anything)")
+	dbPath := flag.String("db", storage.DefaultPath(), "SQLite database for query history and AI chats (empty = do not store anything)")
 	historySize := flag.Int("history-size", ui.DefaultHistorySize, "max. number of stored queries")
 	timeout := flag.Duration("timeout", 90*time.Second, "HTTP request timeout")
 	flag.Usage = func() {
@@ -165,6 +165,9 @@ func main() {
 			os.Exit(1)
 		}
 		defer tools.Close()
+		if env.DB != nil {
+			sess.Recorder = env.DB
+		}
 		env.Chat = sess
 	}
 	p := tea.NewProgram(ui.NewApp(env), tea.WithAltScreen())

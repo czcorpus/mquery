@@ -19,7 +19,7 @@ const (
 )
 
 // Event is a progress notification of a running turn. It is one of
-// ToolCallStarted, ToolCallDone, AssistantText.
+// ToolCallStarted, ToolCallDone, AssistantText, PersistFailed.
 type Event any
 
 // ToolCallStarted is emitted right before a tool is called
@@ -32,6 +32,8 @@ type ToolCallStarted struct {
 type ToolCallDone struct {
 	Result *Result
 }
+
+// (PersistFailed is defined in persist.go)
 
 // AssistantText is a text the model produced along with tool calls
 // (i.e. not the final answer of a turn)
@@ -55,6 +57,9 @@ type Session struct {
 	MaxResultChars int
 	Temperature    float32
 	EnableThinking bool
+	// Recorder saves the conversation after each completed step
+	// (nil = no persistence)
+	Recorder Recorder
 
 	messages []llm.Message
 	// usage is the token usage of the whole session
@@ -69,6 +74,13 @@ type Session struct {
 	// failed is true if the last turn failed (then `messages` end at
 	// the checkpoint, and the turn can be retried)
 	failed bool
+
+	// info describes the conversation for the Recorder
+	info ChatInfo
+	// savedMsgs and savedResults are numbers of already saved
+	// messages and results
+	savedMsgs    int
+	savedResults int
 }
 
 func NewSession(backend llm.Backend, tools *Toolbox, store *Store) *Session {
@@ -89,11 +101,14 @@ func (s *Session) Backend() llm.Backend { return s.backend }
 // Usage returns the token usage of the whole session (incl. failed turns)
 func (s *Session) Usage() llm.Usage { return s.usage }
 
-// Reset forgets the conversation (but the stored results are kept)
+// Reset starts a new conversation (with a new result store)
 func (s *Session) Reset() {
 	s.messages = nil
 	s.usage = llm.Usage{}
 	s.turnStart, s.checkpoint, s.failed = 0, 0, false
+	s.store = NewStore()
+	s.info = ChatInfo{}
+	s.savedMsgs, s.savedResults = 0, 0
 }
 
 // CanRetry tells whether the last turn failed and can be retried
@@ -114,12 +129,17 @@ func (s *Session) Run(
 	ctx context.Context, userInput string, opts PromptOptions, emit func(Event),
 ) (TurnResult, error) {
 	if s.failed {
-		s.messages = s.messages[:s.turnStart]
+		s.truncate(s.turnStart)
 		s.failed = false
 	}
 	s.turnStart = len(s.messages)
 	s.messages = append(s.messages, llm.Message{Role: llm.RoleUser, Content: userInput})
-	return s.finishTurn(s.loop(ctx, opts, emit))
+	if s.info.Title == "" {
+		s.info.Title = chatTitle(userInput)
+	}
+	s.info.CorpusID = opts.CorpusID
+	ans, err := s.loop(ctx, opts, emit)
+	return s.finishTurn(ans, err, emit)
 }
 
 // Retry continues the last (failed) turn from its last completed step
@@ -130,15 +150,21 @@ func (s *Session) Retry(ctx context.Context, opts PromptOptions, emit func(Event
 		return TurnResult{}, fmt.Errorf("there is no failed request to retry")
 	}
 	s.failed = false
-	return s.finishTurn(s.loop(ctx, opts, emit))
+	s.info.CorpusID = opts.CorpusID
+	ans, err := s.loop(ctx, opts, emit)
+	return s.finishTurn(ans, err, emit)
 }
 
-func (s *Session) finishTurn(ans TurnResult, err error) (TurnResult, error) {
+func (s *Session) finishTurn(ans TurnResult, err error, emit func(Event)) (TurnResult, error) {
 	// tokens are billed even if the turn fails
 	s.usage = s.usage.Add(ans.Usage)
+	s.info.Usage = s.usage
 	if err != nil {
-		s.messages = s.messages[:s.checkpoint]
+		s.truncate(s.checkpoint)
 		s.failed = true
+	}
+	s.persist(emit)
+	if err != nil {
 		return TurnResult{}, err
 	}
 	return ans, nil
@@ -147,7 +173,9 @@ func (s *Session) finishTurn(ans TurnResult, err error) (TurnResult, error) {
 // loop runs completions and tool calls until a final answer is obtained.
 // It expects s.messages to end with a user message or tool results.
 func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)) (TurnResult, error) {
+	s.info.Vendor = s.backend.VendorName()
 	s.checkpoint = len(s.messages)
+	s.persist(emit)
 	var turn TurnResult
 	for range s.MaxIterations {
 		resp, err := llm.CreateCompletionWithRetry(ctx, s.backend, llm.CompletionRequest{
@@ -162,6 +190,9 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 			return turn, err
 		}
 		turn.Model = resp.Model
+		if resp.Model != "" {
+			s.info.Model = resp.Model
+		}
 		s.messages = append(s.messages, llm.Message{
 			Role:      llm.RoleAssistant,
 			Content:   resp.Content,
@@ -190,6 +221,7 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 			})
 		}
 		s.checkpoint = len(s.messages)
+		s.persist(emit)
 	}
 	return turn, fmt.Errorf("max. number of iterations (%d) reached without a final answer", s.MaxIterations)
 }

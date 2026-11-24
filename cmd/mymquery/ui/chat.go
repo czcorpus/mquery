@@ -87,6 +87,9 @@ type chatModel struct {
 	activity string
 	// canRetry is true if the last turn failed and can be retried
 	canRetry bool
+	// persistWarned is true if the running turn already reported
+	// a failure to save the conversation
+	persistWarned bool
 }
 
 func newChat(env *Env) chatModel {
@@ -179,6 +182,7 @@ func (m *chatModel) submit(corpusID string, retry bool) tea.Cmd {
 		}
 	}
 	m.canRetry = false
+	m.persistWarned = false
 	m.running = true
 	m.activity = "thinking"
 	m.runID++
@@ -227,6 +231,11 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 		case agent.ToolCallDone:
 			m.activity = "thinking"
 			m.add(chatEntry{kind: entryResult, result: e.Result})
+		case agent.PersistFailed:
+			if !m.persistWarned {
+				m.persistWarned = true
+				m.add(chatEntry{kind: entryError, text: "failed to save the conversation: " + e.Err.Error()})
+			}
 		}
 		return m, waitChat(msg.ch)
 
@@ -302,9 +311,17 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 		if m.running {
 			return m, nil
 		}
+		saved := m.env.Chat.ChatID() != 0
 		m.env.Chat.Reset()
 		m.canRetry = false
-		m.add(chatEntry{kind: entryInfo, text: "── new conversation (stored results remain available) ──"})
+		m.entries = nil
+		m.resultLines = nil
+		m.vp.SetYOffset(0)
+		if saved {
+			m.add(chatEntry{kind: entryInfo, text: "── new conversation (the previous one is saved) ──"})
+		} else {
+			m.add(chatEntry{kind: entryInfo, text: "── new conversation ──"})
+		}
 		return m, nil
 	case "pgup", "pgdown":
 		var cmd tea.Cmd

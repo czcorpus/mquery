@@ -32,6 +32,7 @@ cmd/mymquery/
   llm/             provider-neutral chat completion + tool calling (ported from NLQL)
     genai.go       Gemini backend
   agent/           AI chat: in-process MQuery MCP server, agent loop, result store
+  storage/         local SQLite DB: query history, saved chats
 ```
 
 Every function is a `Feature` with its own `ResultView`. The app shell
@@ -152,7 +153,8 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       a complete set of tool results): `ctrl+r` continues from there (tool calls are not repeated,
       new iteration budget), a new message discards the failed turn
 - [x] chat screen (menu item 5): transcript (viewport) + textarea; `enter` send, `alt+enter`
-      newline, `esc` cancels a running turn, `ctrl+n` new conversation, `tab` browses results
+      newline, `esc` cancels a running turn, `ctrl+n` new conversation (clears the screen,
+      new result store), `tab` browses results
       (`↑/↓`, `enter` opens, `esc` returns to the chat with the selection kept)
 - [x] results open in the regular views with the model's settings and preloaded data (no
       requery): concordance, token freqs, text types, collocations; anything else (or failed /
@@ -163,7 +165,15 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 - [ ] streaming of answers
 - [ ] a list of all stored results (also from previous conversations) + jump to the chat from anywhere
 - [ ] subcorpus support in result views (then chat results with `subcorpus` get their dedicated view)
-- [ ] persist chat sessions (transcript + results) to the local DB, a session list + resume
+- [x] chats are saved to the local DB (tables `chats`, `chat_messages`, `chat_results`) via
+      `agent.Recorder` (implemented by `storage.DB`) after each completed step: the user message,
+      each complete set of tool results, the final answer, a failed turn (up to its checkpoint).
+      Saving is incremental (`ChatUpdate.KeepMessages` + new messages/results); a save failure is
+      shown once per turn and does not fail it. `llm.Message/ToolCall.Opaque` became `[]byte`
+      (Gemini thought signatures are saved). `Session.Load` restores a chat: an incomplete last turn
+      (failed, interrupted by quitting) can be retried, result IDs continue the numbering, opaque
+      state is dropped if the chat was run by another vendor
+- [ ] a list of saved chats (open/resume, delete); rebuilding the transcript from saved messages
 - [ ] markdown rendering of answers (glamour?); clickable `[rN]` references
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network

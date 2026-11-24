@@ -237,13 +237,9 @@ func toGenAIContents(messages []Message) ([]*genai.Content, error) {
 						return nil, fmt.Errorf("failed to decode tool call arguments for %q: %w", tc.Name, err)
 					}
 				}
-				var thoughtSig []byte
-				if sig, ok := tc.Opaque.([]byte); ok {
-					thoughtSig = sig
-				}
 				parts = append(parts, &genai.Part{
 					FunctionCall:     &genai.FunctionCall{ID: tc.ID, Name: tc.Name, Args: args},
-					ThoughtSignature: thoughtSig,
+					ThoughtSignature: tc.Opaque,
 				})
 			}
 			contents = append(contents, &genai.Content{Role: string(genai.RoleModel), Parts: parts})
