@@ -79,6 +79,59 @@ func (s freqSort) String() string {
 	}
 }
 
+// ---------------------------------- sortable table headers
+
+type sortDir int
+
+const (
+	sortNone sortDir = iota
+	sortDesc
+	sortAsc
+)
+
+// sortMarkW is the width of the sort mark incl. the separating space
+const sortMarkW = 2
+
+var (
+	colHeadStyle       = mutedStyle.Underline(true)
+	colHeadSortedStyle = accentStyle.Bold(true).Underline(true)
+)
+
+// sortedLabelW returns the width a column label needs (sortable columns
+// always reserve space for the mark so the layout does not jump when
+// the sorting changes)
+func sortedLabelW(label string, sortable bool) int {
+	w := ansi.StringWidth(label)
+	if sortable {
+		w += sortMarkW
+	}
+	return w
+}
+
+// headerCell renders a column label padded to `w` cells (right aligned
+// if alignRight). A sorted column is highlighted and gets a direction mark.
+func headerCell(label string, w int, alignRight bool, dir sortDir) string {
+	style := colHeadStyle
+	if dir != sortNone {
+		style = colHeadSortedStyle
+		mark := " ▼"
+		if dir == sortAsc {
+			mark = " ▲"
+		}
+		if ansi.StringWidth(label)+sortMarkW > w {
+			label = ansi.Truncate(label, max(1, w-sortMarkW), "…")
+		}
+		label += mark
+	} else if ansi.StringWidth(label) > w {
+		label = ansi.Truncate(label, w, "…")
+	}
+	pad := colHeadStyle.Render(strings.Repeat(" ", max(0, w-ansi.StringWidth(label))))
+	if alignRight {
+		return pad + style.Render(label)
+	}
+	return style.Render(label) + pad
+}
+
 // freqTable renders a scrollable frequency table with a bar chart
 type freqTable struct {
 	valueHeader string
@@ -98,6 +151,22 @@ func newFreqTable(sortModes ...freqSort) freqTable {
 
 func (t *freqTable) sortBy() freqSort {
 	return t.sortModes[t.sortIdx]
+}
+
+func (t *freqTable) sortable(s freqSort) bool {
+	return slices.Contains(t.sortModes, s)
+}
+
+// sortDir returns the sort direction mark for a column sorted by `s`
+func (t *freqTable) sortDir(s freqSort) sortDir {
+	switch {
+	case t.sortBy() != s:
+		return sortNone
+	case s == freqSortByValue:
+		return sortAsc
+	default:
+		return sortDesc
+	}
 }
 
 func (t *freqTable) setData(items []api.FreqItem, concSize int64) {
@@ -161,7 +230,7 @@ func (t *freqTable) view(width, height int) string {
 	}
 	byIPM := t.sortBy() == freqSortByIPM
 	numW := len(fmt.Sprint(len(t.items)))
-	valW := ansi.StringWidth(t.valueHeader)
+	valW := sortedLabelW(t.valueHeader, t.sortable(freqSortByValue))
 	var maxFreq, maxBase int64
 	var maxIPM float64
 	for _, it := range t.items {
@@ -170,12 +239,12 @@ func (t *freqTable) view(width, height int) string {
 		maxBase = max(maxBase, it.Base)
 		maxIPM = max(maxIPM, it.IPM)
 	}
-	freqW := max(4, len(formatInt(int(maxFreq))))
+	freqW := max(sortedLabelW("freq", t.sortable(freqSortByFreq)), len(formatInt(int(maxFreq))))
 	baseW := 0
 	if t.baseHeader != "" {
 		baseW = max(ansi.StringWidth(t.baseHeader), len(formatInt(int(maxBase))))
 	}
-	ipmW := max(8, len(fmt.Sprintf("%.2f", maxIPM)))
+	ipmW := max(8, sortedLabelW("ipm", t.sortable(freqSortByIPM)), len(fmt.Sprintf("%.2f", maxIPM)))
 	const pctW = 6
 	fixedW := 2 + numW + 2 + 2 + freqW + 2 + ipmW + 2 + pctW + 2
 	if baseW > 0 {
@@ -185,20 +254,22 @@ func (t *freqTable) view(width, height int) string {
 	barW := max(0, width-fixedW-valW-1)
 
 	cell := func(w int, s string) string { return fmt.Sprintf("%*s  ", w, s) }
+	sep := colHeadStyle.Render("  ")
 	var hdr strings.Builder
-	hdr.WriteString(fmt.Sprintf("  %*s  %s  ", numW, "#", padRight(t.valueHeader, valW)))
-	hdr.WriteString(cell(freqW, "freq"))
+	hdr.WriteString(colHeadStyle.Render(fmt.Sprintf("  %*s  ", numW, "#")))
+	hdr.WriteString(headerCell(t.valueHeader, valW, false, t.sortDir(freqSortByValue)) + sep)
+	hdr.WriteString(headerCell("freq", freqW, true, t.sortDir(freqSortByFreq)) + sep)
 	if baseW > 0 {
-		hdr.WriteString(cell(baseW, t.baseHeader))
+		hdr.WriteString(headerCell(t.baseHeader, baseW, true, sortNone) + sep)
 	}
-	hdr.WriteString(cell(ipmW, "ipm"))
-	hdr.WriteString(cell(pctW, "%"))
+	hdr.WriteString(headerCell("ipm", ipmW, true, t.sortDir(freqSortByIPM)) + sep)
+	hdr.WriteString(headerCell("%", pctW, true, sortNone) + sep)
 	if byIPM {
-		hdr.WriteString("(bar: ipm)")
+		hdr.WriteString(colHeadStyle.Render("(bar: ipm)"))
 	}
 
 	var b strings.Builder
-	b.WriteString(mutedStyle.Underline(true).Render(hdr.String()) + "\n")
+	b.WriteString(hdr.String() + "\n")
 	from, to := t.nav.visibleRange(len(t.items), t.rowsHeight(height))
 	for i := from; i < to; i++ {
 		it := t.items[i]

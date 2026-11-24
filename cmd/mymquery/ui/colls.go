@@ -476,28 +476,41 @@ func (v *collsView) table() string {
 	}
 	byFreq := v.sortBy == collSortByFreq
 	numW := len(fmt.Sprint(len(v.items)))
-	valW := ansi.StringWidth(v.attr)
+	valW := sortedLabelW(v.attr, true)
 	var maxFreq int64
 	var maxScore float64
-	scoreW := ansi.StringWidth(v.measure)
+	scoreW := sortedLabelW(v.measure, true)
 	for _, it := range v.items {
 		valW = max(valW, ansi.StringWidth(it.Value))
 		maxFreq = max(maxFreq, it.Freq)
 		maxScore = max(maxScore, it.Score)
 		scoreW = max(scoreW, len(fmt.Sprintf("%.3f", it.Score)))
 	}
-	freqW := max(4, len(formatInt(int(maxFreq))))
+	freqW := max(sortedLabelW("freq", true), len(formatInt(int(maxFreq))))
 	fixedW := 2 + numW + 2 + 2 + scoreW + 2 + freqW + 2
 	valW = min(valW, max(10, v.width-fixedW-freqTableMinBarWidth))
 	barW := max(0, v.width-fixedW-valW-1)
 
-	header := fmt.Sprintf("  %*s  %s  %*s  %*s  ", numW, "#", padRight(v.attr, valW),
-		scoreW, v.measure, freqW, "freq")
+	dir := func(s collSort) sortDir {
+		switch {
+		case v.sortBy != s:
+			return sortNone
+		case s == collSortByValue:
+			return sortAsc
+		default:
+			return sortDesc
+		}
+	}
+	sep := colHeadStyle.Render("  ")
+	header := colHeadStyle.Render(fmt.Sprintf("  %*s  ", numW, "#")) +
+		headerCell(v.attr, valW, false, dir(collSortByValue)) + sep +
+		headerCell(v.measure, scoreW, true, dir(collSortByScore)) + sep +
+		headerCell("freq", freqW, true, dir(collSortByFreq)) + sep
 	if byFreq {
-		header += "(bar: freq)"
+		header += colHeadStyle.Render("(bar: freq)")
 	}
 	var b strings.Builder
-	b.WriteString(mutedStyle.Underline(true).Render(header) + "\n")
+	b.WriteString(header + "\n")
 	from, to := v.nav.visibleRange(len(v.items), v.rowsHeight())
 	for i := from; i < to; i++ {
 		it := v.items[i]
