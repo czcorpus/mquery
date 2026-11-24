@@ -71,9 +71,9 @@ func newHttpClientErrorFromErr(err error) *httpClientError {
 }
 
 // httpRequest performs an HTTP request with the given method against rawURL,
-// passing args as URL query parameters and headers as request headers, and
-// returns the response body as a string.
-func httpRequest(ctx context.Context, method, rawURL string, args map[string]any, headers map[string]string) (string, *httpClientError) {
+// passing args as URL query parameters and conf.APIHeaders as request headers,
+// and returns the response body as a string.
+func httpRequest(ctx context.Context, conf *Conf, method, rawURL string, args map[string]any) (string, *httpClientError) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", newHttpClientErrorFromErr(err)
@@ -91,7 +91,7 @@ func httpRequest(ctx context.Context, method, rawURL string, args map[string]any
 	if err != nil {
 		return "", newHttpClientErrorFromErr(err)
 	}
-	for k, v := range headers {
+	for k, v := range conf.APIHeaders {
 		req.Header.Set(k, v)
 	}
 	// MCP clients are always considered as coming from the outside world
@@ -99,7 +99,7 @@ func httpRequest(ctx context.Context, method, rawURL string, args map[string]any
 	// Note: we set this after the custom headers so it cannot be overridden.
 	req.Header.Set(general.PublicClientHeader, "1")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := conf.httpClient().Do(req)
 	if err != nil {
 		return "", newHttpClientErrorFromErr(err)
 	}

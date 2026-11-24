@@ -54,10 +54,10 @@ func CreateCorpInfoTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -94,13 +94,13 @@ func CreateTermSrchTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{
 					"subcorpus": request.GetString("subcorpus", ""),
 					"q":         request.GetString("q", ""),
 				},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -146,6 +146,7 @@ func CreateFreqsTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{
@@ -156,7 +157,6 @@ func CreateFreqsTool(srv *server.MCPServer, conf *Conf) {
 					"maxItems":  request.GetInt("max_items", defaultMaxItems),
 					"flimit":    request.GetInt("flimit", defaultFlimit),
 				},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -178,6 +178,7 @@ func CreateTextTypesTool(srv *server.MCPServer, conf *Conf) {
 		mcp.WithDescription("Calculates frequencies of all the values of a requested structural attribute found in structures matching required query (e.g. all the authors via doc.author)"),
 		mcp.WithString("corpus_id", mcp.Required(), mcp.Description("An ID of a corpus to search in")),
 		mcp.WithString("subcorpus", mcp.Description("Optional ID of a subcorpus")),
+		mcp.WithString("q", mcp.Required(), mcp.Description("CQL query string")),
 		mcp.WithString("attr", mcp.Required(), mcp.Description("a structural attribute the frequencies will be calculated for (e.g. `doc.pubyear`, `text.author`,...)")),
 		mcp.WithInteger("max_items", mcp.Description("maximum number of result items"), mcp.DefaultNumber(defaultMaxItems)),
 		mcp.WithInteger("flimit", mcp.Description("minimum frequency of result items to be included in the result set"), mcp.DefaultNumber(defaultFlimit)),
@@ -199,6 +200,7 @@ func CreateTextTypesTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{
@@ -208,7 +210,6 @@ func CreateTextTypesTool(srv *server.MCPServer, conf *Conf) {
 					"maxItems":  request.GetInt("max_items", defaultMaxItems),
 					"flimit":    request.GetInt("flimit", defaultFlimit),
 				},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -249,6 +250,7 @@ func CreateTextTypesOverviewTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{
@@ -256,7 +258,6 @@ func CreateTextTypesOverviewTool(srv *server.MCPServer, conf *Conf) {
 					"q":         request.GetString("q", ""),
 					"flimit":    request.GetInt("flimit", defaultFlimit),
 				},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -307,6 +308,7 @@ func CreateCollocationsTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{
@@ -319,7 +321,6 @@ func CreateCollocationsTool(srv *server.MCPServer, conf *Conf) {
 					"minCollFreq": request.GetInt("min_coll_freq", defaultMinCollFreq),
 					"maxItems":    request.GetInt("max_items", defaultMaxItems),
 				},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -342,7 +343,7 @@ func CreateConcordanceTool(srv *server.MCPServer, conf *Conf) {
 	defaultMaxRows := 100
 
 	t := mcp.NewTool("concordance",
-		mcp.WithDescription("Calculate a defined collocation profile of a searched expression. Values are sorted in descending order by their collocation score"),
+		mcp.WithDescription("Search for a CQL query and return matching concordance lines (KWIC = the matched tokens along with their left and right context)"),
 		mcp.WithString("corpus_id", mcp.Required(), mcp.Description("An ID of a corpus to search in")),
 		mcp.WithString("subcorpus", mcp.Description("Optional ID of a subcorpus")),
 		mcp.WithString("q", mcp.Required(), mcp.Description("CQL query string")),
@@ -374,23 +375,23 @@ func CreateConcordanceTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				map[string]any{
-					"subcorpus":          request.GetString("subcorpus", ""),
-					"q":                  request.GetString("q", ""),
-					"format":             request.GetString("format", defaultFormat),
-					"showMarkup":         request.GetBool("show_markup", defaultShowMarkup),
-					"textPropsVerbosity": request.GetInt("text_props_verbosity", defaultTextPropsVerbosity),
-					"contextWidth":       request.GetInt("context_width", defaultContextWidth),
-					"contextStruct":      request.GetString("context_struct", ""),
-					"rowsOffset":         request.GetInt("rows_offset", defaultRowsOffset),
-					"maxRows":            request.GetInt("max_rows", defaultMaxRows),
-					"coll":               request.GetString("coll", ""),
-					"collRange":          request.GetString("coll_range", ""),
-					"noShuffle":          request.GetBool("no_shuffle", false),
+					"subcorpus":     request.GetString("subcorpus", ""),
+					"q":             request.GetString("q", ""),
+					"format":        request.GetString("format", defaultFormat),
+					"showMarkup":    request.GetBool("show_markup", defaultShowMarkup),
+					"showTextProps": request.GetInt("text_props_verbosity", defaultTextPropsVerbosity),
+					"contextWidth":  request.GetInt("context_width", defaultContextWidth),
+					"contextStruct": request.GetString("context_struct", ""),
+					"rowsOffset":    request.GetInt("rows_offset", defaultRowsOffset),
+					"maxRows":       request.GetInt("max_rows", defaultMaxRows),
+					"coll":          request.GetString("coll", ""),
+					"collRange":     request.GetString("coll_range", ""),
+					"noShuffle":     request.GetBool("no_shuffle", false),
 				},
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
@@ -426,10 +427,10 @@ func CreateTextTypesAvailValuesTool(srv *server.MCPServer, conf *Conf) {
 			}
 			ans, err2 := httpRequest(
 				ctx,
+				conf,
 				"GET",
 				url,
 				nil,
-				conf.APIHeaders,
 			)
 			if err2.IsSoftError() {
 				return mcp.NewToolResultErrorFromErr("action failed", err2), nil
