@@ -147,6 +147,30 @@ func decodeError(status int, body []byte) error {
 	return &Error{StatusCode: status, Message: msg}
 }
 
+// ------ / (server info)
+
+type VersionInfo struct {
+	Version    string `json:"version"`
+	BuildDate  string `json:"buildDate"`
+	LastCommit string `json:"lastCommit"`
+}
+
+type ServerInfo struct {
+	Name        string      `json:"name"`
+	About       string      `json:"about"`
+	VersionInfo VersionInfo `json:"versionInfo"`
+}
+
+// ServerInfo fetches basic information about the server (including
+// its version) from the API root path.
+func (c *Client) ServerInfo(ctx context.Context) (ServerInfo, error) {
+	var resp ServerInfo
+	if err := c.get(ctx, &resp, nil); err != nil {
+		return ServerInfo{}, err
+	}
+	return resp, nil
+}
+
 // ------ /corplist
 
 type Subcorpus struct {

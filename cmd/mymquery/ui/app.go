@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"strings"
 
 	"mquery/cmd/mymquery/api"
@@ -45,6 +46,20 @@ type App struct {
 	history *queryHistory
 	// historyErr is a pending history save error to be shown in the query screen
 	historyErr error
+	// serverVersion is the MQuery server version ("" = not (yet) known)
+	serverVersion string
+}
+
+type serverInfoMsg struct {
+	info api.ServerInfo
+	err  error
+}
+
+func fetchServerInfo(client *api.Client) tea.Cmd {
+	return func() tea.Msg {
+		info, err := client.ServerInfo(context.Background())
+		return serverInfoMsg{info: info, err: err}
+	}
 }
 
 func NewApp(env *Env) *App {
@@ -75,7 +90,7 @@ func (a *App) queryType() string {
 
 func (a *App) Init() tea.Cmd {
 	// corpus list is loaded right away so it is ready when needed
-	return a.corpSel.Init()
+	return tea.Batch(a.corpSel.Init(), fetchServerInfo(a.env.Client))
 }
 
 func (a *App) bodyHeight() int {
@@ -90,6 +105,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.query.SetSize(a.width, a.bodyHeight())
 		for _, r := range a.results {
 			r.SetSize(a.width, a.bodyHeight())
+		}
+		return a, nil
+
+	case serverInfoMsg:
+		// the version is just informative, so errors are not reported
+		if msg.err == nil {
+			a.serverVersion = msg.info.VersionInfo.Version
 		}
 		return a, nil
 
@@ -264,9 +286,12 @@ func (a *App) header() string {
 	}
 	content := strings.Join(parts, seg.Render(" │ "))
 
-	// API URL (+ auth state) is right-aligned; if space is short,
-	// the left part is truncated first, then the API info itself
+	// API URL (+ server version and auth state) is right-aligned; if space
+	// is short, the left part is truncated first, then the API info itself
 	apiInfo := seg.Render("api: " + a.env.Client.BaseURL())
+	if a.serverVersion != "" {
+		apiInfo += seg.Render(" ") + headerKeyStyle.Render("v"+a.serverVersion)
+	}
 	if a.env.Client.Authenticated() {
 		apiInfo += seg.Render(" ") + headerAuthStyle.Render("(authenticated)")
 	}

@@ -50,3 +50,24 @@ func TestLoginSendsSessionCookie(t *testing.T) {
 		t.Fatalf("session cookie not sent, got %q", gotCookie)
 	}
 }
+
+func TestServerInfoUsesRootPath(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"name":"MQuery","versionInfo":{"version":"1.2.3","buildDate":"2026-01-01","lastCommit":"abc"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	c, err := NewClient(srv.URL+"/api", nil, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := c.ServerInfo(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Name != "MQuery" || info.VersionInfo.Version != "1.2.3" || info.VersionInfo.LastCommit != "abc" {
+		t.Fatalf("unexpected server info: %+v", info)
+	}
+}
