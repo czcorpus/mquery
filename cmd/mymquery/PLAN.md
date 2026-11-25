@@ -35,6 +35,8 @@ cmd/mymquery/
     chatlist.go    saved chats list (open / delete)
   llm/             provider-neutral chat completion + tool calling (ported from NLQL)
     genai.go       Gemini backend
+    mistral.go     Mistral backend (plain HTTP + SSE, ported from NLQL)
+    models.go      primary + fallback models (shared by the backends)
   agent/           AI chat: in-process MQuery MCP server, agent loop, result store
   storage/         local SQLite DB: query history, saved chats
 ```
@@ -183,7 +185,12 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       markdown / subcorpus results) in a raw (pretty JSON) view. Settings chosen by the model are
       not remembered as the user's session settings
 - [x] header: model name and session token usage
-- [ ] more backends: OpenAI-compatible (llama.cpp, Mistral), Anthropic (nlql has them); they can
+- [x] Mistral backend (`llm/mistral.go`, ported from NLQL, plus streaming): `LLM_BACKEND` / `-llm-backend`
+      = `gemini` | `mistral` (empty = the first one with an API key: `GEMINI_API_KEY`, `MISTRAL_API_KEY`).
+      `LLM_MODEL` empty = per-backend defaults (Mistral: `mistral-medium-latest,mistral-small-latest`).
+      Fallback models on 429/5xx work the same as for Gemini (`llm/models.go`). Reasoning models return
+      content as chunk arrays; they are replayed as `Opaque` (rebuilt from the parts when streaming)
+- [ ] more backends: OpenAI-compatible (llama.cpp), Anthropic (nlql has them); they can
       implement just `llm.Backend` first and `StreamCompletion` later
 - [x] streaming of answers: optional `llm.StreamingBackend` (Gemini: `GenerateContentStream`; request
       building and response parsing are shared with the non-streaming call). The callback gets the

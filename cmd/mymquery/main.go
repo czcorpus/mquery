@@ -11,7 +11,6 @@ import (
 
 	"mquery/cmd/mymquery/agent"
 	"mquery/cmd/mymquery/api"
-	"mquery/cmd/mymquery/llm"
 	"mquery/cmd/mymquery/storage"
 	"mquery/cmd/mymquery/ui"
 
@@ -21,9 +20,6 @@ import (
 const (
 	defaultAPIURL   = "http://localhost:8989"
 	defaultLoginURL = "https://korpus.cz/login"
-	// defaultLLMModels is a comma separated list of Gemini models
-	// (the first one is the primary one, the others are fallbacks)
-	defaultLLMModels = "gemini-3.5-flash-lite,gemini-3.1-flash-lite"
 )
 
 type headerFlags map[string]string
@@ -97,19 +93,28 @@ func main() {
 		loginURL = defaultLoginURL
 	}
 	apiToken := envLookup(dotenv, "API_TOKEN")
-	geminiAPIKey := envLookup(dotenv, "GEMINI_API_KEY")
-	llmModels := envLookup(dotenv, "LLM_MODEL")
-	if llmModels == "" {
-		llmModels = defaultLLMModels
+	llmCnf := llmConf{
+		backend:    envLookup(dotenv, "LLM_BACKEND"),
+		models:     envLookup(dotenv, "LLM_MODEL"),
+		geminiKey:  envLookup(dotenv, "GEMINI_API_KEY"),
+		mistralKey: envLookup(dotenv, "MISTRAL_API_KEY"),
 	}
 	headers := make(headerFlags)
-	flag.String("env-file", envPath, "file with environment variables (API_URL, API_TOKEN, LOGIN_URL, GEMINI_API_KEY, LLM_MODEL)")
+	flag.String("env-file", envPath, "file with environment variables (API_URL, API_TOKEN, LOGIN_URL, "+
+		"LLM_BACKEND, LLM_MODEL, GEMINI_API_KEY, MISTRAL_API_KEY)")
 	flag.Bool("no-env-file", skipEnvFile, "do not read the env file (real environment variables still apply)")
 	flag.StringVar(&apiURL, "api", apiURL, "MQuery API URL (env: MQUERY_API_URL or API_URL)")
 	flag.StringVar(&loginURL, "login-url", loginURL, "login URL used when API_TOKEN is set (env: LOGIN_URL)")
 	flag.Var(headers, "H", "additional HTTP header 'Name: value' (can be repeated)")
-	flag.StringVar(&llmModels, "llm-model", llmModels,
-		"AI chat model(s); comma separated, the first one is primary, the others are fallbacks (env: LLM_MODEL)")
+	flag.StringVar(&llmCnf.backend, "llm-backend", llmCnf.backend, fmt.Sprintf(
+		"AI chat backend: %s (needs GEMINI_API_KEY) or %s (needs MISTRAL_API_KEY); "+
+			"empty = the first one with an API key (env: LLM_BACKEND)",
+		llmBackendGemini, llmBackendMistral))
+	flag.StringVar(&llmCnf.models, "llm-model", llmCnf.models, fmt.Sprintf(
+		"AI chat model(s); comma separated, the first one is primary, the others are fallbacks; "+
+			"empty = %q for %s, %q for %s (env: LLM_MODEL)",
+		defaultLLMModels[llmBackendGemini], llmBackendGemini,
+		defaultLLMModels[llmBackendMistral], llmBackendMistral))
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
 	contextWidth := flag.Int("context-width", 20, "concordance context width in tokens (max. 50)")
@@ -155,11 +160,16 @@ func main() {
 		defer db.Close()
 		env.DB = db
 	}
-	if geminiAPIKey == "" {
-		env.ChatUnavailable = "AI chat requires GEMINI_API_KEY (environment or the .env file)"
+	llmSetup, chatUnavailable, err := llmCnf.resolve()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	if chatUnavailable != "" {
+		env.ChatUnavailable = chatUnavailable
 
 	} else {
-		sess, tools, err := newChatSession(client, *lang, geminiAPIKey, llmModels)
+		sess, tools, err := newChatSession(client, *lang, llmSetup)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "failed to initialize AI chat:", err)
 			os.Exit(1)
@@ -177,15 +187,9 @@ func main() {
 	}
 }
 
-func newChatSession(client *api.Client, lang, apiKey, models string) (*agent.Session, *agent.Toolbox, error) {
-	var modelList []string
-	for _, m := range strings.Split(models, ",") {
-		if m = strings.TrimSpace(m); m != "" {
-			modelList = append(modelList, m)
-		}
-	}
+func newChatSession(client *api.Client, lang string, setup llmSetup) (*agent.Session, *agent.Toolbox, error) {
 	ctx := context.Background()
-	backend, err := llm.NewGenAIBackend(ctx, apiKey, modelList)
+	backend, err := newLLMBackend(ctx, setup)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -22,27 +22,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
-	"time"
 
 	"google.golang.org/genai"
 )
 
-// fallbackRecoveryInterval is how long GenAIBackend stays on a fallback
-// model after a retryable error before it tries the primary model again.
-const fallbackRecoveryInterval = 5 * time.Minute
-
 // GenAIBackend implements Backend against the Gemini API via
 // google.golang.org/genai. On a retryable error (e.g. a 503 from an
-// overloaded model) it switches to the next model in `models` (if any)
-// and it switches back to the primary model (models[0]) once
-// fallbackRecoveryInterval has passed.
+// overloaded model) it switches to a fallback model (see modelSet).
 type GenAIBackend struct {
-	client           *genai.Client
-	mu               sync.Mutex
-	models           []string
-	activeIdx        int
-	primaryDownSince time.Time
+	client *genai.Client
+	models *modelSet
 }
 
 // NewGenAIBackend builds a backend for the Gemini API. The models
@@ -59,48 +48,15 @@ func NewGenAIBackend(ctx context.Context, apiKey string, models []string) (*GenA
 	if err != nil {
 		return nil, fmt.Errorf("failed to create genai client: %w", err)
 	}
-	return &GenAIBackend{client: client, models: models}, nil
+	return &GenAIBackend{client: client, models: newModelSet(models)}, nil
 }
 
 func (b *GenAIBackend) ModelName() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.models[b.activeIdx]
+	return b.models.active()
 }
 
 func (b *GenAIBackend) VendorName() string {
 	return "Google"
-}
-
-// currentModel returns the model the next request should use, switching
-// back to the primary model first if fallbackRecoveryInterval has passed
-// since the last fallback.
-func (b *GenAIBackend) currentModel() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.activeIdx != 0 && time.Since(b.primaryDownSince) >= fallbackRecoveryInterval {
-		b.activeIdx = 0
-		b.primaryDownSince = time.Time{}
-	}
-	return b.models[b.activeIdx]
-}
-
-// switchToFallback moves to the next fallback model (cycling among
-// models[1:] if there's more than one). It is a no-op if no fallback
-// is configured.
-func (b *GenAIBackend) switchToFallback() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if len(b.models) < 2 {
-		return
-	}
-	if b.activeIdx == 0 {
-		b.primaryDownSince = time.Now()
-		b.activeIdx = 1
-
-	} else {
-		b.activeIdx = b.activeIdx%(len(b.models)-1) + 1
-	}
 }
 
 // prepare converts a request into the genai form
@@ -142,7 +98,7 @@ func (b *GenAIBackend) failure(model string, err error) error {
 	status := genAIErrorStatus(err)
 	retryable := isRetryableHTTPStatus(status)
 	if retryable {
-		b.switchToFallback()
+		b.models.switchToFallback()
 	}
 	return &CompletionError{
 		Err:         fmt.Errorf("completion request failed (model %q): %w", model, err),
@@ -152,7 +108,7 @@ func (b *GenAIBackend) failure(model string, err error) error {
 }
 
 func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionRequest) (CompletionResult, error) {
-	model := b.currentModel()
+	model := b.models.current()
 	contents, config, err := b.prepare(req)
 	if err != nil {
 		return CompletionResult{}, err
@@ -172,7 +128,7 @@ func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionReque
 func (b *GenAIBackend) StreamCompletion(
 	ctx context.Context, req CompletionRequest, onText TextFunc,
 ) (CompletionResult, error) {
-	model := b.currentModel()
+	model := b.models.current()
 	contents, config, err := b.prepare(req)
 	if err != nil {
 		return CompletionResult{}, err
