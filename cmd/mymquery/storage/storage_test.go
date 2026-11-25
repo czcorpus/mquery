@@ -22,7 +22,7 @@ func TestRecentQueries(t *testing.T) {
 	assert.Empty(t, qs)
 
 	for _, q := range []string{"a", "b", "a", "c", "d"} {
-		require.NoError(t, db.AddQuery("syn", "conc", q))
+		require.NoError(t, db.AddQuery("syn", "", "conc", q))
 	}
 	qs, err = db.RecentQueries(10)
 	require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestRecentQueries(t *testing.T) {
 func TestReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	db := openTestDB(t, path)
-	require.NoError(t, db.AddQuery("syn", "freqs", "x"))
+	require.NoError(t, db.AddQuery("syn", "", "freqs", "x"))
 	require.NoError(t, db.Close())
 
 	db2 := openTestDB(t, path) // migrations are not applied again

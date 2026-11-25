@@ -14,7 +14,7 @@ import (
 func TestQueryHistoryAddDedupAndLimit(t *testing.T) {
 	h := newQueryHistory(nil, 3)
 	for _, q := range []string{"a", "b", "a", "  ", "c\nd", "e"} {
-		assert.NoError(t, h.Add("syn", "conc", q))
+		assert.NoError(t, h.Add("syn", "", "conc", q))
 	}
 	assert.Equal(t, []string{"a", "c d", "e"}, h.items)
 	assert.Equal(t, "e", h.Recent(0))
@@ -27,9 +27,9 @@ func TestQueryHistoryPersistence(t *testing.T) {
 	defer db.Close()
 	h := newQueryHistory(db, 10)
 	assert.NoError(t, h.Load())
-	assert.NoError(t, h.Add("syn", "conc", `[lemma="house"]`))
-	assert.NoError(t, h.Add("syn", "freqs", `[word="dog"]`))
-	assert.NoError(t, h.Add("syn", "freqs", "  "))
+	assert.NoError(t, h.Add("syn", "", "conc", `[lemma="house"]`))
+	assert.NoError(t, h.Add("syn", "", "freqs", `[word="dog"]`))
+	assert.NoError(t, h.Add("syn", "", "freqs", "  "))
 
 	h2 := newQueryHistory(db, 10)
 	assert.NoError(t, h2.Load())

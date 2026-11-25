@@ -141,7 +141,7 @@ type collsLoadedMsg struct {
 type collsView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	width  int
 	height int
@@ -181,7 +181,7 @@ type collsView struct {
 	cancel context.CancelFunc
 }
 
-func newCollsView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newCollsView(env *Env, corpus searchTarget, query string) ResultView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -246,6 +246,7 @@ func (v *collsView) fetch() tea.Cmd {
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.CollocationsArgs{
 		Query:       v.query,
+		Subcorpus:   v.corpus.Subc,
 		Measure:     v.measure,
 		SrchLeft:    v.window[0],
 		SrchRight:   v.window[1],

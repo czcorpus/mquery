@@ -61,7 +61,7 @@ func TestChatRetry(t *testing.T) {
 	assert.Nil(t, cmd)
 
 	m.input.SetValue("question")
-	m = runChat(t, m, m.submit("", false))
+	m = runChat(t, m, m.submit("", "", false))
 	assert.True(t, m.canRetry)
 	assert.Contains(t, m.Help(), "ctrl+r retry")
 	assert.Equal(t, entryError, m.entries[len(m.entries)-1].kind)
@@ -70,7 +70,7 @@ func TestChatRetry(t *testing.T) {
 	require.NotNil(t, cmd)
 	assert.Equal(t, chatSubmitMsg{retry: true}, cmd())
 
-	m = runChat(t, m, m.submit("", true))
+	m = runChat(t, m, m.submit("", "", true))
 	assert.False(t, m.canRetry)
 	last := m.entries[len(m.entries)-1]
 	assert.Equal(t, entryAssistant, last.kind)
@@ -97,7 +97,7 @@ func TestChatCancelAlwaysFinishes(t *testing.T) {
 	// a cancelled turn must always report back (it used to be dropped randomly)
 	for range 20 {
 		m.input.SetValue("question")
-		cmd := m.submit("", false)
+		cmd := m.submit("", "", false)
 		require.True(t, m.running)
 		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		m = runChat(t, m, cmd)

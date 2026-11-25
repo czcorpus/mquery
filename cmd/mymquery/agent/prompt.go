@@ -6,6 +6,8 @@ import "strings"
 type PromptOptions struct {
 	// CorpusID is the corpus currently selected in the UI ("" = none)
 	CorpusID string
+	// Subcorpus is the subcorpus currently selected in the UI ("" = none)
+	Subcorpus string
 }
 
 const systemPromptBase = `You are a corpus linguistics assistant embedded in MyMQuery,
@@ -38,6 +40,12 @@ func SystemPrompt(opts PromptOptions) string {
 		sb.WriteString("\n\nThe corpus currently selected in the UI is `")
 		sb.WriteString(opts.CorpusID)
 		sb.WriteString("`. Use it unless the user asks for a different one.")
+		if opts.Subcorpus != "" {
+			sb.WriteString(" The user has also selected its subcorpus `")
+			sb.WriteString(opts.Subcorpus)
+			sb.WriteString("`: pass it as the `subcorpus` argument when searching this corpus, ")
+			sb.WriteString("unless the user asks for the whole corpus.")
+		}
 	}
 	return sb.String()
 }

@@ -26,6 +26,7 @@ cmd/mymquery/
     menu.go        function menu
     corpsel.go     corpus selection (filterable list)
     query.go       query input
+    subc.go        subcorpus picker (ctrl+s in the query input)
     conc.go        concordance result view
     chat.go        AI chat screen (M5)
     chatresult.go  stored chat results → result views (or a raw view)
@@ -63,6 +64,18 @@ change it.
       busy timeout so more instances can share it, migrations tracked by `PRAGMA user_version`.
       Table `queries` logs every submitted query with time, corpus and feature (`Feature.ID`);
       the history shows distinct queries ordered by their last use
+- [x] subcorpus selection (`ui/subc.go`, `ctrl+s` in the query input). Only IDs are used: the CNC
+      information system with subcorpus metadata is not accessible, and MQuery resolves an ID
+      itself (configured alias first, then `<savedSubcorporaDir>/<ID[:2]>/<ID>/data.subc`). The picker
+      offers the whole corpus, configured aliases (from `/corplist`), saved subcorpora used before
+      (local DB table `subcorpora`: size, last use, optional label via `ctrl+r`, `ctrl+x` forgets one)
+      and a typed ID. Saved ones are verified via MQuery's `/subcorpus/:corpusId/:subcorpusId` before
+      they are accepted (unknown → 404; a `.subc` spanning beyond the corpus end → 422 – the file has
+      no reference to its corpus, so this is the only possible check). The choice is session state
+      (`searchTarget` = corpus + subcorpus): shown in the header (`syn2020 / ID`) and on the query
+      screen (size, % of the corpus), sent with all requests, inherited by drill-downs, included in
+      CSV file name hashes and logged in `queries.subcorpus`. Selecting a different corpus resets it.
+      The AI chat gets it in the system prompt
 - [x] HTTP errors shown inline (MQuery's `{"error": ...}` is decoded)
 - [x] `.env` support (`-env-file`, default `./.env`; `-no-env-file` skips it; real env vars take precedence):
       `API_URL` (or `MQUERY_API_URL`), `API_TOKEN`, `LOGIN_URL` (default `https://korpus.cz/login`).
@@ -81,7 +94,7 @@ change it.
 - [x] `a` opens a picker for the attribute displayed in the lines (word, lemma, tag …),
       attribute order, sizes and descriptions are taken from `/info/:corpusId`
 - [x] lines with `errMsg` are shown as errors and are not dropped
-- [ ] options form: contextWidth, contextStruct, noShuffle, subcorpus, showTextProps
+- [ ] options form: contextWidth, contextStruct, noShuffle, showTextProps (subcorpus: see M0)
 - [ ] showing structures (`showMarkup=1`). Note: `TokenSlice.UnmarshalJSON`
       in mquery-common has no element type for `"close"` markup, so that has
       to be fixed in mquery-common first
@@ -165,7 +178,7 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 - [ ] more backends: OpenAI-compatible (llama.cpp, Mistral), Anthropic (nlql has them)
 - [ ] streaming of answers
 - [ ] a list of all stored results (also from previous conversations) + jump to the chat from anywhere
-- [ ] subcorpus support in result views (then chat results with `subcorpus` get their dedicated view)
+- [x] subcorpus support in result views (chat results with `subcorpus` open in their dedicated view)
 - [x] chats are saved to the local DB (tables `chats`, `chat_messages`, `chat_results`) via
       `agent.Recorder` (implemented by `storage.DB`) after each completed step: the user message,
       each complete set of tool results, the final answer, a failed turn (up to its checkpoint).
@@ -205,7 +218,6 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 ### Later / cross-cutting
 - config file (API URL, headers, defaults)
 - query history: a searchable picker (`ctrl+r`, `selectList`), maybe filter by corpus (already stored)
-- subcorpus selection in the corpus picker (`/corplist` already returns them)
 - [x] `e` saves the token freqs / text types / collocations table as CSV (`ui/savecsv.go`):
       a path dialog prefilled with `<token-freqs|text-types|colls>-<hash>.csv`, where the hash
       covers the corpus and all request args (query, attr, limits, …) of the shown result.
@@ -228,6 +240,9 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
   struct attr `.token` coverage file (see the mktokencov follow-up)
 - `/freqs` response field `examplesQueryTpl` is never filled
 - `/collocations` with `minItems` > number of results returns an empty body (handler just returns)
+- `/concordance` in a subcorpus: `ipm` (and `corpusSize`) are relative to the whole corpus
+  (mango returns `corp->size()`, not the subcorpus `search_size()`); `/freqs` and `/collocations`
+  are correct. Needs a mango change
 
 ### Testing notes
 - unit tests: `go test ./cmd/mymquery/...` (CQL helpers, select list, collocation window)

@@ -72,6 +72,16 @@ var migrations = []string{
 		created_at INTEGER NOT NULL,
 		PRIMARY KEY (chat_id, seq)
 	);`,
+
+	`ALTER TABLE queries ADD COLUMN subcorpus TEXT NOT NULL DEFAULT '';
+	CREATE TABLE subcorpora (
+		corpus_id TEXT NOT NULL,
+		subc_id TEXT NOT NULL,
+		label TEXT NOT NULL DEFAULT '',
+		size INTEGER NOT NULL DEFAULT 0,
+		last_used_at INTEGER NOT NULL,
+		PRIMARY KEY (corpus_id, subc_id)
+	);`,
 }
 
 type DB struct {
@@ -133,11 +143,11 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
-// AddQuery logs a submitted query
-func (d *DB) AddQuery(corpusID, feature, query string) error {
+// AddQuery logs a submitted query (subcorpus "" = the whole corpus)
+func (d *DB) AddQuery(corpusID, subcorpus, feature, query string) error {
 	_, err := d.db.Exec(
-		"INSERT INTO queries (created_at, corpus_id, feature, query) VALUES (?, ?, ?, ?)",
-		time.Now().Unix(), corpusID, feature, query,
+		"INSERT INTO queries (created_at, corpus_id, subcorpus, feature, query) VALUES (?, ?, ?, ?, ?)",
+		time.Now().Unix(), corpusID, subcorpus, feature, query,
 	)
 	return err
 }

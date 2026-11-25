@@ -59,13 +59,13 @@ func (h *queryHistory) add(q string) bool {
 // Add stores a query as the most recent one (errors are returned but
 // the in-memory history is updated anyway). The database logs every
 // submitted query, i.e. repeated ones too.
-func (h *queryHistory) Add(corpusID, feature, q string) error {
+func (h *queryHistory) Add(corpusID, subc, feature, q string) error {
 	h.add(q)
 	q = normalizeHistoryItem(q)
 	if h.db == nil || q == "" {
 		return nil
 	}
-	return h.db.AddQuery(corpusID, feature, q)
+	return h.db.AddQuery(corpusID, subc, feature, q)
 }
 
 func (h *queryHistory) Len() int {

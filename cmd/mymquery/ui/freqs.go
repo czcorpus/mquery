@@ -32,7 +32,7 @@ type freqsLoadedMsg struct {
 type freqsView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	width  int
 	height int
@@ -69,7 +69,7 @@ type freqsView struct {
 	cancel context.CancelFunc
 }
 
-func newFreqsView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newFreqsView(env *Env, corpus searchTarget, query string) ResultView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -135,6 +135,7 @@ func (v *freqsView) fetch() tea.Cmd {
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.FreqsArgs{
 		Query:     v.query,
+		Subcorpus: v.corpus.Subc,
 		Attr:      v.attr,
 		MatchCase: v.matchCase,
 		MaxItems:  v.maxItems,

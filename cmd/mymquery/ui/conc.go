@@ -31,7 +31,7 @@ type concLoadedMsg struct {
 type concView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	// note is an optional info shown in the summary line
 	note string
@@ -69,11 +69,11 @@ type concView struct {
 	cancel context.CancelFunc
 }
 
-func newConcView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newConcView(env *Env, corpus searchTarget, query string) ResultView {
 	return newConcViewWithNote(env, corpus, query, "")
 }
 
-func newConcViewWithNote(env *Env, corpus api.CorpusItem, query, note string) *concView {
+func newConcViewWithNote(env *Env, corpus searchTarget, query, note string) *concView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -137,6 +137,7 @@ func (v *concView) fetch() tea.Cmd {
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.ConcordanceArgs{
 		Query:         v.query,
+		Subcorpus:     v.corpus.Subc,
 		RowsOffset:    v.rowsOffset,
 		MaxRows:       v.env.PageSize,
 		ContextWidth:  v.env.ContextWidth,

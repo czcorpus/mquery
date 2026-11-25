@@ -31,7 +31,9 @@ const (
 // corpusOfView is implemented by views which can tell their corpus
 // (used e.g. in the header for results opened from the AI chat)
 type corpusOfView interface {
-	CorpusID() string
+	// CorpusLabel returns the corpus ID, incl. a subcorpus if any
+	// (see searchTarget.Label)
+	CorpusLabel() string
 }
 
 // newChatResultView creates a view for a stored tool call result. Results
@@ -47,10 +49,12 @@ func newChatResultView(env *Env, res *agent.Result) ResultView {
 }
 
 func newDedicatedResultView(env *Env, res *agent.Result) ResultView {
-	corpus := api.CorpusItem{ID: res.StringArg("corpus_id")}
+	corpus := searchTarget{
+		CorpusItem: api.CorpusItem{ID: res.StringArg("corpus_id")},
+		Subc:       res.StringArg("subcorpus"),
+	}
 	query := res.StringArg("q")
-	if corpus.ID == "" || query == "" || res.StringArg("subcorpus") != "" {
-		// TODO: views do not support subcorpora yet
+	if corpus.ID == "" || query == "" {
 		return nil
 	}
 	switch res.Tool {
@@ -136,10 +140,10 @@ func parseCollRange(s string) (int, int, bool) {
 	return left, right, err1 == nil && err2 == nil
 }
 
-func (v *freqsView) CorpusID() string  { return v.corpus.ID }
-func (v *ttypesView) CorpusID() string { return v.corpus.ID }
-func (v *collsView) CorpusID() string  { return v.corpus.ID }
-func (v *concView) CorpusID() string   { return v.corpus.ID }
+func (v *freqsView) CorpusLabel() string  { return v.corpus.Label() }
+func (v *ttypesView) CorpusLabel() string { return v.corpus.Label() }
+func (v *collsView) CorpusLabel() string  { return v.corpus.Label() }
+func (v *concView) CorpusLabel() string   { return v.corpus.Label() }
 
 // ---------------------------------- raw result view
 
@@ -167,7 +171,12 @@ func (v *rawResultView) Title() string { return v.res.ID + " " + v.res.Tool }
 
 func (v *rawResultView) Query() string { return v.res.StringArg("q") }
 
-func (v *rawResultView) CorpusID() string { return v.res.StringArg("corpus_id") }
+func (v *rawResultView) CorpusLabel() string {
+	return searchTarget{
+		CorpusItem: api.CorpusItem{ID: v.res.StringArg("corpus_id")},
+		Subc:       v.res.StringArg("subcorpus"),
+	}.Label()
+}
 
 func (v *rawResultView) Close() {}
 

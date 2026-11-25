@@ -160,12 +160,12 @@ func (m *chatModel) add(e chatEntry) {
 }
 
 // submit sends the input (or with `retry`, it continues the last failed turn)
-func (m *chatModel) submit(corpusID string, retry bool) tea.Cmd {
+func (m *chatModel) submit(corpusID, subc string, retry bool) tea.Cmd {
 	if m.running || (retry && !m.canRetry) {
 		return nil
 	}
 	sess := m.env.Chat
-	opts := agent.PromptOptions{CorpusID: corpusID}
+	opts := agent.PromptOptions{CorpusID: corpusID, Subcorpus: subc}
 	var run func(ctx context.Context, emit func(agent.Event)) (agent.TurnResult, error)
 	if retry {
 		m.add(chatEntry{kind: entryInfo, text: "↻ retrying (completed steps are not repeated)"})

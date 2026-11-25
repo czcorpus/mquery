@@ -203,3 +203,12 @@ func TestContentForModelTruncates(t *testing.T) {
 	// "→" takes bytes 2-4, so the cut (at 4) must be moved before it
 	assert.True(t, strings.HasPrefix(content, "result_id: r1\nab\n[... truncated, 2 of 11 bytes"))
 }
+
+func TestSystemPromptSubcorpus(t *testing.T) {
+	p := SystemPrompt(PromptOptions{CorpusID: "syn", Subcorpus: "ab12"})
+	assert.Contains(t, p, "`syn`")
+	assert.Contains(t, p, "`ab12`")
+	assert.NotContains(t, SystemPrompt(PromptOptions{CorpusID: "syn"}), "subcorpus `")
+	// a subcorpus without a corpus makes no sense
+	assert.NotContains(t, SystemPrompt(PromptOptions{Subcorpus: "ab12"}), "ab12")
+}

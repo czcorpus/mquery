@@ -46,6 +46,9 @@ type App struct {
 
 	featureIdx int
 	corpus     *api.CorpusItem
+	// subc is the subcorpus of the corpus selected for the session
+	subc       subcState
+	subcPicker *subcPicker
 	// queries stores the last query per query type (see Feature.QueryType)
 	queries map[string]string
 	// collQuery is the last collocate query (for features with Feature.HasColl)
@@ -81,15 +84,22 @@ func NewApp(env *Env) *App {
 		queries[queryTypeCQL] = history.Recent(0)
 	}
 	return &App{
-		env:      env,
-		features: features,
-		menu:     menu,
-		corpSel:  newCorpSel(env),
-		query:    newQuery(history),
-		chat:     newChat(env),
-		queries:  queries,
-		history:  history,
+		env:        env,
+		features:   features,
+		menu:       menu,
+		corpSel:    newCorpSel(env),
+		subcPicker: newSubcPicker(env),
+		query:      newQuery(history),
+		chat:       newChat(env),
+		queries:    queries,
+		history:    history,
 	}
+}
+
+// target returns the corpus (incl. subcorpus) queries run in
+// (the corpus must be selected)
+func (a *App) target() searchTarget {
+	return searchTarget{CorpusItem: *a.corpus, Subc: a.subc.ID}
 }
 
 func (a *App) queryType() string {
@@ -151,6 +161,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case corpusSelectedMsg:
 		c := msg.corpus
+		if a.corpus == nil || a.corpus.ID != c.ID {
+			a.subc = subcState{}
+		}
 		a.corpus = &c
 		return a, a.toQuery()
 
@@ -162,13 +175,28 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.screen = scrCorpus
 		return a, nil
 
+	case openSubcPickerMsg:
+		if a.corpus != nil {
+			a.subcPicker.Open(*a.corpus, a.subc.ID)
+		}
+		return a, nil
+
+	case subcCheckedMsg:
+		return a, a.subcPicker.Update(msg)
+
+	case subcSelectedMsg:
+		a.subc = msg.subc
+		a.query.SetTarget(a.corpus.ID, a.subc.summary())
+		a.query.notice = msg.notice
+		return a, nil
+
 	case querySubmittedMsg:
 		a.queries[a.queryType()] = msg.query
 		if a.queryType() == queryTypeCQL {
-			a.historyErr = a.history.Add(a.corpus.ID, a.features[a.featureIdx].ID, msg.query)
+			a.historyErr = a.history.Add(a.corpus.ID, a.subc.ID, a.features[a.featureIdx].ID, msg.query)
 		}
 		feat := a.features[a.featureIdx]
-		view := feat.NewView(a.env, *a.corpus, msg.query)
+		view := feat.NewView(a.env, a.target(), msg.query)
 		if feat.HasColl {
 			a.collQuery = msg.coll
 			if msg.coll != "" {
@@ -188,7 +216,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.corpus != nil {
 			corpusID = a.corpus.ID
 		}
-		return a, a.chat.submit(corpusID, msg.retry)
+		return a, a.chat.submit(corpusID, a.subc.ID, msg.retry)
 
 	case openChatResultMsg:
 		a.closeResults()
@@ -260,7 +288,11 @@ func (a *App) updateActive(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case scrCorpus:
 		a.corpSel, cmd = a.corpSel.Update(msg)
 	case scrQuery:
-		a.query, cmd = a.query.Update(msg)
+		if a.subcPicker.Active() {
+			cmd = a.subcPicker.Update(msg)
+		} else {
+			a.query, cmd = a.query.Update(msg)
+		}
 	case scrResult:
 		top := len(a.results) - 1
 		a.results[top], cmd = a.results[top].Update(msg)
@@ -272,6 +304,7 @@ func (a *App) updateActive(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (a *App) toQuery() tea.Cmd {
 	a.screen = scrQuery
+	a.query.SetTarget(a.corpus.ID, a.subc.summary())
 	cmd := a.query.Reset(a.features[a.featureIdx], a.queries[a.queryType()], a.collQuery, a.env.collWindow)
 	if a.historyErr != nil {
 		a.query.notice = "failed to save query history: " + a.historyErr.Error()
@@ -317,6 +350,9 @@ func (a *App) View() string {
 		body, help = a.corpSel.View(), a.corpSel.Help()
 	case scrQuery:
 		body, help = a.query.View(), a.query.Help()
+		if a.subcPicker.Active() {
+			help = a.subcPicker.Help()
+		}
 	case scrResult:
 		body, help = a.activeResult().View(), a.activeResult().Help()
 	case scrChat:
@@ -326,6 +362,9 @@ func (a *App) View() string {
 		body = lipgloss.NewStyle().Padding(0, 2).Render(body)
 	}
 	body = lipgloss.NewStyle().Height(a.bodyHeight()).MaxHeight(a.bodyHeight()).Render(body)
+	if a.screen == scrQuery && a.subcPicker.Active() {
+		body = placeOverlay(body, a.subcPicker.View(a.width), a.width, a.bodyHeight())
+	}
 	footer := footerStyle.Render(ansi.Truncate(renderHelp(help), max(0, a.width-2), "…"))
 	return a.header() + "\n\n" + body + "\n" + footer
 }
@@ -347,11 +386,11 @@ func (a *App) header() string {
 	}
 	corpusID := ""
 	if a.corpus != nil {
-		corpusID = a.corpus.ID
+		corpusID = a.target().Label()
 	}
 	if a.screen == scrResult && a.resultsFromChat {
 		if cv, ok := a.activeResult().(corpusOfView); ok {
-			corpusID = cv.CorpusID()
+			corpusID = cv.CorpusLabel()
 		}
 	}
 	if corpusID != "" {

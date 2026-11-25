@@ -28,7 +28,7 @@ func TestChatResultFreqsPreloaded(t *testing.T) {
 	view := newChatResultView(env, res)
 	fv, ok := view.(*freqsView)
 	require.True(t, ok)
-	assert.Equal(t, "syn", fv.CorpusID())
+	assert.Equal(t, "syn", fv.CorpusLabel())
 	assert.Equal(t, 5, fv.maxItems)
 	assert.Equal(t, mcpDefaultFLimit, fv.flimit)
 
@@ -90,7 +90,6 @@ func TestChatResultRawFallback(t *testing.T) {
 	cases := []*agent.Result{
 		store.Add("concordance", map[string]any{"corpus_id": "syn", "q": "x", "format": "markdown"}, "| a |", true),
 		store.Add("freqs", map[string]any{"corpus_id": "syn", "q": "x"}, "error: invalid query", false),
-		store.Add("freqs", map[string]any{"corpus_id": "syn", "q": "x", "subcorpus": "s1"}, `{"freqs":[]}`, true),
 		store.Add("corpus_info", map[string]any{"corpus_id": "syn"}, `{"corpus":{}}`, true),
 		store.Add("freqs", map[string]any{"corpus_id": "syn", "q": "x"}, `not a JSON`, true),
 	}
@@ -98,6 +97,21 @@ func TestChatResultRawFallback(t *testing.T) {
 		_, ok := newChatResultView(env, res).(*rawResultView)
 		assert.True(t, ok, res.ID)
 	}
+}
+
+func TestChatResultWithSubcorpus(t *testing.T) {
+	env := newTestEnv(t)
+	store := agent.NewStore()
+	res := store.Add("freqs", map[string]any{"corpus_id": "syn", "q": "x", "subcorpus": "s1"}, `{"freqs":[]}`, true)
+	fv, ok := newChatResultView(env, res).(*freqsView)
+	require.True(t, ok)
+	assert.Equal(t, "syn / s1", fv.CorpusLabel())
+	msg, ok := fv.fetch()().(freqsLoadedMsg)
+	require.True(t, ok)
+	assert.Equal(t, "s1", msg.args.Subcorpus)
+	// the subcorpus is inherited by drill-down views
+	cv := newConcViewWithNote(env, fv.corpus, "x", "")
+	assert.Equal(t, "s1", cv.corpus.Subc)
 }
 
 func TestFormatToolArgs(t *testing.T) {

@@ -81,6 +81,25 @@ func (s *selectList) withCustom(placeholder string, parse func(string) (string, 
 	return s
 }
 
+// selected returns the item under the cursor (if any)
+func (s *selectList) selected() (selectItem, bool) {
+	if len(s.filtered) == 0 {
+		return selectItem{}, false
+	}
+	return s.items[s.filtered[s.nav.cursor]], true
+}
+
+// focusValue moves the cursor to the item with the value (if visible)
+func (s *selectList) focusValue(value string) {
+	for i, idx := range s.filtered {
+		if s.items[idx].Value == value {
+			s.nav.cursor = i
+			s.nav.fix(len(s.filtered), selectMaxVisible)
+			return
+		}
+	}
+}
+
 func (s *selectList) refilter() {
 	q := strings.ToLower(strings.TrimSpace(s.input.Value()))
 	s.filtered = s.filtered[:0]
@@ -181,7 +200,8 @@ func (s *selectList) View(maxWidth int) string {
 		b.WriteString(mutedStyle.Render(fmt.Sprintf("  %d–%d of %d", from+1, to, len(s.filtered))) + "\n")
 	}
 	if s.err != "" {
-		b.WriteString(errorStyle.Render(ansi.Truncate(s.err, innerW, "…")) + "\n")
+		// errors (e.g. from a server) may be long, so they are wrapped
+		b.WriteString(errorStyle.Width(innerW).Render(s.err) + "\n")
 	}
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

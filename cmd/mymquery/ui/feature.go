@@ -102,10 +102,27 @@ type Feature struct {
 	// the view returned by NewView must implement collFilterable
 	HasColl bool
 	// NewView creates a result view; nil means "not implemented yet"
-	NewView func(env *Env, corpus api.CorpusItem, query string) ResultView
+	NewView func(env *Env, corpus searchTarget, query string) ResultView
 	// Chat marks the AI chat (which has its own screen instead of
 	// the query + result views)
 	Chat bool
+}
+
+// searchTarget is a corpus queries run in, optionally restricted
+// to a subcorpus. Nested views (drill-downs) inherit it.
+type searchTarget struct {
+	api.CorpusItem
+	// Subc is a subcorpus ID (a configured alias or a saved subcorpus;
+	// "" = the whole corpus)
+	Subc string
+}
+
+// Label is a short identification for the header (`corpus` or `corpus / subc`)
+func (t searchTarget) Label() string {
+	if t.Subc == "" {
+		return t.ID
+	}
+	return t.ID + " / " + t.Subc
 }
 
 // collFilterable is implemented by views supporting a collocate filter

@@ -110,7 +110,7 @@ func parseStructAttr(s string) (string, error) {
 type ttypesView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	width  int
 	height int
@@ -146,7 +146,7 @@ type ttypesView struct {
 	cancel context.CancelFunc
 }
 
-func newTTypesView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newTTypesView(env *Env, corpus searchTarget, query string) ResultView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -221,10 +221,11 @@ func (v *ttypesView) fetch() tea.Cmd {
 	reqID, viewID := v.reqID, v.id
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.TextTypesArgs{
-		Query:    v.query,
-		Attr:     v.attr,
-		MaxItems: v.maxItems,
-		FLimit:   v.flimit,
+		Query:     v.query,
+		Subcorpus: v.corpus.Subc,
+		Attr:      v.attr,
+		MaxItems:  v.maxItems,
+		FLimit:    v.flimit,
 	}
 	if resp := v.preloaded; resp != nil {
 		v.preloaded = nil

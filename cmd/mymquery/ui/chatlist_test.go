@@ -88,8 +88,8 @@ func TestChatListOpenAndDelete(t *testing.T) {
 	assert.Equal(t, "r1", m.entries[2].result.ID)
 
 	// retrying continues the saved chat
-	m = runChat(t, m, m.submit("", true)) // fails once
-	m = runChat(t, m, m.submit("", true))
+	m = runChat(t, m, m.submit("", "", true)) // fails once
+	m = runChat(t, m, m.submit("", "", true))
 	assert.Equal(t, "answer", m.entries[len(m.entries)-1].text)
 	saved, err := db.LoadChat(id1)
 	require.NoError(t, err)
