@@ -124,7 +124,7 @@ func (m *modal) View(bg string) string {
 }
 
 func (m *modal) Help() string {
-	return "↑/↓ pgup/pgdn scroll • g/G top/bottom"
+	return "↑/↓/pgup/pgdn scroll • g/G top/bottom"
 }
 
 // dimmed removes styling from `s` and renders it in the muted color

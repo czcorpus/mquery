@@ -326,7 +326,7 @@ func (a *App) View() string {
 		body = lipgloss.NewStyle().Padding(0, 2).Render(body)
 	}
 	body = lipgloss.NewStyle().Height(a.bodyHeight()).MaxHeight(a.bodyHeight()).Render(body)
-	footer := footerStyle.Render(ansi.Truncate(help, max(0, a.width-2), "…"))
+	footer := footerStyle.Render(ansi.Truncate(renderHelp(help), max(0, a.width-2), "…"))
 	return a.header() + "\n\n" + body + "\n" + footer
 }
 
