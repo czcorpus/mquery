@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"mquery/cmd/mymquery/agent"
@@ -104,4 +105,35 @@ func TestChatCancelAlwaysFinishes(t *testing.T) {
 		assert.False(t, m.running)
 		assert.True(t, m.canRetry)
 	}
+}
+
+func TestChatStreaming(t *testing.T) {
+	m := newChat(newTestEnv(t))
+	m.SetSize(80, 20)
+	m.running, m.runID, m.cancel = true, 1, func() {}
+	ch := make(chan tea.Msg)
+	event := func(e agent.Event) {
+		m, _ = m.Update(chatEventMsg{runID: 1, event: e, ch: ch})
+	}
+
+	event(agent.TextStreaming{Text: "Let me"})
+	assert.Contains(t, m.View(), "Let me")
+	assert.Contains(t, m.View(), "writing")
+	assert.Empty(t, m.entries)
+
+	// the text turns out to be an interim one (tool calls follow)
+	event(agent.TextStreaming{Text: "Let me look."})
+	event(agent.AssistantText{Text: "Let me look."})
+	assert.Equal(t, 1, strings.Count(m.View(), "Let me look."))
+
+	// a retry discards a partial text
+	event(agent.TextStreaming{Text: "It is"})
+	event(agent.TextStreaming{Text: ""})
+	assert.NotContains(t, m.View(), "It is")
+
+	event(agent.TextStreaming{Text: "It is frequent."})
+	m, _ = m.Update(chatDoneMsg{runID: 1, ans: agent.TurnResult{Text: "It is frequent."}})
+	assert.Equal(t, 1, strings.Count(m.View(), "It is frequent."))
+	require.Len(t, m.entries, 2)
+	assert.Equal(t, entryAssistant, m.entries[1].kind)
 }

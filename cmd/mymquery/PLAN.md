@@ -183,8 +183,15 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       markdown / subcorpus results) in a raw (pretty JSON) view. Settings chosen by the model are
       not remembered as the user's session settings
 - [x] header: model name and session token usage
-- [ ] more backends: OpenAI-compatible (llama.cpp, Mistral), Anthropic (nlql has them)
-- [ ] streaming of answers
+- [ ] more backends: OpenAI-compatible (llama.cpp, Mistral), Anthropic (nlql has them); they can
+      implement just `llm.Backend` first and `StreamCompletion` later
+- [x] streaming of answers: optional `llm.StreamingBackend` (Gemini: `GenerateContentStream`; request
+      building and response parsing are shared with the non-streaming call). The callback gets the
+      accumulated text, a retried attempt starts with `""` (= discard the partial text). The agent
+      emits `TextStreaming` events (`Session.Stream`, on by default); the chat shows the text below the
+      transcript ("writing…") until the completion finishes – then it becomes the final answer or an
+      interim text (if tool calls follow); a partial text of a failed turn is not kept. Note: Gemini can
+      fail with 503 in the middle of a stream – this is retried like any other 503
 - [ ] a list of all stored results (also from previous conversations) + jump to the chat from anywhere
 - [x] subcorpus support in result views (chat results with `subcorpus` open in their dedicated view)
 - [x] chats are saved to the local DB (tables `chats`, `chat_messages`, `chat_results`) via

@@ -86,6 +86,9 @@ type chatModel struct {
 	cancel  context.CancelFunc
 	// activity describes what the running turn is doing right now
 	activity string
+	// streaming is the text of the running completion generated so far
+	// (it is not an entry until the completion finishes)
+	streaming string
 	// canRetry is true if the last turn failed and can be retried
 	canRetry bool
 	// list shows saved chats instead of the transcript (nil = not shown)
@@ -226,9 +229,18 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 			return m, waitChat(msg.ch) // keep draining so the sender is never blocked
 		}
 		switch e := msg.event.(type) {
+		case agent.TextStreaming:
+			m.streaming = e.Text
+			m.activity = "writing"
+			if e.Text == "" {
+				m.activity = "thinking"
+			}
+			m.refresh(true)
 		case agent.AssistantText:
+			m.streaming = ""
 			m.add(chatEntry{kind: entryInterim, text: e.Text})
 		case agent.ToolCallStarted:
+			m.streaming = ""
 			m.activity = "running " + e.Tool
 			m.refresh(true)
 		case agent.ToolCallDone:
@@ -247,6 +259,7 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 			return m, nil
 		}
 		m.running = false
+		m.streaming = ""
 		m.cancel()
 		m.cancel = nil
 		if msg.err != nil {
@@ -514,6 +527,12 @@ func (m *chatModel) refresh(follow bool) {
 		lines = append(lines, strings.Split(m.renderEntry(i, e, w), "\n")...)
 	}
 	if m.running {
+		if text := strings.TrimSpace(m.streaming); text != "" {
+			if len(lines) > 0 {
+				lines = append(lines, "")
+			}
+			lines = append(lines, strings.Split(renderAnswer(text, w), "\n")...)
+		}
 		if len(lines) > 0 {
 			lines = append(lines, "")
 		}
@@ -538,10 +557,7 @@ func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 	case entryUser:
 		return accentStyle.Render("❯ ") + boldStyle.Render(ansi.Wordwrap(e.text, w-2, " "))
 	case entryAssistant:
-		text := ansi.Wordwrap(e.text, w, " ")
-		return resultRefRegexp.ReplaceAllStringFunc(text, func(s string) string {
-			return kwicStyle.Render(s)
-		})
+		return renderAnswer(e.text, w)
 	case entryInterim:
 		return mutedStyle.Render(ansi.Wordwrap(e.text, w, " "))
 	case entryError:
@@ -552,6 +568,13 @@ func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 		return m.renderResult(idx, e.result, w)
 	}
 	return ""
+}
+
+// renderAnswer wraps an assistant's answer and highlights result references
+func renderAnswer(text string, w int) string {
+	return resultRefRegexp.ReplaceAllStringFunc(ansi.Wordwrap(text, w, " "), func(s string) string {
+		return kwicStyle.Render(s)
+	})
 }
 
 func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {

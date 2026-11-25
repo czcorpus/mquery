@@ -181,22 +181,50 @@ type Backend interface {
 	VendorName() string
 }
 
-const (
-	// maxCompletionRetries bounds how many times a single CreateCompletion
-	// call is retried after a retryable error
-	maxCompletionRetries = 3
-	// completionRetryBaseDelay is the delay before the first retry;
-	// subsequent retries back off exponentially.
-	completionRetryBaseDelay = 2 * time.Second
-)
+// TextFunc receives the text of a completion generated so far
+// (i.e. the accumulated text, not just the new part)
+type TextFunc func(text string)
+
+// StreamingBackend is implemented by backends able to stream
+// the text of a completion as it is generated.
+type StreamingBackend interface {
+	Backend
+	// StreamCompletion works like CreateCompletion, but it calls onText
+	// (synchronously) each time a new part of the text arrives. Tool calls
+	// are available only in the final result.
+	StreamCompletion(ctx context.Context, req CompletionRequest, onText TextFunc) (CompletionResult, error)
+}
+
+// maxCompletionRetries bounds how many times a single CreateCompletion
+// call is retried after a retryable error
+const maxCompletionRetries = 3
+
+// completionRetryBaseDelay is the delay before the first retry;
+// subsequent retries back off exponentially (a variable for tests).
+var completionRetryBaseDelay = 2 * time.Second
 
 // CreateCompletionWithRetry calls the backend's CreateCompletion, retrying
 // with exponential backoff on errors the backend marked as retryable.
+//
+// If onText is set and the backend supports streaming, the completion is
+// streamed. A retried attempt starts from scratch, so onText("") is called
+// before it (i.e. a partial text of a failed attempt is to be discarded).
 func CreateCompletionWithRetry(
-	ctx context.Context, backend Backend, req CompletionRequest,
+	ctx context.Context, backend Backend, req CompletionRequest, onText TextFunc,
 ) (CompletionResult, error) {
+	streaming, canStream := backend.(StreamingBackend)
 	for attempt := 0; ; attempt++ {
-		resp, err := backend.CreateCompletion(ctx, req)
+		var resp CompletionResult
+		var err error
+		if onText != nil && canStream {
+			if attempt > 0 {
+				onText("")
+			}
+			resp, err = streaming.StreamCompletion(ctx, req, onText)
+
+		} else {
+			resp, err = backend.CreateCompletion(ctx, req)
+		}
 		if err == nil || !IsRetryable(err) || attempt >= maxCompletionRetries {
 			return resp, err
 		}

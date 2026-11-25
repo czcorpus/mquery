@@ -19,7 +19,7 @@ const (
 )
 
 // Event is a progress notification of a running turn. It is one of
-// ToolCallStarted, ToolCallDone, AssistantText, PersistFailed.
+// TextStreaming, ToolCallStarted, ToolCallDone, AssistantText, PersistFailed.
 type Event any
 
 // ToolCallStarted is emitted right before a tool is called
@@ -34,6 +34,15 @@ type ToolCallDone struct {
 }
 
 // (PersistFailed is defined in persist.go)
+
+// TextStreaming is the text of the current completion generated so far
+// (accumulated; an empty text means a previous partial text is to be
+// discarded, e.g. on a retry). Once the completion finishes, the text
+// arrives as AssistantText (along with tool calls) or as the final answer
+// in TurnResult. If the turn fails, a partial text is not kept.
+type TextStreaming struct {
+	Text string
+}
 
 // AssistantText is a text the model produced along with tool calls
 // (i.e. not the final answer of a turn)
@@ -57,6 +66,9 @@ type Session struct {
 	MaxResultChars int
 	Temperature    float32
 	EnableThinking bool
+	// Stream enables streaming of the model's text (TextStreaming events)
+	// if the backend supports it
+	Stream bool
 	// Recorder saves the conversation after each completed step
 	// (nil = no persistence)
 	Recorder Recorder
@@ -91,6 +103,7 @@ func NewSession(backend llm.Backend, tools *Toolbox, store *Store) *Session {
 		MaxIterations:  DefaultMaxIterations,
 		MaxResultChars: DefaultMaxResultChars,
 		Temperature:    0.2,
+		Stream:         true,
 	}
 }
 
@@ -177,6 +190,10 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 	s.checkpoint = len(s.messages)
 	s.persist(emit)
 	var turn TurnResult
+	var onText llm.TextFunc
+	if s.Stream {
+		onText = func(text string) { emit(TextStreaming{Text: text}) }
+	}
 	for range s.MaxIterations {
 		resp, err := llm.CreateCompletionWithRetry(ctx, s.backend, llm.CompletionRequest{
 			SystemPrompt:   SystemPrompt(opts),
@@ -184,7 +201,7 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 			Tools:          s.tools.Defs(),
 			Temperature:    s.Temperature,
 			EnableThinking: s.EnableThinking,
-		})
+		}, onText)
 		turn.Usage = turn.Usage.Add(resp.Usage)
 		if err != nil {
 			return turn, err

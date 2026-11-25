@@ -103,14 +103,12 @@ func (b *GenAIBackend) switchToFallback() {
 	}
 }
 
-func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionRequest) (CompletionResult, error) {
-	model := b.currentModel()
-
+// prepare converts a request into the genai form
+func (b *GenAIBackend) prepare(req CompletionRequest) ([]*genai.Content, *genai.GenerateContentConfig, error) {
 	contents, err := toGenAIContents(req.Messages)
 	if err != nil {
-		return CompletionResult{}, err
+		return nil, nil, err
 	}
-
 	var toolList []*genai.Tool
 	if len(req.Tools) > 0 {
 		decls := make([]*genai.FunctionDeclaration, len(req.Tools))
@@ -135,42 +133,90 @@ func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionReque
 		Temperature:       &temperature,
 		ThinkingConfig:    &genai.ThinkingConfig{ThinkingLevel: thinkingLevel},
 	}
+	return contents, config, nil
+}
 
+// failure creates a CompletionError for a failed genai call (and switches
+// to a fallback model if the error is retryable)
+func (b *GenAIBackend) failure(model string, err error) error {
+	status := genAIErrorStatus(err)
+	retryable := isRetryableHTTPStatus(status)
+	if retryable {
+		b.switchToFallback()
+	}
+	return &CompletionError{
+		Err:         fmt.Errorf("completion request failed (model %q): %w", model, err),
+		ShouldRetry: retryable,
+		HTTPStatus:  status,
+	}
+}
+
+func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionRequest) (CompletionResult, error) {
+	model := b.currentModel()
+	contents, config, err := b.prepare(req)
+	if err != nil {
+		return CompletionResult{}, err
+	}
 	resp, err := b.client.Models.GenerateContent(ctx, model, contents, config)
 	if err != nil {
-		status := genAIErrorStatus(err)
-		retryable := isRetryableHTTPStatus(status)
-		if retryable {
-			b.switchToFallback()
+		return CompletionResult{}, b.failure(model, err)
+	}
+	var acc genAIAccumulator
+	if err := acc.add(resp); err != nil {
+		return CompletionResult{}, err
+	}
+	return acc.result(model), nil
+}
+
+// StreamCompletion implements StreamingBackend
+func (b *GenAIBackend) StreamCompletion(
+	ctx context.Context, req CompletionRequest, onText TextFunc,
+) (CompletionResult, error) {
+	model := b.currentModel()
+	contents, config, err := b.prepare(req)
+	if err != nil {
+		return CompletionResult{}, err
+	}
+	var acc genAIAccumulator
+	for resp, err := range b.client.Models.GenerateContentStream(ctx, model, contents, config) {
+		if err != nil {
+			return CompletionResult{}, b.failure(model, err)
 		}
-		return CompletionResult{}, &CompletionError{
-			Err:         fmt.Errorf("completion request failed (model %q): %w", model, err),
-			ShouldRetry: retryable,
-			HTTPStatus:  status,
+		prevLen := acc.text.Len()
+		if err := acc.add(resp); err != nil {
+			return CompletionResult{}, err
+		}
+		if acc.text.Len() > prevLen {
+			onText(acc.text.String())
 		}
 	}
+	return acc.result(model), nil
+}
 
-	result := CompletionResult{Model: model}
+// genAIAccumulator collects the answer from one response or from
+// a sequence of streamed response chunks
+type genAIAccumulator struct {
+	text  strings.Builder
+	calls []ToolCall
+	usage *genai.GenerateContentResponseUsageMetadata
+}
+
+func (a *genAIAccumulator) add(resp *genai.GenerateContentResponse) error {
 	// tokens are consumed (and billed) even if the response carries
-	// no content (e.g. blocked)
-	if um := resp.UsageMetadata; um != nil {
-		result.Usage = Usage{
-			InputTokens:       int(um.PromptTokenCount),
-			CachedInputTokens: int(um.CachedContentTokenCount),
-			OutputTokens:      int(um.CandidatesTokenCount + um.ThoughtsTokenCount),
-			ReasoningTokens:   int(um.ThoughtsTokenCount),
-		}
+	// no content (e.g. blocked); in a stream, the usage is cumulative
+	// so the last one is kept
+	if resp.UsageMetadata != nil {
+		a.usage = resp.UsageMetadata
 	}
 	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return result, nil
+		return nil
 	}
-	var text strings.Builder
 	for _, part := range resp.Candidates[0].Content.Parts {
 		// Gemini can return a text part alongside a FunctionCall part in
 		// the same turn; thinking text is skipped as it isn't meant to be
 		// shown as the answer.
 		if part.Text != "" && !part.Thought {
-			text.WriteString(part.Text)
+			a.text.WriteString(part.Text)
 		}
 		if part.FunctionCall == nil {
 			continue
@@ -178,7 +224,7 @@ func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionReque
 		fc := part.FunctionCall
 		args, err := json.Marshal(fc.Args)
 		if err != nil {
-			return CompletionResult{}, fmt.Errorf("failed to encode tool call arguments for %q: %w", fc.Name, err)
+			return fmt.Errorf("failed to encode tool call arguments for %q: %w", fc.Name, err)
 		}
 		// fc.ID may be empty - Gemini doesn't always assign one, and then
 		// it correlates the FunctionCall/FunctionResponse pair by name and
@@ -187,15 +233,27 @@ func (b *GenAIBackend) CreateCompletion(ctx context.Context, req CompletionReque
 		// Gemini requires the thought_signature attached to this part to
 		// be echoed back verbatim on the next turn (see
 		// https://ai.google.dev/gemini-api/docs/thought-signatures).
-		result.ToolCalls = append(result.ToolCalls, ToolCall{
+		a.calls = append(a.calls, ToolCall{
 			ID:     fc.ID,
 			Name:   fc.Name,
 			Args:   string(args),
 			Opaque: part.ThoughtSignature,
 		})
 	}
-	result.Content = text.String()
-	return result, nil
+	return nil
+}
+
+func (a *genAIAccumulator) result(model string) CompletionResult {
+	result := CompletionResult{Model: model, Content: a.text.String(), ToolCalls: a.calls}
+	if um := a.usage; um != nil {
+		result.Usage = Usage{
+			InputTokens:       int(um.PromptTokenCount),
+			CachedInputTokens: int(um.CachedContentTokenCount),
+			OutputTokens:      int(um.CandidatesTokenCount + um.ThoughtsTokenCount),
+			ReasoningTokens:   int(um.ThoughtsTokenCount),
+		}
+	}
+	return result
 }
 
 func isFuncResponseContent(c *genai.Content) bool {

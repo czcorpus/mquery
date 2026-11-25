@@ -212,3 +212,64 @@ func TestSystemPromptSubcorpus(t *testing.T) {
 	// a subcorpus without a corpus makes no sense
 	assert.NotContains(t, SystemPrompt(PromptOptions{Subcorpus: "ab12"}), "ab12")
 }
+
+// streamingBackend streams the scripted responses' text in two halves
+type streamingBackend struct {
+	scriptedBackend
+}
+
+func (b *streamingBackend) StreamCompletion(
+	ctx context.Context, req llm.CompletionRequest, onText llm.TextFunc,
+) (llm.CompletionResult, error) {
+	resp, err := b.CreateCompletion(ctx, req)
+	if err != nil {
+		return resp, err
+	}
+	if half := len(resp.Content) / 2; half > 0 {
+		onText(resp.Content[:half])
+		onText(resp.Content)
+	}
+	return resp, nil
+}
+
+func TestSessionStreaming(t *testing.T) {
+	tb, _ := newTestToolbox(t)
+	backend := &streamingBackend{scriptedBackend{responses: []llm.CompletionResult{
+		{Content: "Let me look.", ToolCalls: []llm.ToolCall{
+			{Name: "freqs", Args: `{"corpus_id":"syn","q":"[lemma=\"pes\"]"}`},
+		}},
+		{Content: "It occurs 10 times [r1]."},
+	}}}
+	sess := NewSession(backend, tb, NewStore())
+	var events []string
+	ans, err := sess.Run(context.Background(), "How frequent is pes?", PromptOptions{},
+		func(e Event) {
+			switch e := e.(type) {
+			case TextStreaming:
+				events = append(events, "stream:"+e.Text)
+			case AssistantText:
+				events = append(events, "text:"+e.Text)
+			case ToolCallStarted:
+				events = append(events, "call:"+e.Tool)
+			}
+		})
+	require.NoError(t, err)
+	assert.Equal(t, "It occurs 10 times [r1].", ans.Text)
+	assert.Equal(t, []string{
+		"stream:Let me", "stream:Let me look.", "text:Let me look.", "call:freqs",
+		"stream:It occurs 10", "stream:It occurs 10 times [r1].",
+	}, events)
+
+	// streaming can be disabled
+	backend.requests = nil
+	backend.responses = []llm.CompletionResult{{Content: "No stream."}}
+	sess.Stream = false
+	events = nil
+	_, err = sess.Run(context.Background(), "q", PromptOptions{}, func(e Event) {
+		if _, ok := e.(TextStreaming); ok {
+			events = append(events, "stream")
+		}
+	})
+	require.NoError(t, err)
+	assert.Empty(t, events)
+}
