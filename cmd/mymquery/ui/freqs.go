@@ -163,7 +163,7 @@ func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		if msg.err == nil {
-			v.env.attrCache[msg.corpusID] = msg.attrs
+			v.env.storeCorpusInfo(msg)
 			v.attrs = attrNames(msg.attrs)
 		} else {
 			// we can still try the server default, just without attr switching

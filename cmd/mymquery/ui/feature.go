@@ -26,6 +26,13 @@ type Env struct {
 
 	// attrCache maps corpus ID => ordered positional attributes
 	attrCache map[string][]corpusAttr
+	// structCache maps corpus ID => structures (loaded along with attrCache)
+	structCache map[string][]corpusAttr
+
+	// concordance settings (PageSize and ContextWidth above too)
+	concCtxStruct string // "" = corpus default, ctxTokens = no structure, or a structure name
+	concNoShuffle bool
+	concTextProps int // 0 = none, 1 = basic, 2 = all
 
 	// token frequency settings (kept for the whole session)
 	freqAttr      map[string]string // corpus ID => attribute
@@ -55,6 +62,8 @@ func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
 		ContextWidth:  contextWidth,
 		HistorySize:   DefaultHistorySize,
 		attrCache:     make(map[string][]corpusAttr),
+		structCache:   make(map[string][]corpusAttr),
+		concTextProps: 2,
 		freqAttr:      make(map[string]string),
 		freqMaxItems:  freqMaxItemsSteps[0],
 		freqFLimit:    1,

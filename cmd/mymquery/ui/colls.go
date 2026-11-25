@@ -295,7 +295,7 @@ func (v *collsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		if msg.err == nil {
-			v.env.attrCache[msg.corpusID] = msg.attrs
+			v.env.storeCorpusInfo(msg)
 			v.attrs = attrNames(msg.attrs)
 		} else {
 			v.attrs = []string{}

@@ -27,6 +27,8 @@ cmd/mymquery/
     corpsel.go     corpus selection (filterable list)
     query.go       query input
     subc.go        subcorpus picker (ctrl+s in the query input)
+    concopts.go    concordance options (form)
+    form.go        optionsForm (a reusable modal form)
     conc.go        concordance result view
     chat.go        AI chat screen (M5)
     chatresult.go  stored chat results → result views (or a raw view)
@@ -94,7 +96,13 @@ change it.
 - [x] `a` opens a picker for the attribute displayed in the lines (word, lemma, tag …),
       attribute order, sizes and descriptions are taken from `/info/:corpusId`
 - [x] lines with `errMsg` are shown as errors and are not dropped
-- [ ] options form: contextWidth, contextStruct, noShuffle, showTextProps (subcorpus: see M0)
+- [x] options form (`o`, `ui/concopts.go`): context width (0–50), context limited to a structure
+      (corpus default = MQuery's `viewContextStruct`, typically a sentence; "tokens only" sends an
+      empty `contextStruct` to override it; or any structure from `/info`), line order
+      (shuffled / corpus order = `noShuffle`), text properties (none/basic/all), lines per page.
+      Settings are session-wide (also for drill-downs; `-context-width` / `-page-size` are the
+      defaults). Changing the order resets paging, a page size change keeps the current first line's
+      page. Non-default context/order are shown in the summary line
 - [ ] showing structures (`showMarkup=1`). Note: `TokenSlice.UnmarshalJSON`
       in mquery-common has no element type for `"close"` markup, so that has
       to be fixed in mquery-common first
@@ -209,6 +217,9 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
   subtitle and scroll position. The box fits the content (grow-only while open so it
   does not jump when the content changes). The owner handles open/close and its own keys,
   the modal handles scrolling (`↑/↓`, `pgup/pgdn`, `g/G`). Used by the M1 line detail
+- `optionsForm` (`ui/form.go`): modal form with choice fields (`←/→`) and validated input fields;
+  `↑/↓`/`tab` move, `enter` validates and applies. Used by the concordance options; the per-option
+  pickers of M2–M4 could move to it
 - `csvDialog` (`ui/savecsv.go`): modal path input which writes prepared rows as CSV
   (`~` expansion, overwrite confirmation)
 - `listNav`: cursor + scroll for single-line-row lists

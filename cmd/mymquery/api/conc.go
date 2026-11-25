@@ -10,12 +10,17 @@ import (
 
 // ConcordanceArgs mirrors query arguments of GET /concordance/:corpusId
 type ConcordanceArgs struct {
-	Query         string
-	Subcorpus     string
-	RowsOffset    int
-	MaxRows       int
-	ContextWidth  int
+	Query        string
+	Subcorpus    string
+	RowsOffset   int
+	MaxRows      int
+	ContextWidth int
+	// ContextStruct limits the context to a structure (typically a sentence)
+	// containing KWIC; "" = the corpus default (see TokenContext)
 	ContextStruct string
+	// TokenContext disables the corpus default context structure, i.e.
+	// the context is just ContextWidth tokens (ContextStruct is ignored)
+	TokenContext bool
 	// ShowTextProps: 0 = none, 1 = basic, 2 = all
 	ShowTextProps int
 	NoShuffle     bool
@@ -41,7 +46,11 @@ func (a ConcordanceArgs) values() url.Values {
 	if a.ContextWidth > 0 {
 		v.Set("contextWidth", strconv.Itoa(a.ContextWidth))
 	}
-	if a.ContextStruct != "" {
+	if a.TokenContext {
+		// an explicitly empty value overrides the corpus default
+		v.Set("contextStruct", "")
+
+	} else if a.ContextStruct != "" {
 		v.Set("contextStruct", a.ContextStruct)
 	}
 	if a.ShowTextProps > 0 {

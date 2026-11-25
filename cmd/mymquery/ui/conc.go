@@ -57,6 +57,8 @@ type concView struct {
 	dispAttr int
 	// attrPicker is open when selecting the displayed attribute
 	attrPicker *selectList
+	// optsForm is open when editing the concordance options
+	optsForm *optionsForm
 
 	// detail is a modal with the selected line's tokens or text properties
 	detail     *modal
@@ -92,7 +94,8 @@ func newConcViewWithNote(env *Env, corpus searchTarget, query, note string) *con
 
 func (v *concView) Init() tea.Cmd {
 	cmds := []tea.Cmd{v.fetch()}
-	if v.infoAttrs == nil {
+	// (structures are needed for the options)
+	if v.infoAttrs == nil || v.env.structCache[v.corpus.ID] == nil {
 		cmds = append(cmds, fetchCorpusAttrs(v.env, v.ctx, v.corpus.ID, v.id))
 	}
 	return tea.Batch(cmds...)
@@ -129,22 +132,33 @@ func (v *concView) SetSize(w, h int) {
 	v.nav.fix(len(v.lines()), v.listHeight())
 }
 
-func (v *concView) fetch() tea.Cmd {
-	v.reqID++
-	v.loading = true
-	v.err = nil
-	reqID, viewID := v.reqID, v.id
-	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
+// requestArgs returns the arguments of the current page request
+func (v *concView) requestArgs() api.ConcordanceArgs {
 	args := api.ConcordanceArgs{
 		Query:         v.query,
 		Subcorpus:     v.corpus.Subc,
 		RowsOffset:    v.rowsOffset,
 		MaxRows:       v.env.PageSize,
 		ContextWidth:  v.env.ContextWidth,
-		ShowTextProps: 2,
+		TokenContext:  v.env.concCtxStruct == ctxTokens,
+		ShowTextProps: v.env.concTextProps,
+		NoShuffle:     v.env.concNoShuffle,
 		Coll:          v.coll,
 		CollRange:     v.collRange,
 	}
+	if !args.TokenContext {
+		args.ContextStruct = v.env.concCtxStruct
+	}
+	return args
+}
+
+func (v *concView) fetch() tea.Cmd {
+	v.reqID++
+	v.loading = true
+	v.err = nil
+	reqID, viewID := v.reqID, v.id
+	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
+	args := v.requestArgs()
 	if resp := v.preloaded; resp != nil {
 		v.preloaded = nil
 		return func() tea.Msg {
@@ -232,7 +246,7 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		if msg.viewID != v.id || msg.err != nil {
 			return v, nil // attr order is not essential; we fall back to alphabetical
 		}
-		v.env.attrCache[msg.corpusID] = msg.attrs
+		v.env.storeCorpusInfo(msg)
 		v.infoAttrs = attrNames(msg.attrs)
 		v.updateAttrs()
 		return v, nil
@@ -246,6 +260,9 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		return v, cmd
 
 	case tea.KeyMsg:
+		if v.optsForm != nil {
+			return v.updateOptions(msg)
+		}
 		if v.attrPicker != nil {
 			return v.updateAttrPicker(msg)
 		}
@@ -265,6 +282,10 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		return v, tea.Quit
 	case "r":
 		return v, v.fetch()
+	case "o":
+		// (available also after an error, e.g. caused by the options)
+		v.optsForm = v.newOptionsForm()
+		return v, nil
 	}
 	if v.loading && v.resp == nil {
 		return v, nil
@@ -376,6 +397,9 @@ func (v *concView) updateAttrPicker(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 
 func (v *concView) View() string {
 	body := v.baseView()
+	if v.optsForm != nil {
+		return placeOverlay(body, v.optsForm.View(v.width), v.width, v.height)
+	}
 	if v.attrPicker != nil {
 		return placeOverlay(body, v.attrPicker.View(v.width), v.width, v.height)
 	}
@@ -388,7 +412,7 @@ func (v *concView) View() string {
 func (v *concView) baseView() string {
 	if v.err != nil {
 		return errorStyle.Render(v.err.Error()) + "\n\n" +
-			mutedStyle.Render("r retry • esc edit query")
+			mutedStyle.Render("r retry • o options • esc edit query")
 	}
 	if v.resp == nil {
 		return v.spinner.View() + " searching…"
@@ -421,6 +445,9 @@ func (v *concView) summary() string {
 		fmt.Sprintf("lines %d–%d", v.rowsOffset+min(1, len(r.Lines)), v.rowsOffset+len(r.Lines)),
 		fmt.Sprintf("page %d/%d", page, max(1, pages)),
 		"showing: " + accentStyle.Render(v.dispAttrName()),
+	}
+	if opts := v.optionsSummary(); opts != "" {
+		parts = append(parts, mutedStyle.Render(opts))
 	}
 	if v.note != "" {
 		parts = append(parts, mutedStyle.Render(v.note))
@@ -638,6 +665,9 @@ func (v *concView) tokensContent(width int) string {
 }
 
 func (v *concView) Help() string {
+	if v.optsForm != nil {
+		return v.optsForm.Help()
+	}
 	if v.attrPicker != nil {
 		return v.attrPicker.Help()
 	}
@@ -648,7 +678,7 @@ func (v *concView) Help() string {
 		}
 		return v.detail.Help() + " • ←/→ prev/next line • " + other + " • esc close • q quit"
 	}
-	return "↑/↓ move • enter tokens • t text types • a displayed attribute • ←/→ page • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter tokens • t text types • a displayed attribute • o options • ←/→ page • r reload • esc edit query • q quit"
 }
 
 // ---------------------------------- helpers
