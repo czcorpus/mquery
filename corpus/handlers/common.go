@@ -117,7 +117,8 @@ func (a *Actions) determineQueryProps(ctx *gin.Context) queryProps {
 				ans.savedSubcorpus = savedSubcPath
 
 			} else {
-				ans.err = fmt.Errorf("invalid subcorpus specification: %s", savedSubcPath)
+				// note: savedSubcPath is a server path which must not be exposed
+				ans.err = fmt.Errorf("invalid subcorpus specification: %s", subc)
 				ans.status = http.StatusUnprocessableEntity
 				return ans
 			}

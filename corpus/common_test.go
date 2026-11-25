@@ -19,6 +19,7 @@
 package corpus
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,4 +51,41 @@ func TestCheckSavedSubcorpusInvalidID(t *testing.T) {
 		_, ok := CheckSavedSubcorpus(dir, "syn2020", subcID)
 		assert.False(t, ok, subcID)
 	}
+}
+
+func writeSubcFile(t *testing.T, ranges ...[2]int64) string {
+	path := filepath.Join(t.TempDir(), "data.subc")
+	data := make([]byte, 0, len(ranges)*16)
+	for _, r := range ranges {
+		data = binary.LittleEndian.AppendUint64(data, uint64(r[0]))
+		data = binary.LittleEndian.AppendUint64(data, uint64(r[1]))
+	}
+	assert.NoError(t, os.WriteFile(path, data, 0644))
+	return path
+}
+
+func TestReadSavedSubcorpusInfo(t *testing.T) {
+	path := writeSubcFile(t, [2]int64{0, 10}, [2]int64{20, 25}, [2]int64{100, 101})
+	info, err := ReadSavedSubcorpusInfo(path)
+	assert.NoError(t, err)
+	assert.Equal(t, SavedSubcInfo{Size: 16, NumRanges: 3, MaxPos: 101}, info)
+}
+
+func TestReadSavedSubcorpusInfoEmpty(t *testing.T) {
+	info, err := ReadSavedSubcorpusInfo(writeSubcFile(t))
+	assert.NoError(t, err)
+	assert.Equal(t, SavedSubcInfo{}, info)
+}
+
+func TestReadSavedSubcorpusInfoInvalid(t *testing.T) {
+	_, err := ReadSavedSubcorpusInfo(writeSubcFile(t, [2]int64{10, 5}))
+	assert.Error(t, err)
+
+	path := filepath.Join(t.TempDir(), "data.subc")
+	assert.NoError(t, os.WriteFile(path, make([]byte, 20), 0644))
+	_, err = ReadSavedSubcorpusInfo(path)
+	assert.Error(t, err)
+
+	_, err = ReadSavedSubcorpusInfo(filepath.Join(t.TempDir(), "missing.subc"))
+	assert.Error(t, err)
 }

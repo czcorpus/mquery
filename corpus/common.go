@@ -19,8 +19,11 @@
 package corpus
 
 import (
+	"bufio"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"mquery/rdb"
 	"os"
 	"path/filepath"
@@ -80,6 +83,61 @@ func CheckSavedSubcorpus(baseDir, corp, subcID string) (string, bool) {
 		return path, false
 	}
 	return path, isf
+}
+
+// subcRangeSize is the size of a single range in a Manatee subcorpus
+// file (a `map64` ranges file: pairs of little-endian int64 [beg, end) positions)
+const subcRangeSize = 16
+
+// SavedSubcInfo contains basic properties of a saved subcorpus calculated
+// from its ranges file
+type SavedSubcInfo struct {
+	// Size is the number of positions (tokens) in the subcorpus
+	Size int64
+	// NumRanges is the number of position ranges the subcorpus consists of
+	NumRanges int64
+	// MaxPos is the end (exclusive) of the last range. For a subcorpus
+	// created from a corpus, it must not exceed the corpus size.
+	MaxPos int64
+}
+
+// ReadSavedSubcorpusInfo reads a Manatee subcorpus file (`data.subc`)
+// and calculates its size the same way Manatee does (sum of range sizes).
+// Please note that the file contains no reference to the corpus
+// it was created from.
+func ReadSavedSubcorpusInfo(path string) (SavedSubcInfo, error) {
+	var ans SavedSubcInfo
+	f, err := os.Open(path)
+	if err != nil {
+		return ans, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return ans, err
+	}
+	if st.Size()%subcRangeSize != 0 {
+		return ans, fmt.Errorf("invalid subcorpus file size %d", st.Size())
+	}
+	rd := bufio.NewReaderSize(f, 64*1024)
+	var item [subcRangeSize]byte
+	for {
+		if _, err := io.ReadFull(rd, item[:]); err == io.EOF {
+			break
+
+		} else if err != nil {
+			return ans, err
+		}
+		beg := int64(binary.LittleEndian.Uint64(item[:8]))
+		end := int64(binary.LittleEndian.Uint64(item[8:]))
+		if beg < 0 || end < beg {
+			return ans, fmt.Errorf("invalid subcorpus range [%d, %d)", beg, end)
+		}
+		ans.Size += end - beg
+		ans.NumRanges++
+		ans.MaxPos = max(ans.MaxPos, end)
+	}
+	return ans, nil
 }
 
 // SubcFreqDataPath returns a path of Manatee's auxiliary frequency file

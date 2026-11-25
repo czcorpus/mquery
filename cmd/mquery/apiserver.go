@@ -129,6 +129,9 @@ func (api *apiServer) Start(ctx context.Context) {
 		"/corplist", ceActions.Corplist)
 
 	engine.GET(
+		"/subcorpus/:corpusId/:subcorpusId", ceActions.SubcorpusInfo)
+
+	engine.GET(
 		"/term-frequency/:corpusId", ceActions.TermFrequency)
 
 	engine.GET(
