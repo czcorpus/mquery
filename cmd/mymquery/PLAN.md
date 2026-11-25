@@ -33,6 +33,8 @@ cmd/mymquery/
     chat.go        AI chat screen (M5)
     chatresult.go  stored chat results → result views (or a raw view)
     chatlist.go    saved chats list (open / delete)
+    markdown.go    markdown rendering of chat answers (glamour + cache)
+    mdtable.go     markdown tables (rendered by us at their natural width)
   llm/             provider-neutral chat completion + tool calling (ported from NLQL)
     genai.go       Gemini backend
     mistral.go     Mistral backend (plain HTTP + SSE, ported from NLQL)
@@ -216,7 +218,14 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       Results of a reopened chat open in their views without requerying
 - [ ] saved chats: filtering/search, renaming, opening the list right from the menu
 - [ ] note: `chats.updated_at` has a 1 s resolution (fine for sorting in practice)
-- [ ] markdown rendering of answers (glamour?); clickable `[rN]` references
+- [x] markdown rendering of answers (`ui/markdown.go`): glamour with its dark/light style adjusted (no
+      margins, default text color, accent headings). Rendered answers are cached per width (the
+      transcript is re-rendered on every spinner tick); a streamed answer is rendered on each update
+      (a partial markup may look odd for a moment). `[rN]` references are replaced by private-use
+      runes before rendering and highlighted afterwards. Tables are split out and rendered by us
+      (`ui/mdtable.go`) – glamour always stretches them to the full width. Interim texts stay plain.
+      The system prompt now asks for markdown (lists, bold, small tables)
+- [ ] clickable `[rN]` references
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network
 - [ ] token costs: `corpus_list` and `corpus_info` outputs are large and re-sent each iteration

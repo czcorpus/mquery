@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -93,6 +92,8 @@ type chatModel struct {
 	canRetry bool
 	// list shows saved chats instead of the transcript (nil = not shown)
 	list *chatList
+	// md renders the answers (markdown)
+	md *mdRenderer
 	// persistWarned is true if the running turn already reported
 	// a failure to save the conversation
 	persistWarned bool
@@ -115,6 +116,7 @@ func newChat(env *Env) chatModel {
 		input:   ta,
 		vp:      viewport.New(0, 0),
 		spinner: sp,
+		md:      newMDRenderer(),
 	}
 }
 
@@ -531,7 +533,8 @@ func (m *chatModel) refresh(follow bool) {
 			if len(lines) > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, strings.Split(renderAnswer(text, w), "\n")...)
+			// (not cached - the text keeps changing)
+			lines = append(lines, strings.Split(m.md.Render(text, w, false), "\n")...)
 		}
 		if len(lines) > 0 {
 			lines = append(lines, "")
@@ -550,14 +553,12 @@ func (m *chatModel) refresh(follow bool) {
 	}
 }
 
-var resultRefRegexp = regexp.MustCompile(`\[(r\d+(?:\s*,\s*r\d+)*)\]`)
-
 func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 	switch e.kind {
 	case entryUser:
 		return accentStyle.Render("❯ ") + boldStyle.Render(ansi.Wordwrap(e.text, w-2, " "))
 	case entryAssistant:
-		return renderAnswer(e.text, w)
+		return m.md.Render(e.text, w, true)
 	case entryInterim:
 		return mutedStyle.Render(ansi.Wordwrap(e.text, w, " "))
 	case entryError:
@@ -568,13 +569,6 @@ func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 		return m.renderResult(idx, e.result, w)
 	}
 	return ""
-}
-
-// renderAnswer wraps an assistant's answer and highlights result references
-func renderAnswer(text string, w int) string {
-	return resultRefRegexp.ReplaceAllStringFunc(ansi.Wordwrap(text, w, " "), func(s string) string {
-		return kwicStyle.Render(s)
-	})
 }
 
 func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {

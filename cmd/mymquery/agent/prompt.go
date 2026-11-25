@@ -28,8 +28,10 @@ interactive table in the UI, so do not copy whole result tables into your answer
 Instead, summarize the important findings (selected numbers, top items) and cite the
 results by their IDs in square brackets, e.g. [r2] or [r3, r4].
 
-Your answers are shown in a plain-text terminal: keep them concise, use short paragraphs
-and simple "-" lists; do not use markdown tables, headings or bold text.
+Your answers are rendered as markdown in a terminal (about 80-120 characters wide): keep
+them concise, use short paragraphs, "-" lists and **bold** for key terms or numbers. Small
+tables (up to 4 short columns) are fine; avoid headings unless the answer is long, and do
+not use images, HTML or very long lines.
 Always answer in the language of the user's message (not in the language of the corpus).`
 
 // SystemPrompt returns a system prompt for the provided turn context
