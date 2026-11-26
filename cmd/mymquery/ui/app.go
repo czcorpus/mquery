@@ -24,6 +24,13 @@ const (
 // header + empty line + footer
 const chromeHeight = 3
 
+// position of the body on the screen: below the header and an empty line;
+// screens other than the corpus selection and results have side padding
+const (
+	bodyTop  = 2
+	bodyPadX = 2
+)
+
 // App is the root Bubble Tea model. It owns the session state
 // (selected function, corpus, queries) and routes messages to screens.
 type App struct {
@@ -115,7 +122,23 @@ func (a *App) bodyHeight() int {
 	return max(1, a.height-chromeHeight)
 }
 
+// Update processes a message. Mouse reporting is enabled only on the chat
+// screen (where results can be opened by a click) - elsewhere it would
+// just disable the terminal's usual text selection.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	wasChat := a.screen == scrChat
+	model, cmd := a.update(msg)
+	if isChat := a.screen == scrChat; isChat != wasChat {
+		mouse := tea.DisableMouse
+		if isChat {
+			mouse = tea.EnableMouseCellMotion
+		}
+		cmd = tea.Batch(cmd, mouse)
+	}
+	return model, cmd
+}
+
+func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width, a.height = msg.Width, msg.Height
@@ -131,6 +154,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// the version is just informative, so errors are not reported
 		if msg.err == nil {
 			a.serverVersion = msg.info.VersionInfo.Version
+		}
+		return a, nil
+
+	case tea.MouseMsg:
+		if a.screen == scrChat {
+			msg.X -= bodyPadX
+			msg.Y -= bodyTop
+			var cmd tea.Cmd
+			a.chat, cmd = a.chat.Update(msg)
+			return a, cmd
 		}
 		return a, nil
 
@@ -359,13 +392,14 @@ func (a *App) View() string {
 		body, help = a.chat.View(), a.chat.Help()
 	}
 	if a.screen != scrCorpus && a.screen != scrResult {
-		body = lipgloss.NewStyle().Padding(0, 2).Render(body)
+		body = lipgloss.NewStyle().Padding(0, bodyPadX).Render(body)
 	}
 	body = lipgloss.NewStyle().Height(a.bodyHeight()).MaxHeight(a.bodyHeight()).Render(body)
 	if a.screen == scrQuery && a.subcPicker.Active() {
 		body = placeOverlay(body, a.subcPicker.View(a.width), a.width, a.bodyHeight())
 	}
 	footer := footerStyle.Render(ansi.Truncate(renderHelp(help), max(0, a.width-2), "…"))
+	// (see bodyTop)
 	return a.header() + "\n\n" + body + "\n" + footer
 }
 

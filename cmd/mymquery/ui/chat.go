@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -74,11 +73,12 @@ type chatModel struct {
 	height  int
 
 	// browsing is true if the transcript (instead of the input) is focused;
-	// then `sel` is an index of the selected result entry
+	// then selKey identifies the selected link
 	browsing bool
-	sel      int
-	// resultLines maps entry index => first line in the rendered transcript
-	resultLines map[int]int
+	selKey   chatLinkKey
+	// links are result lines and references in the rendered transcript
+	// (in the transcript order)
+	links []chatLink
 
 	running bool
 	runID   int
@@ -146,17 +146,6 @@ func (m *chatModel) SetSize(w, h int) {
 	m.vp.Width = max(10, w-4)
 	m.vp.Height = max(1, h-chatInputHeight-2)
 	m.refresh(false)
-}
-
-// resultIdxs returns indices of result entries
-func (m *chatModel) resultIdxs() []int {
-	var ans []int
-	for i, e := range m.entries {
-		if e.kind == entryResult {
-			ans = append(ans, i)
-		}
-	}
-	return ans
 }
 
 func (m *chatModel) add(e chatEntry) {
@@ -290,6 +279,9 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 		m.refresh(false)
 		return m, cmd
 
+	case tea.MouseMsg:
+		return m.updateMouse(msg)
+
 	case tea.KeyMsg:
 		if m.list != nil {
 			return m.updateList(msg)
@@ -320,10 +312,11 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 		}
 		return m, goBack
 	case "tab":
-		if idxs := m.resultIdxs(); len(idxs) > 0 {
+		// the most recent link (typically a reference in the last answer)
+		if len(m.links) > 0 {
 			m.browsing = true
 			m.input.Blur()
-			m.sel = idxs[len(idxs)-1]
+			m.selKey = m.links[len(m.links)-1].key
 			m.refresh(false)
 			m.scrollToSel()
 		}
@@ -368,7 +361,7 @@ func (m *chatModel) newConversation() {
 	m.canRetry = false
 	m.browsing = false
 	m.entries = nil
-	m.resultLines = nil
+	m.links = nil
 	m.vp.SetYOffset(0)
 }
 
@@ -460,8 +453,15 @@ func chatEntriesFromMessages(msgs []llm.Message, store *agent.Store) []chatEntry
 }
 
 func (m chatModel) updateBrowsing(msg tea.KeyMsg) (chatModel, tea.Cmd) {
-	idxs := m.resultIdxs()
-	pos := slices.Index(idxs, m.sel)
+	if len(m.links) == 0 {
+		m.browsing = false
+		m.refresh(false)
+		return m, m.input.Focus()
+	}
+	pos := m.linkIndex(m.selKey)
+	if pos < 0 {
+		pos = len(m.links) - 1
+	}
 	switch msg.String() {
 	case "tab", "esc", "i":
 		m.browsing = false
@@ -469,38 +469,54 @@ func (m chatModel) updateBrowsing(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 		return m, m.input.Focus()
 	case "q":
 		return m, tea.Quit
-	case "up", "k":
-		if pos > 0 {
-			m.sel = idxs[pos-1]
-		}
-	case "down", "j":
-		if pos >= 0 && pos < len(idxs)-1 {
-			m.sel = idxs[pos+1]
-		}
+	case "up", "k", "left", "h", "shift+tab":
+		pos = max(0, pos-1)
+	case "down", "j", "right", "l":
+		pos = min(len(m.links)-1, pos+1)
 	case "home", "g":
-		m.sel = idxs[0]
+		pos = 0
 	case "end", "G":
-		m.sel = idxs[len(idxs)-1]
+		pos = len(m.links) - 1
 	case "enter":
-		if pos >= 0 {
-			res := m.entries[m.sel].result
-			return m, func() tea.Msg { return openChatResultMsg{result: res} }
-		}
+		return m, openResult(m.links[pos].result)
 	case "pgup", "pgdown":
 		var cmd tea.Cmd
 		m.vp, cmd = m.vp.Update(msg)
 		return m, cmd
 	}
+	m.selKey = m.links[pos].key
 	m.refresh(false)
 	m.scrollToSel()
 	return m, nil
 }
 
+// updateMouse handles mouse events (with coordinates relative to the chat
+// screen): a click on a link opens its result, the wheel scrolls
+func (m chatModel) updateMouse(msg tea.MouseMsg) (chatModel, tea.Cmd) {
+	if m.list != nil {
+		return m, nil
+	}
+	if tea.MouseEvent(msg).IsWheel() {
+		var cmd tea.Cmd
+		m.vp, cmd = m.vp.Update(msg)
+		return m, cmd
+	}
+	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft ||
+		msg.Y < 0 || msg.Y >= m.vp.Height {
+		return m, nil
+	}
+	if l, ok := m.linkAt(m.vp.YOffset+msg.Y, msg.X); ok {
+		return m, openResult(l.result)
+	}
+	return m, nil
+}
+
 func (m *chatModel) scrollToSel() {
-	line, ok := m.resultLines[m.sel]
+	l, ok := m.selectedLink()
 	if !ok {
 		return
 	}
+	line := l.line
 	if line < m.vp.YOffset {
 		m.vp.SetYOffset(line)
 	} else if line >= m.vp.YOffset+m.vp.Height {
@@ -514,7 +530,7 @@ func (m *chatModel) refresh(follow bool) {
 		return
 	}
 	w := m.vp.Width
-	m.resultLines = make(map[int]int)
+	m.links = m.links[:0]
 	var lines []string
 	for i, e := range m.entries {
 		if e.kind == entryUser || (e.kind == entryResult && (i == 0 || m.entries[i-1].kind != entryResult)) ||
@@ -523,10 +539,19 @@ func (m *chatModel) refresh(follow bool) {
 				lines = append(lines, "")
 			}
 		}
-		if e.kind == entryResult {
-			m.resultLines[i] = len(lines)
+		rendered := strings.Split(m.renderEntry(i, e, w), "\n")
+		switch e.kind {
+		case entryResult:
+			m.links = append(m.links, chatLink{
+				key: chatLinkKey{entry: i}, line: len(lines), width: w, result: e.result,
+			})
+		case entryAssistant:
+			m.links = append(m.links, findRefLinks(rendered, len(lines), i, m.resolveResult)...)
 		}
-		lines = append(lines, strings.Split(m.renderEntry(i, e, w), "\n")...)
+		lines = append(lines, rendered...)
+	}
+	if l, ok := m.selectedLink(); ok && l.isRef {
+		lines[l.line] = highlightRange(lines[l.line], l.col, l.width, selRefStyle)
 	}
 	if m.running {
 		if text := strings.TrimSpace(m.streaming); text != "" {
@@ -572,7 +597,7 @@ func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 }
 
 func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {
-	selected := m.browsing && idx == m.sel
+	selected := m.browsing && m.selKey == chatLinkKey{entry: idx}
 	marker := "  "
 	if selected {
 		marker = accentStyle.Render("❯ ")
@@ -634,7 +659,7 @@ func (m chatModel) Help() string {
 		return m.list.Help()
 	}
 	if m.browsing {
-		return "↑/↓ select result • enter open • pgup/pgdn scroll • tab/esc back to input • q quit"
+		return "↑/↓ select result/reference • enter open • pgup/pgdn scroll • tab/esc back to input • q quit"
 	}
 	if m.running {
 		return "esc cancel • pgup/pgdn scroll"
@@ -643,7 +668,7 @@ func (m chatModel) Help() string {
 	if m.canRetry {
 		retry = " • ctrl+r retry"
 	}
-	return "enter send" + retry + " • alt+enter newline • tab browse results • pgup/pgdn scroll • ctrl+n new conversation • ctrl+o saved chats • esc menu"
+	return "enter send" + retry + " • alt+enter newline • tab browse results • click a result/reference to open it • pgup/pgdn scroll • ctrl+n new conversation • ctrl+o saved chats • esc menu"
 }
 
 // chatSubmitMsg asks the app to submit the chat input or to retry the last

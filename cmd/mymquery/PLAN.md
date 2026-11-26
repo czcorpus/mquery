@@ -227,7 +227,12 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       runes before rendering and highlighted afterwards. Tables are split out and rendered by us
       (`ui/mdtable.go`) – glamour always stretches them to the full width. Interim texts stay plain.
       The system prompt now asks for markdown (lists, bold, small tables)
-- [ ] clickable `[rN]` references
+- [x] clickable `[rN]` references (`ui/chatlinks.go`): result lines and each `rN` of a reference
+      in an answer are links (refs to unknown results are not). `tab` selects the most recent one,
+      ↑/↓ go through all of them in the transcript order (the selected `rN` is highlighted in place),
+      `enter` opens it. Mouse reporting is enabled only on the chat screen: a click opens a link,
+      the wheel scrolls (text selection in the chat then needs shift+drag in most terminals).
+      References are never wrapped (spaces inside them are private-use runes while rendering)
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network
 - [ ] token costs: `corpus_list` and `corpus_info` outputs are large and re-sent each iteration
@@ -270,10 +275,10 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
 - ~~mquery-common line parser: multi-word tokens (e.g. BNC `away from`) gave `errMsg`~~
   – fixed in mquery-common v0.10.5 (no errors in 200 BNC `away` lines)
 - ~~mquery-common `TokenSlice.UnmarshalJSON` could not decode `"close"` markup~~ – fixed in v0.10.6
-- `/concordance` shuffling is random per request (`conc->shuffle()` in `mango.cc` on every
-  call), so paging through a shuffled concordance is not stable – pages may repeat or skip
-  lines, and changing e.g. "Structures" shows different lines. Would need a fixed seed
-  (e.g. derived from the query) or a cached shuffled concordance
+- ~~`/concordance` shuffling was random per request, so paging repeated/skipped lines~~ – fixed
+  in the server (v0.29.13): the order is seeded from corpus, subcorpus, query and collocate
+  filter, so all pages come from the same order (and e.g. "Structures" keeps the same lines).
+  A "reshuffle" (another sample) would need an optional seed parameter in `/concordance`
 - `/text-types` on KSP fails with `FileAccessError (…/KSP/doc.date.token)` – missing
   struct attr `.token` coverage file (see the mktokencov follow-up)
 - `/freqs` response field `examplesQueryTpl` is never filled

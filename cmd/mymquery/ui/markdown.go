@@ -20,9 +20,12 @@ var resultRefRegexp = regexp.MustCompile(`\[(r\d+(?:\s*,\s*r\d+)*)\]`)
 
 // Result references are replaced by these (private use) runes before
 // rendering, so they survive as plain text and can be highlighted afterwards.
+// Spaces within a reference are replaced too, so a reference is never wrapped
+// (each `rN` must stay on one line to be selectable, see chatLink).
 const (
-	refOpen  = ''
-	refClose = ''
+	refOpen  = '\ue000'
+	refClose = '\ue001'
+	refSpace = '\ue002'
 )
 
 var renderedRefRegexp = regexp.MustCompile("([^]*)")
@@ -129,7 +132,7 @@ func (r *mdRenderer) renderMarkdown(text string, width int) string {
 	if err != nil {
 		return renderPlainAnswer(text, width)
 	}
-	marked := resultRefRegexp.ReplaceAllString(text, string(refOpen)+"$1"+string(refClose))
+	marked := resultRefRegexp.ReplaceAllStringFunc(text, markRef)
 	out, err := tr.Render(marked)
 	if err != nil {
 		return renderPlainAnswer(text, width)
@@ -143,8 +146,19 @@ func (r *mdRenderer) renderMarkdown(text string, width int) string {
 	out = strings.Join(lines, "\n")
 	return renderedRefRegexp.ReplaceAllStringFunc(out, func(s string) string {
 		inner := strings.TrimSuffix(strings.TrimPrefix(s, string(refOpen)), string(refClose))
+		inner = strings.ReplaceAll(inner, string(refSpace), " ")
 		return kwicStyle.Render("[" + inner + "]")
 	})
+}
+
+// markRef replaces a reference like `[r1,  r3]` with its marked form
+// (normalized to `r1, r3`, with the space replaced by refSpace)
+func markRef(ref string) string {
+	ids := strings.Split(strings.Trim(ref, "[]"), ",")
+	for i, id := range ids {
+		ids[i] = strings.TrimSpace(id)
+	}
+	return string(refOpen) + strings.Join(ids, ","+string(refSpace)) + string(refClose)
 }
 
 // trimRightSpaceANSI removes trailing spaces of a line which may contain
