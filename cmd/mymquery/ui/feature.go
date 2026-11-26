@@ -33,6 +33,7 @@ type Env struct {
 	concCtxStruct string // "" = corpus default, ctxTokens = no structure, or a structure name
 	concNoShuffle bool
 	concTextProps int // 0 = none, 1 = basic, 2 = all
+	concMarkup    bool
 
 	// token frequency settings (kept for the whole session)
 	freqAttr      map[string]string // corpus ID => attribute

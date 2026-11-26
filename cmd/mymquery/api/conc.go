@@ -24,6 +24,9 @@ type ConcordanceArgs struct {
 	// ShowTextProps: 0 = none, 1 = basic, 2 = all
 	ShowTextProps int
 	NoShuffle     bool
+	// ShowMarkup adds structural markup (the corpus' configured structures,
+	// e.g. <s>, <p>, <g/>) to the lines
+	ShowMarkup bool
 	// Coll is an optional collocate query (CQL); only lines with
 	// the collocate within CollRange are returned
 	Coll string
@@ -58,6 +61,9 @@ func (a ConcordanceArgs) values() url.Values {
 	}
 	if a.NoShuffle {
 		v.Set("noShuffle", "1")
+	}
+	if a.ShowMarkup {
+		v.Set("showMarkup", "1")
 	}
 	if a.Coll != "" {
 		v.Set("coll", a.Coll)

@@ -127,3 +127,17 @@ func TestConcOptionsApply(t *testing.T) {
 	assert.True(t, args.TokenContext)
 	assert.Equal(t, 20, args.MaxRows)
 }
+
+func TestConcOptionsMarkup(t *testing.T) {
+	v := newTestConcView(t)
+	v.rowsOffset = 100
+	v.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+	v.Update(keyType(tea.KeyUp)) // → lines per page
+	v.Update(keyType(tea.KeyUp)) // → structures
+	v.Update(keyType(tea.KeyRight))
+	_, cmd := v.Update(keyType(tea.KeyEnter))
+	assert.NotNil(t, cmd)
+	assert.True(t, fetchArgs(t, v).ShowMarkup)
+	assert.Equal(t, 100, v.rowsOffset) // the same lines, just with markup
+	assert.Equal(t, "structures", v.optionsSummary())
+}

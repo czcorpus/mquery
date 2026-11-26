@@ -143,6 +143,7 @@ func (v *concView) requestArgs() api.ConcordanceArgs {
 		TokenContext:  v.env.concCtxStruct == ctxTokens,
 		ShowTextProps: v.env.concTextProps,
 		NoShuffle:     v.env.concNoShuffle,
+		ShowMarkup:    v.env.concMarkup,
 		Coll:          v.coll,
 		CollRange:     v.collRange,
 	}
@@ -480,11 +481,12 @@ func (v *concView) renderRow(idx int, line concordance.Line, selected bool, numW
 
 // kwicLayout renders a line with KWIC starting at a fixed column
 // (left context is right-aligned, right context is left-aligned).
+// Structural markup (if present) is part of the contexts and KWIC.
 func (v *concView) kwicLayout(line concordance.Line, base lipgloss.Style, avail int) string {
-	toks := line.Text.Tokens()
+	elms := line.Text
 	kFirst, kLast := -1, -1
-	for i, t := range toks {
-		if t.MatchType == concordance.MatchTypeKWIC {
+	for i, e := range elms {
+		if t, ok := e.(*concordance.Token); ok && t.MatchType == concordance.MatchTypeKWIC {
 			if kFirst < 0 {
 				kFirst = i
 			}
@@ -493,19 +495,37 @@ func (v *concView) kwicLayout(line concordance.Line, base lipgloss.Style, avail 
 	}
 	attr := v.dispAttrName()
 	if kFirst < 0 {
-		return fitRight(renderTokens(toks, base, attr), avail, base)
+		return fitRight(renderElements(elms, base, attr), avail, base)
 	}
 	leftW := max(5, (avail-2)*2/5)
-	kwic := renderTokens(toks[kFirst:kLast+1], base, attr)
+	kwic := renderElements(elms[kFirst:kLast+1], base, attr)
 	maxKwic := max(1, avail-leftW-2-5)
 	if ansi.StringWidth(kwic) > maxKwic {
 		kwic = ansi.Truncate(kwic, maxKwic, "…")
 	}
-	rightW := max(0, avail-leftW-2-ansi.StringWidth(kwic))
-	sp := base.Render(" ")
-	return fitLeft(renderTokens(toks[:kFirst], base, attr), leftW, base) +
-		sp + kwic + sp +
-		fitRight(renderTokens(toks[kLast+1:], base, attr), rightW, base)
+	// glue around KWIC (e.g. before a comma) replaces the separating space
+	// by a wider context, so KWIC stays in its column
+	leftSp, rightSp := base.Render(" "), base.Render(" ")
+	if isGlue(elms[:kFirst], len(elms[:kFirst])-1) {
+		leftSp = ""
+		leftW++
+	}
+	rightW := max(0, avail-leftW-1-ansi.StringWidth(leftSp)-ansi.StringWidth(kwic))
+	if isGlue(elms[kLast+1:], 0) {
+		rightSp = ""
+		rightW++
+	}
+	return fitLeft(renderElements(elms[:kFirst], base, attr), leftW, base) +
+		leftSp + kwic + rightSp +
+		fitRight(renderElements(elms[kLast+1:], base, attr), rightW, base)
+}
+
+func isGlue(elms []concordance.LineElement, i int) bool {
+	if i < 0 || i >= len(elms) {
+		return false
+	}
+	st, ok := elms[i].(*concordance.Struct)
+	return ok && st.IsSelfClose && st.Name == glueStruct
 }
 
 func tokenValue(t *concordance.Token, attr string) string {
@@ -518,21 +538,49 @@ func tokenValue(t *concordance.Token, attr string) string {
 	return t.Word
 }
 
-func renderTokens(toks []*concordance.Token, base lipgloss.Style, attr string) string {
+// glueStruct is a self-closing structure meaning "no space between
+// the surrounding tokens" (typically before punctuation)
+const glueStruct = "g"
+
+// renderElements renders tokens and structural markup (as muted tags;
+// glue structures join the surrounding tokens instead)
+func renderElements(elms []concordance.LineElement, base lipgloss.Style, attr string) string {
 	var b strings.Builder
 	sp := base.Render(" ")
-	for i, t := range toks {
-		if i > 0 {
+	tagStyle := base.Foreground(colMuted)
+	first, glue := true, false
+	for i, e := range elms {
+		var s string
+		switch e := e.(type) {
+		case *concordance.Token:
+			st := base
+			switch e.MatchType {
+			case concordance.MatchTypeKWIC:
+				st = kwicStyle.Background(base.GetBackground())
+			case concordance.MatchTypeColl:
+				st = collStyle.Background(base.GetBackground())
+			}
+			s = st.Render(tokenValue(e, attr))
+		case *concordance.Struct:
+			if isGlue(elms, i) {
+				glue = true
+				continue
+			}
+			if e.IsSelfClose {
+				s = tagStyle.Render("<" + e.Name + "/>")
+			} else {
+				s = tagStyle.Render("<" + e.Name + ">")
+			}
+		case *concordance.CloseStruct:
+			s = tagStyle.Render("</" + e.Name + ">")
+		default:
+			continue
+		}
+		if !first && !glue {
 			b.WriteString(sp)
 		}
-		st := base
-		switch t.MatchType {
-		case concordance.MatchTypeKWIC:
-			st = kwicStyle.Background(base.GetBackground())
-		case concordance.MatchTypeColl:
-			st = collStyle.Background(base.GetBackground())
-		}
-		b.WriteString(st.Render(tokenValue(t, attr)))
+		b.WriteString(s)
+		first, glue = false, false
 	}
 	return b.String()
 }

@@ -84,3 +84,12 @@ func TestConcordanceArgsContextStruct(t *testing.T) {
 		t.Errorf("TokenContext must send an empty contextStruct, got %v", v)
 	}
 }
+
+func TestConcordanceArgsShowMarkup(t *testing.T) {
+	if v := (ConcordanceArgs{Query: "x"}).values(); v.Has("showMarkup") {
+		t.Error("showMarkup should be omitted by default")
+	}
+	if v := (ConcordanceArgs{Query: "x", ShowMarkup: true}).values(); v.Get("showMarkup") != "1" {
+		t.Errorf("unexpected showMarkup %q", v.Get("showMarkup"))
+	}
+}

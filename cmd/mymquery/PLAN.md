@@ -107,9 +107,11 @@ change it.
       Settings are session-wide (also for drill-downs; `-context-width` / `-page-size` are the
       defaults). Changing the order resets paging, a page size change keeps the current first line's
       page. Non-default context/order are shown in the summary line
-- [ ] showing structures (`showMarkup=1`). Note: `TokenSlice.UnmarshalJSON`
-      in mquery-common has no element type for `"close"` markup, so that has
-      to be fixed in mquery-common first
+- [x] showing structures (`showMarkup=1`, "Structures" in the options form; which structures are
+      sent is decided by the corpus' `ConcMarkupStructures`). Tags are rendered muted between
+      tokens (`<s>`, `</p>`, `<lb/>`), the glue structure `<g/>` joins the surrounding tokens
+      instead (also around KWIC, keeping its column). Needed mquery-common v0.10.6
+      (decoding of `"close"` and self-closing markup)
 - [x] collocate filter + highlighting (`coll`, `collRange`) – used by the M4 drill-down
 - [x] collocate filter in the query input: the concordance query screen has extra fields
       "Collocate (CQL)" and "Collocate window" (`left,right`, shared with the collocations
@@ -265,11 +267,13 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
   so `go build -o mymquery ./cmd/mymquery` works. Consider adding the binary to `.gitignore`
 
 ### Known server-side / library issues (found while building the TUI)
-- mquery-common line parser: lines containing multi-word tokens (e.g. BNC `away from`)
-  come back with `errMsg: unparseable Manatee KWIC line: expected 4N elms…`
-  (the parser splits on whitespace). The TUI shows them as ⚠ lines
-- mquery-common `TokenSlice.UnmarshalJSON` has no element type for `"close"` markup
-  → `showMarkup=1` will likely fail to decode (blocks M1 "showing structures")
+- ~~mquery-common line parser: multi-word tokens (e.g. BNC `away from`) gave `errMsg`~~
+  – fixed in mquery-common v0.10.5 (no errors in 200 BNC `away` lines)
+- ~~mquery-common `TokenSlice.UnmarshalJSON` could not decode `"close"` markup~~ – fixed in v0.10.6
+- `/concordance` shuffling is random per request (`conc->shuffle()` in `mango.cc` on every
+  call), so paging through a shuffled concordance is not stable – pages may repeat or skip
+  lines, and changing e.g. "Structures" shows different lines. Would need a fixed seed
+  (e.g. derived from the query) or a cached shuffled concordance
 - `/text-types` on KSP fails with `FileAccessError (…/KSP/doc.date.token)` – missing
   struct attr `.token` coverage file (see the mktokencov follow-up)
 - `/freqs` response field `examplesQueryTpl` is never filled

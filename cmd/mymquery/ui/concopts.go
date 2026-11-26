@@ -23,6 +23,7 @@ const (
 	optCtxStruct
 	optOrder
 	optTextProps
+	optMarkup
 	optPageSize
 )
 
@@ -44,6 +45,10 @@ func (v *concView) newOptionsForm() *optionsForm {
 	if !known { // e.g. structures of the corpus are not loaded
 		structs = append(structs, selectItem{
 			Value: v.env.concCtxStruct, Label: "<" + v.env.concCtxStruct + ">"})
+	}
+	markup := "0"
+	if v.env.concMarkup {
+		markup = "1"
 	}
 	order := orderShuffled
 	if v.env.concNoShuffle {
@@ -70,6 +75,12 @@ func (v *concView) newOptionsForm() *optionsForm {
 			"Text properties", "metadata attached to lines (see t in the list)",
 			[]selectItem{{Value: "0", Label: "none"}, {Value: "1", Label: "basic"}, {Value: "2", Label: "all"}},
 			strconv.Itoa(v.env.concTextProps)),
+		newChoiceField(
+			"Structures",
+			"structural markup (e.g. <s>, <p>) shown between tokens; which structures "+
+				"are available depends on the corpus configuration",
+			[]selectItem{{Value: "0", Label: "hidden"}, {Value: "1", Label: "shown"}},
+			markup),
 		newInputField(
 			"Lines per page", fmt.Sprintf("1–%d", concMaxPageSize),
 			strconv.Itoa(v.env.PageSize), parsePositiveInt(1, concMaxPageSize)),
@@ -96,9 +107,10 @@ func (v *concView) applyOptions(vals []string) tea.Cmd {
 	textProps, _ := strconv.Atoi(vals[optTextProps])
 	pageSize, _ := strconv.Atoi(vals[optPageSize])
 	noShuffle := vals[optOrder] == orderCorpus
+	markup := vals[optMarkup] == "1"
 	if width == env.ContextWidth && vals[optCtxStruct] == env.concCtxStruct &&
 		noShuffle == env.concNoShuffle && textProps == env.concTextProps &&
-		pageSize == env.PageSize {
+		markup == env.concMarkup && pageSize == env.PageSize {
 		return nil
 	}
 	switch {
@@ -111,6 +123,7 @@ func (v *concView) applyOptions(vals []string) tea.Cmd {
 	env.concCtxStruct = vals[optCtxStruct]
 	env.concNoShuffle = noShuffle
 	env.concTextProps = textProps
+	env.concMarkup = markup
 	env.PageSize = pageSize
 	return v.fetch()
 }
@@ -127,6 +140,9 @@ func (v *concView) optionsSummary() string {
 	}
 	if v.env.concNoShuffle {
 		parts = append(parts, "corpus order")
+	}
+	if v.env.concMarkup {
+		parts = append(parts, "structures")
 	}
 	return strings.Join(parts, ", ")
 }
