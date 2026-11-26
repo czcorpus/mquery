@@ -651,8 +651,28 @@ func renderHelperCall(call *agent.HelperCall, w int) string {
 		return ansi.Truncate(line, w, "…")
 	}
 	line := "  " + errorStyle.Render("✗") + " " + call.Tool + " " + args
-	reason := "      " + errorStyle.Render(strings.TrimPrefix(out, "error: "))
-	return ansi.Truncate(line, w, "…") + "\n" + ansi.Truncate(reason, w, "…")
+	// the reason is wrapped (up to a few lines)
+	const indent = "      "
+	reason := strings.Split(ansi.Wordwrap(failureReason(call.Content), max(10, w-len(indent)), " "), "\n")
+	if len(reason) > helperReasonMaxLines {
+		reason = reason[:helperReasonMaxLines]
+		reason[len(reason)-1] += "…"
+	}
+	for i, r := range reason {
+		reason[i] = indent + errorStyle.Render(r)
+	}
+	return ansi.Truncate(line, w, "…") + "\n" + strings.Join(reason, "\n")
+}
+
+// helperReasonMaxLines limits the shown reason of a failed helper call
+const helperReasonMaxLines = 3
+
+// failureReason returns the reason of a failed helper call (or a rejected
+// query) on a single line - without the instructions for the model (a reason
+// may have several lines, e.g. a heading and a list of tagset issues)
+func failureReason(content string) string {
+	reason, _, _ := strings.Cut(content, "\n"+agent.RejectionInstructions)
+	return strings.Join(strings.Fields(strings.TrimPrefix(reason, "error: ")), " ")
 }
 
 func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {

@@ -181,3 +181,12 @@ func TestAppMouseOnlyInChat(t *testing.T) {
 	_, cmd = app.Update(tea.WindowSizeMsg{Width: 90, Height: 30})
 	assert.Empty(t, cmdMsgTypes(cmd))
 }
+
+func TestFailureReason(t *testing.T) {
+	content := "error: rejected by CQL validation (`q`): The query is syntactically valid, but some " +
+		"attribute values cannot match as intended:\n- tag: ADJ.* matches no tag\n" +
+		agent.RejectionInstructions + " Fix it and call the tool again."
+	assert.Equal(t, "rejected by CQL validation (`q`): The query is syntactically valid, but some "+
+		"attribute values cannot match as intended: - tag: ADJ.* matches no tag", failureReason(content))
+	assert.Equal(t, "failed to describe tagset", failureReason("error: failed to describe tagset"))
+}

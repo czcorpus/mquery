@@ -12,6 +12,10 @@ import (
 // queries before they are searched (see Session.validateCall)
 const ValidateToolName = "cql_validate"
 
+// RejectionInstructions start the part of a rejection message (following
+// the reason) which tells the model what to do
+const RejectionInstructions = "The query was not run."
+
 // cqlArgs are arguments of the search tools containing CQL queries
 var cqlArgs = []string{"q", "coll"}
 
@@ -114,7 +118,7 @@ func (s *Session) validateCall(
 			// the whole message - e.g. a list of tagset issues - is for the model)
 			return fmt.Sprintf(
 				"error: rejected by CQL validation (`%s`): %s\n"+
-					"The query was not run. Fix it and call the tool again. If you are sure the query "+
+					RejectionInstructions+" Fix it and call the tool again. If you are sure the query "+
 					"is correct (the validator may be wrong), call the tool again with exactly the same "+
 					"arguments to run it without validation.", arg, strings.TrimSpace(msg)), ""
 		case validationWarning:
