@@ -164,12 +164,27 @@ func (tb *Toolbox) IsHelper(name string) bool {
 // callMCP calls a tool of an MCP server; failures are reported as text
 // for the model with ok == false
 func callMCP(ctx context.Context, cl *client.Client, name string, args map[string]any) (string, bool) {
+	text, isError, err := callMCPRaw(ctx, cl, name, args)
+	if err != nil {
+		return fmt.Sprintf("tool call failed: %v", err), false
+	}
+	if isError {
+		return "error: " + text, false
+	}
+	return text, true
+}
+
+// callMCPRaw calls a tool of an MCP server; err is a failure of the call
+// itself, isError means the tool reported an error (in `text`)
+func callMCPRaw(
+	ctx context.Context, cl *client.Client, name string, args map[string]any,
+) (text string, isError bool, err error) {
 	req := mcp.CallToolRequest{}
 	req.Params.Name = name
 	req.Params.Arguments = args
 	res, err := cl.CallTool(ctx, req)
 	if err != nil {
-		return fmt.Sprintf("tool call failed: %v", err), false
+		return "", false, err
 	}
 	var sb strings.Builder
 	for _, c := range res.Content {
@@ -177,10 +192,7 @@ func callMCP(ctx context.Context, cl *client.Client, name string, args map[strin
 			sb.WriteString(tc.Text)
 		}
 	}
-	if res.IsError {
-		return "error: " + sb.String(), false
-	}
-	return sb.String(), true
+	return sb.String(), res.IsError, nil
 }
 
 // tailBuffer keeps the last lines of a stream

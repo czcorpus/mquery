@@ -640,17 +640,19 @@ func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 	return ""
 }
 
-// renderHelperCall renders a helper tool call as a line with the
-// (first line of the) tool's output
+// renderHelperCall renders a helper tool call (or a call rejected by
+// the validation) with the first line of its output: on the same line if
+// it succeeded, on the next line otherwise (the reason must be visible)
 func renderHelperCall(call *agent.HelperCall, w int) string {
-	mark, outStyle := "✓", mutedStyle
-	if !call.OK {
-		mark, outStyle = errorStyle.Render("✗"), errorStyle
-	}
 	out, _, _ := strings.Cut(strings.TrimSpace(call.Content), "\n")
-	line := "  " + mark + " " + call.Tool + " " + mutedStyle.Render(formatToolArgs(call.Args)) +
-		mutedStyle.Render(" → ") + outStyle.Render(out)
-	return ansi.Truncate(line, w, "…")
+	args := mutedStyle.Render(formatToolArgs(call.Args))
+	if call.OK {
+		line := "  ✓ " + call.Tool + " " + args + mutedStyle.Render(" → "+out)
+		return ansi.Truncate(line, w, "…")
+	}
+	line := "  " + errorStyle.Render("✗") + " " + call.Tool + " " + args
+	reason := "      " + errorStyle.Render(strings.TrimPrefix(out, "error: "))
+	return ansi.Truncate(line, w, "…") + "\n" + ansi.Truncate(reason, w, "…")
 }
 
 func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {

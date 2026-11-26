@@ -247,8 +247,18 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       First test (syn2020, Mistral): 2 failed data queries of 14 (was 8 of 21 without CQLizer).
 - [ ] CQLizer's tagset tools do not know syn2020's positional `tag` ("no known tagset"), so for
       such corpora only `cql_validate` helps – a matter of CQLizer's tagset data/config
-- [ ] the model does not always validate before searching (e.g. a `{}` query failed unvalidated);
-      maybe validate CQL automatically before the search tools (in the session) instead
+- [x] automatic CQL validation (`agent/validate.go`): if CQLizer provides `cql_validate`, the
+      session validates CQL arguments (`q`, `coll`) of each search tool call before running it,
+      and the tool is not offered to the model (the prompt says validation is automatic).
+      A rejected query is not run nor stored (no `rN`); the model gets the reason (whole, e.g.
+      a list of tagset issues) and the transcript shows `✗ tool args` + the reason on the next
+      line. Warnings ("query OK, but …") are passed to the model with the result, plain OKs are
+      silent. If the model repeats exactly the same rejected call, it is run without validation
+      (the validator may be wrong). If CQLizer is unreachable, queries just run.
+      Live test (same question as above): 8 search calls, none failed
+- [ ] the tagset tools are called (and fail) for corpora with unknown tagsets (syn2020) –
+      each such call costs an iteration; could be avoided once CQLizer knows the tagset, or by
+      telling the model (e.g. via corpus_info) which corpora have a known tagset
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network
 - [ ] token costs: `corpus_list` and `corpus_info` outputs are large and re-sent each iteration

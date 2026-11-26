@@ -21,8 +21,9 @@ type PromptOptions struct {
 var helperToolsGuidance = []struct {
 	tool, text string
 }{
-	{"cql_validate", "- Before running a CQL query you have not used successfully yet, check it with\n" +
-		"  cql_validate (syntax, attributes, tagset values) and fix the reported problems first."},
+	{ValidateToolName, "- CQL queries of the search tools are validated automatically before they run\n" +
+		"  (syntax, attributes, tagset values). A rejected query is not run and the tool returns\n" +
+		"  the validation error - fix the query and call the tool again."},
 	{"build_tag_condition", "- To match parts of speech or morphological features, get the condition from\n" +
 		"  build_tag_condition (it knows the corpus tagset) instead of guessing tag patterns."},
 	{"tagset_reference", "- tagset_reference explains the values of tag-like attributes (tag, upos, feats, ...)."},
@@ -65,7 +66,7 @@ func SystemPrompt(opts PromptOptions) string {
 		}
 	}
 	if len(guidance) > 0 {
-		sb.WriteString("\n\nHelper tools for writing CQL queries (their outputs are not results, do not cite them):\n")
+		sb.WriteString("\n\nHelp with CQL queries (helper tool outputs are not results, do not cite them):\n")
 		sb.WriteString(strings.Join(guidance, "\n"))
 	}
 	if opts.CorpusID != "" {

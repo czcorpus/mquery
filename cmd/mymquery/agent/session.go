@@ -108,6 +108,10 @@ type Session struct {
 	// messages and results
 	savedMsgs    int
 	savedResults int
+
+	// rejected are queries rejected by the automatic validation
+	// (see validationKey; they are not validated again)
+	rejected map[string]bool
 }
 
 func NewSession(backend llm.Backend, tools *Toolbox, store *Store) *Session {
@@ -137,6 +141,7 @@ func (s *Session) Reset() {
 	s.store = NewStore()
 	s.info = ChatInfo{}
 	s.savedMsgs, s.savedResults = 0, 0
+	s.rejected = nil
 }
 
 // CanRetry tells whether the last turn failed and can be retried
@@ -213,7 +218,7 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 		resp, err := llm.CreateCompletionWithRetry(ctx, s.backend, llm.CompletionRequest{
 			SystemPrompt:   SystemPrompt(s.promptOptions(opts)),
 			Messages:       s.messages,
-			Tools:          s.tools.Defs(),
+			Tools:          s.tools.ModelDefs(),
 			Temperature:    s.Temperature,
 			EnableThinking: s.EnableThinking,
 		}, onText)
@@ -281,6 +286,12 @@ func (s *Session) callTool(ctx context.Context, call llm.ToolCall, emit func(Eve
 		}
 	}
 	emit(ToolCallStarted{Tool: call.Name, Args: args})
+	rejection, remarks := s.validateCall(ctx, call.Name, args)
+	if rejection != "" {
+		// (shown like a helper call - there is no result)
+		emit(HelperCallDone{Call: HelperCall{Tool: call.Name, Args: args, Content: rejection}})
+		return rejection
+	}
 	content, ok := s.tools.Call(ctx, call.Name, args)
 	if helper {
 		emit(HelperCallDone{Call: HelperCall{Tool: call.Name, Args: args, Content: content, OK: ok}})
@@ -288,14 +299,22 @@ func (s *Session) callTool(ctx context.Context, call llm.ToolCall, emit func(Eve
 	}
 	res := s.store.Add(call.Name, args, content, ok)
 	emit(ToolCallDone{Result: res})
+	if remarks != "" {
+		return s.contentForModel(res, remarks)
+	}
 	return s.contentForModel(res)
 }
 
-// contentForModel adds the result ID and truncates long outputs
-// (the user can still see the full result in the UI)
-func (s *Session) contentForModel(res *Result) string {
-	return resultIDPrefix + res.ID + "\n" +
-		s.truncateOutput(res.Content, "; the user can see the full result")
+// contentForModel adds the result ID (and optional notes) and truncates
+// long outputs (the user can still see the full result in the UI)
+func (s *Session) contentForModel(res *Result, notes ...string) string {
+	var sb strings.Builder
+	sb.WriteString(resultIDPrefix + res.ID + "\n")
+	for _, n := range notes {
+		sb.WriteString(n + "\n")
+	}
+	sb.WriteString(s.truncateOutput(res.Content, "; the user can see the full result"))
+	return sb.String()
 }
 
 // truncateOutput shortens a tool output to MaxResultChars (with a note)
