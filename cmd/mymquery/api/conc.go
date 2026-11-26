@@ -73,11 +73,15 @@ func (a ConcordanceArgs) values() url.Values {
 }
 
 type ConcordanceResponse struct {
-	Lines      []concordance.Line `json:"lines"`
-	ConcSize   int                `json:"concSize"`
-	Corpname   string             `json:"corpname"`
-	CorpusSize int                `json:"corpusSize"`
-	IPM        float64            `json:"ipm"`
+	Lines    []concordance.Line `json:"lines"`
+	ConcSize int                `json:"concSize"`
+	Corpname string             `json:"corpname"`
+	// CorpusSize is always the whole corpus size
+	CorpusSize int `json:"corpusSize"`
+	// SubcSize is the subcorpus size (only if a subcorpus is searched)
+	SubcSize int `json:"subcSize"`
+	// IPM is relative to the subcorpus size if a subcorpus is searched
+	IPM float64 `json:"ipm"`
 }
 
 func (c *Client) Concordance(ctx context.Context, corpusID string, args ConcordanceArgs) (*ConcordanceResponse, error) {

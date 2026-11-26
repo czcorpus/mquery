@@ -278,9 +278,11 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
   struct attr `.token` coverage file (see the mktokencov follow-up)
 - `/freqs` response field `examplesQueryTpl` is never filled
 - `/collocations` with `minItems` > number of results returns an empty body (handler just returns)
-- `/concordance` in a subcorpus: `ipm` (and `corpusSize`) are relative to the whole corpus
-  (mango returns `corp->size()`, not the subcorpus `search_size()`); `/freqs` and `/collocations`
-  are correct. Needs a mango change
+- ~~`/concordance` and `/term-frequency` in a subcorpus: `ipm` relative to the whole corpus~~
+  – fixed in the server (PR #292): ipm is relative to the subcorpus, responses contain `subcSize`
+  (`corpusSize` stays the whole corpus); `/freqs` now fills its `subcSize` too
+- `/collocations` returns `subcSize` equal to the corpus size even without a subcorpus
+  (other endpoints omit it); left as is to keep the response unchanged
 
 ### Testing notes
 - unit tests: `go test ./cmd/mymquery/...` (CQL helpers, select list, collocation window)
