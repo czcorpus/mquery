@@ -32,6 +32,8 @@
 #include <cmath>
 #include <map>
 #include <algorithm>
+#include <random>
+#include <vector>
 
 using namespace std;
 
@@ -218,6 +220,46 @@ FreqsRetval freq_dist(const char* corpusPath, const char* subcPath, const char* 
     }
 }
 
+// bounded_rand returns a uniformly distributed random number from [0, n)
+// for n > 0 (rejection sampling - no modulo bias; unlike
+// std::uniform_int_distribution, the result is the same with any standard library)
+static uint64_t bounded_rand(std::mt19937_64 &gen, uint64_t n) {
+    // the largest multiple of n representable in uint64_t is 2^64 - threshold
+    const uint64_t threshold = (0 - n) % n;
+    uint64_t x;
+    do {
+        x = gen();
+    } while (x < threshold);
+    return x % n;
+}
+
+/**
+ * @brief Shuffle concordance lines in a repeatable way - the order depends
+ * only on the seed and the concordance size (on any platform).
+ *
+ * Unlike Concordance::shuffle(), it neither depends on nor changes the global
+ * rand() state (which makes the order differ between requests in a long-running
+ * worker unless a Manatee build with a fixed seed is used). The view is set
+ * via the public set_sorted_view, so any Manatee version can be used.
+ *
+ * @param conc a synced concordance
+ * @param seed
+ */
+static void shuffle_seeded(Concordance* conc, uint64_t seed) {
+    ConcIndex size = conc->size();
+    std::vector<ConcIndex> order(size);
+    for (ConcIndex i = 0; i < size; i++) {
+        order[i] = i;
+    }
+    // Fisher-Yates; std::mt19937_64 is exactly specified by the standard
+    std::mt19937_64 gen(seed);
+    for (ConcIndex i = size - 1; i > 0; i--) {
+        ConcIndex j = bounded_rand(gen, uint64_t(i) + 1);
+        std::swap(order[i], order[j]);
+    }
+    conc->set_sorted_view(order);
+}
+
 /**
  * @brief Process KWIC lines and create formatted output lines
  *
@@ -332,6 +374,7 @@ KWICRowsRetval conc_examples(
     PosInt limit,
     PosInt maxContext,
     int shuffle,
+    unsigned long long shuffleSeed,
     const char* viewContextStruct) {
 
     string cPath(corpusPath);
@@ -388,7 +431,7 @@ KWICRowsRetval conc_examples(
             return ans;
         }
         if (shuffle) {
-            conc->shuffle();
+            shuffle_seeded(conc, shuffleSeed);
         }
         PosInt concSize = conc->size();
 
@@ -495,6 +538,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
     PosInt limit,
     PosInt maxContext,
     int shuffle,
+    unsigned long long shuffleSeed,
     const char* viewContextStruct) {
 
         string cPath(corpusPath);
@@ -558,7 +602,7 @@ KWICRowsRetval conc_examples_with_coll_phrase(
             }
 
             if (shuffle) {
-                conc->shuffle();
+                shuffle_seeded(conc, shuffleSeed);
             }
             PosInt concSize = conc->size();
             if (limit + fromLine > concSize) {
