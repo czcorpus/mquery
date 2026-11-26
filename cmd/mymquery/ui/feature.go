@@ -23,6 +23,9 @@ type Env struct {
 	Chat *agent.Session
 	// ChatUnavailable explains why Chat is nil
 	ChatUnavailable string
+	// ChatNotice is an info shown at the start of the chat transcript
+	// (e.g. about helper tools)
+	ChatNotice string
 
 	// attrCache maps corpus ID => ordered positional attributes
 	attrCache map[string][]corpusAttr

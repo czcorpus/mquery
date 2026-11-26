@@ -34,6 +34,9 @@ const (
 	// entryInterim is an assistant's text produced along with tool calls
 	entryInterim
 	entryResult
+	// entryHelper is a call of a helper tool (e.g. CQL validation)
+	// which is not a stored result
+	entryHelper
 	entryError
 	entryInfo
 )
@@ -42,6 +45,13 @@ type chatEntry struct {
 	kind   chatEntryKind
 	text   string
 	result *agent.Result
+	helper *agent.HelperCall
+}
+
+// isToolLine tells whether an entry is a single line about a tool call
+// (consecutive ones are not separated by an empty line)
+func (e chatEntry) isToolLine() bool {
+	return e.kind == entryResult || e.kind == entryHelper
 }
 
 // chatEventMsg delivers a progress event of a running turn
@@ -111,13 +121,17 @@ func newChat(env *Env) chatModel {
 	ta.FocusedStyle.Prompt = accentStyle
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	return chatModel{
+	m := chatModel{
 		env:     env,
 		input:   ta,
 		vp:      viewport.New(0, 0),
 		spinner: sp,
 		md:      newMDRenderer(),
 	}
+	if env.ChatNotice != "" {
+		m.entries = append(m.entries, chatEntry{kind: entryInfo, text: env.ChatNotice})
+	}
+	return m
 }
 
 // Activate is called when the chat screen is entered; the input is focused
@@ -237,6 +251,10 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 		case agent.ToolCallDone:
 			m.activity = "thinking"
 			m.add(chatEntry{kind: entryResult, result: e.Result})
+		case agent.HelperCallDone:
+			m.activity = "thinking"
+			call := e.Call
+			m.add(chatEntry{kind: entryHelper, helper: &call})
 		case agent.PersistFailed:
 			if !m.persistWarned {
 				m.persistWarned = true
@@ -427,11 +445,15 @@ func (m *chatModel) openChat(chat agent.SavedChat) {
 // chatEntriesFromMessages creates a transcript of a conversation
 func chatEntriesFromMessages(msgs []llm.Message, store *agent.Store) []chatEntry {
 	var ans []chatEntry
+	calls := make(map[string]llm.ToolCall)
 	for _, msg := range msgs {
 		switch msg.Role {
 		case llm.RoleUser:
 			ans = append(ans, chatEntry{kind: entryUser, text: msg.Content})
 		case llm.RoleAssistant:
+			for _, c := range msg.ToolCalls {
+				calls[c.ID] = c
+			}
 			text := strings.TrimSpace(msg.Content)
 			if len(msg.ToolCalls) > 0 {
 				if text != "" {
@@ -444,12 +466,32 @@ func chatEntriesFromMessages(msgs []llm.Message, store *agent.Store) []chatEntry
 				ans = append(ans, chatEntry{kind: entryAssistant, text: text})
 			}
 		case llm.RoleTool:
-			if res, ok := store.Get(agent.ResultIDOf(msg.ToolResult.Content)); ok {
+			id := agent.ResultIDOf(msg.ToolResult.Content)
+			if id == "" {
+				// a helper tool call (its output is not stored as a result)
+				ans = append(ans, chatEntry{kind: entryHelper, helper: helperCallOf(msg, calls)})
+
+			} else if res, ok := store.Get(id); ok {
 				ans = append(ans, chatEntry{kind: entryResult, result: res})
 			}
 		}
 	}
 	return ans
+}
+
+// helperCallOf restores a helper tool call from a stored tool message
+func helperCallOf(msg llm.Message, calls map[string]llm.ToolCall) *agent.HelperCall {
+	content := msg.ToolResult.Content
+	call := &agent.HelperCall{
+		Tool:    msg.ToolResult.ToolName,
+		Content: content,
+		// (the status is not stored; failures are reported as such texts)
+		OK: !strings.HasPrefix(content, "error") && !strings.HasPrefix(content, "tool call failed"),
+	}
+	if c, ok := calls[msg.ToolResult.ToolCallID]; ok {
+		_ = json.Unmarshal([]byte(c.Args), &call.Args)
+	}
+	return call
 }
 
 func (m chatModel) updateBrowsing(msg tea.KeyMsg) (chatModel, tea.Cmd) {
@@ -533,7 +575,7 @@ func (m *chatModel) refresh(follow bool) {
 	m.links = m.links[:0]
 	var lines []string
 	for i, e := range m.entries {
-		if e.kind == entryUser || (e.kind == entryResult && (i == 0 || m.entries[i-1].kind != entryResult)) ||
+		if e.kind == entryUser || (e.isToolLine() && (i == 0 || !m.entries[i-1].isToolLine())) ||
 			e.kind == entryAssistant {
 			if len(lines) > 0 {
 				lines = append(lines, "")
@@ -592,8 +634,23 @@ func (m *chatModel) renderEntry(idx int, e chatEntry, w int) string {
 		return mutedStyle.Render(ansi.Wordwrap(e.text, w, " "))
 	case entryResult:
 		return m.renderResult(idx, e.result, w)
+	case entryHelper:
+		return renderHelperCall(e.helper, w)
 	}
 	return ""
+}
+
+// renderHelperCall renders a helper tool call as a line with the
+// (first line of the) tool's output
+func renderHelperCall(call *agent.HelperCall, w int) string {
+	mark, outStyle := "✓", mutedStyle
+	if !call.OK {
+		mark, outStyle = errorStyle.Render("✗"), errorStyle
+	}
+	out, _, _ := strings.Cut(strings.TrimSpace(call.Content), "\n")
+	line := "  " + mark + " " + call.Tool + " " + mutedStyle.Render(formatToolArgs(call.Args)) +
+		mutedStyle.Render(" → ") + outStyle.Render(out)
+	return ansi.Truncate(line, w, "…")
 }
 
 func (m *chatModel) renderResult(idx int, res *agent.Result, w int) string {

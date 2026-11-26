@@ -1,6 +1,9 @@
 package agent
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // PromptOptions provide a context of a turn for the system prompt
 type PromptOptions struct {
@@ -8,6 +11,23 @@ type PromptOptions struct {
 	CorpusID string
 	// Subcorpus is the subcorpus currently selected in the UI ("" = none)
 	Subcorpus string
+	// helperTools are names of the available helper tools
+	// (set by the session, see Toolbox.AddHelperTools)
+	helperTools []string
+}
+
+// guidance for helper tools (CQLizer); it is added to the prompt only
+// if the respective tool is available
+var helperToolsGuidance = []struct {
+	tool, text string
+}{
+	{"cql_validate", "- Before running a CQL query you have not used successfully yet, check it with\n" +
+		"  cql_validate (syntax, attributes, tagset values) and fix the reported problems first."},
+	{"build_tag_condition", "- To match parts of speech or morphological features, get the condition from\n" +
+		"  build_tag_condition (it knows the corpus tagset) instead of guessing tag patterns."},
+	{"tagset_reference", "- tagset_reference explains the values of tag-like attributes (tag, upos, feats, ...)."},
+	{"cql_eval_complexity", "- For complex queries on large corpora, cql_eval_complexity estimates whether\n" +
+		"  the query will be slow (then prefer a simpler query or a smaller corpus)."},
 }
 
 const systemPromptBase = `You are a corpus linguistics assistant embedded in MyMQuery,
@@ -38,6 +58,16 @@ Always answer in the language of the user's message (not in the language of the 
 func SystemPrompt(opts PromptOptions) string {
 	var sb strings.Builder
 	sb.WriteString(systemPromptBase)
+	var guidance []string
+	for _, g := range helperToolsGuidance {
+		if slices.Contains(opts.helperTools, g.tool) {
+			guidance = append(guidance, g.text)
+		}
+	}
+	if len(guidance) > 0 {
+		sb.WriteString("\n\nHelper tools for writing CQL queries (their outputs are not results, do not cite them):\n")
+		sb.WriteString(strings.Join(guidance, "\n"))
+	}
 	if opts.CorpusID != "" {
 		sb.WriteString("\n\nThe corpus currently selected in the UI is `")
 		sb.WriteString(opts.CorpusID)

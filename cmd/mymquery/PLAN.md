@@ -233,6 +233,22 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       `enter` opens it. Mouse reporting is enabled only on the chat screen: a click opens a link,
       the wheel scrolls (text selection in the chat then needs shift+drag in most terminals).
       References are never wrapped (spaces inside them are private-use runes while rendering)
+- [x] CQL helper tools from CQLizer (`agent/external.go`; `CQLIZER_MCP` / `-cqlizer`): an URL
+      (Streamable HTTP) or a command line of a stdio server (e.g. `cqlizer mcp-server`; it gets
+      the env file variables except mymquery's secrets, e.g. `REGISTRY_PATH`, `CQLIZER_CONF_PATH`,
+      `LOG_PATH`; its stderr is drained, the last lines are used in error messages). Offered tools:
+      `cql_validate`, `build_tag_condition`, `tagset_reference`, `cql_eval_complexity` (if
+      provided). They are "helper" tools: outputs go to the model without a result ID, are not
+      stored nor citable, and are shown as `✓/✗ tool args → output` lines (restored from saved
+      chats too). The system prompt describes only the available ones. Without CQLizer (or if it
+      fails to start), the chat works as before and a notice explains why.
+      Needs CQLizer >= v0.16.0 (`cql_validate` checks just the syntax for corpora missing in its
+      `REGISTRY_PATH`, e.g. when mymquery uses a remote MQuery).
+      First test (syn2020, Mistral): 2 failed data queries of 14 (was 8 of 21 without CQLizer).
+- [ ] CQLizer's tagset tools do not know syn2020's positional `tag` ("no known tagset"), so for
+      such corpora only `cql_validate` helps – a matter of CQLizer's tagset data/config
+- [ ] the model does not always validate before searching (e.g. a `{}` query failed unvalidated);
+      maybe validate CQL automatically before the search tools (in the session) instead
 - [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
       the regular UI when running on an internal network
 - [ ] token costs: `corpus_list` and `corpus_info` outputs are large and re-sent each iteration

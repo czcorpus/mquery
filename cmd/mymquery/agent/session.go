@@ -19,7 +19,8 @@ const (
 )
 
 // Event is a progress notification of a running turn. It is one of
-// TextStreaming, ToolCallStarted, ToolCallDone, AssistantText, PersistFailed.
+// TextStreaming, ToolCallStarted, ToolCallDone, HelperCallDone,
+// AssistantText, PersistFailed.
 type Event any
 
 // ToolCallStarted is emitted right before a tool is called
@@ -31,6 +32,20 @@ type ToolCallStarted struct {
 // ToolCallDone is emitted once a tool call finishes (also on a failure)
 type ToolCallDone struct {
 	Result *Result
+}
+
+// HelperCallDone is emitted once a helper tool call (see
+// Toolbox.AddHelperTools) finishes. Its output is not stored as a result.
+type HelperCallDone struct {
+	Call HelperCall
+}
+
+// HelperCall is a finished call of a helper tool
+type HelperCall struct {
+	Tool    string
+	Args    map[string]any
+	Content string
+	OK      bool
 }
 
 // (PersistFailed is defined in persist.go)
@@ -196,7 +211,7 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 	}
 	for range s.MaxIterations {
 		resp, err := llm.CreateCompletionWithRetry(ctx, s.backend, llm.CompletionRequest{
-			SystemPrompt:   SystemPrompt(opts),
+			SystemPrompt:   SystemPrompt(s.promptOptions(opts)),
 			Messages:       s.messages,
 			Tools:          s.tools.Defs(),
 			Temperature:    s.Temperature,
@@ -224,7 +239,7 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 			emit(AssistantText{Text: text})
 		}
 		for _, call := range resp.ToolCalls {
-			res := s.callTool(ctx, call, emit)
+			content := s.callTool(ctx, call, emit)
 			if err := ctx.Err(); err != nil {
 				return turn, err
 			}
@@ -233,7 +248,7 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 				ToolResult: llm.ToolResult{
 					ToolCallID: call.ID,
 					ToolName:   call.Name,
-					Content:    s.contentForModel(res),
+					Content:    content,
 				},
 			})
 		}
@@ -243,36 +258,57 @@ func (s *Session) loop(ctx context.Context, opts PromptOptions, emit func(Event)
 	return turn, fmt.Errorf("max. number of iterations (%d) reached without a final answer", s.MaxIterations)
 }
 
-func (s *Session) callTool(ctx context.Context, call llm.ToolCall, emit func(Event)) *Result {
+// promptOptions completes the options with the session's context
+func (s *Session) promptOptions(opts PromptOptions) PromptOptions {
+	opts.helperTools = s.tools.HelperNames()
+	return opts
+}
+
+// callTool runs a tool call and returns its output for the model
+func (s *Session) callTool(ctx context.Context, call llm.ToolCall, emit func(Event)) string {
+	helper := s.tools.IsHelper(call.Name)
 	var args map[string]any
 	if call.Args != "" {
 		if err := json.Unmarshal([]byte(call.Args), &args); err != nil {
-			res := s.store.Add(call.Name, nil, fmt.Sprintf("error parsing arguments: %v", err), false)
+			content := fmt.Sprintf("error parsing arguments: %v", err)
+			if helper {
+				emit(HelperCallDone{Call: HelperCall{Tool: call.Name, Content: content}})
+				return content
+			}
+			res := s.store.Add(call.Name, nil, content, false)
 			emit(ToolCallDone{Result: res})
-			return res
+			return s.contentForModel(res)
 		}
 	}
 	emit(ToolCallStarted{Tool: call.Name, Args: args})
 	content, ok := s.tools.Call(ctx, call.Name, args)
+	if helper {
+		emit(HelperCallDone{Call: HelperCall{Tool: call.Name, Args: args, Content: content, OK: ok}})
+		return s.truncateOutput(content, "")
+	}
 	res := s.store.Add(call.Name, args, content, ok)
 	emit(ToolCallDone{Result: res})
-	return res
+	return s.contentForModel(res)
 }
 
 // contentForModel adds the result ID and truncates long outputs
 // (the user can still see the full result in the UI)
 func (s *Session) contentForModel(res *Result) string {
-	content := res.Content
-	if s.MaxResultChars > 0 && len(content) > s.MaxResultChars {
-		cut := s.MaxResultChars
-		for cut > 0 && !utf8.RuneStart(content[cut]) {
-			cut--
-		}
-		content = content[:cut] + fmt.Sprintf(
-			"\n[... truncated, %d of %d bytes shown; the user can see the full result]",
-			cut, len(res.Content))
+	return resultIDPrefix + res.ID + "\n" +
+		s.truncateOutput(res.Content, "; the user can see the full result")
+}
+
+// truncateOutput shortens a tool output to MaxResultChars (with a note)
+func (s *Session) truncateOutput(content, note string) string {
+	if s.MaxResultChars <= 0 || len(content) <= s.MaxResultChars {
+		return content
 	}
-	return resultIDPrefix + res.ID + "\n" + content
+	cut := s.MaxResultChars
+	for cut > 0 && !utf8.RuneStart(content[cut]) {
+		cut--
+	}
+	return content[:cut] + fmt.Sprintf(
+		"\n[... truncated, %d of %d bytes shown%s]", cut, len(content), note)
 }
 
 const resultIDPrefix = "result_id: "

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"mquery/cmd/mymquery/api"
 	"mquery/cmd/mymquery/llm"
@@ -21,12 +20,15 @@ const CorpusListToolName = "corpus_list"
 
 // Toolbox provides tools of an in-process MQuery MCP server
 // (sharing the HTTP client - incl. a session cookie - with the UI)
-// along with builtin tools.
+// along with builtin tools and optional helper tools of external MCP
+// servers (see AddHelperTools).
 type Toolbox struct {
 	apiClient *api.Client
 	lang      string
 	mcpClient *client.Client
 	defs      []llm.ToolDef
+	// helpers maps helper tool names to their servers
+	helpers map[string]*ExternalServer
 }
 
 // NewToolbox starts an in-process MQuery MCP server and connects to it.
@@ -95,23 +97,10 @@ func (tb *Toolbox) Call(ctx context.Context, name string, args map[string]any) (
 	if name == CorpusListToolName {
 		return tb.corpusList(ctx)
 	}
-	req := mcp.CallToolRequest{}
-	req.Params.Name = name
-	req.Params.Arguments = args
-	res, err := tb.mcpClient.CallTool(ctx, req)
-	if err != nil {
-		return fmt.Sprintf("tool call failed: %v", err), false
+	if srv, ok := tb.helpers[name]; ok {
+		return callMCP(ctx, srv.client, name, args)
 	}
-	var sb strings.Builder
-	for _, c := range res.Content {
-		if tc, ok := c.(mcp.TextContent); ok {
-			sb.WriteString(tc.Text)
-		}
-	}
-	if res.IsError {
-		return "error: " + sb.String(), false
-	}
-	return sb.String(), true
+	return callMCP(ctx, tb.mcpClient, name, args)
 }
 
 type corpusListItem struct {
@@ -146,7 +135,8 @@ func (tb *Toolbox) corpusList(ctx context.Context) (string, bool) {
 	return string(data), true
 }
 
-// Close disconnects from the MCP server
+// Close disconnects from the MQuery MCP server
+// (external servers are closed by their owner)
 func (tb *Toolbox) Close() error {
 	return tb.mcpClient.Close()
 }

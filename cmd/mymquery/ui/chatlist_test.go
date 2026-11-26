@@ -37,18 +37,29 @@ func TestChatEntriesFromMessages(t *testing.T) {
 	store := agent.NewStoreFrom([]*agent.Result{{ID: "r1", Tool: "freqs"}, {ID: "r2", Tool: "colls"}})
 	entries := chatEntriesFromMessages([]llm.Message{
 		{Role: llm.RoleUser, Content: "q"},
-		{Role: llm.RoleAssistant, Content: "looking", ToolCalls: []llm.ToolCall{{Name: "freqs"}, {Name: "colls"}}},
+		{Role: llm.RoleAssistant, Content: "looking", ToolCalls: []llm.ToolCall{
+			{ID: "c1", Name: "freqs"}, {ID: "c2", Name: "colls"},
+			{ID: "c3", Name: "cql_validate", Args: `{"q":"[x"}`},
+		}},
 		{Role: llm.RoleTool, ToolResult: llm.ToolResult{Content: "result_id: r1\n{}"}},
 		{Role: llm.RoleTool, ToolResult: llm.ToolResult{Content: "result_id: r2\n{}"}},
-		{Role: llm.RoleTool, ToolResult: llm.ToolResult{Content: "no ID"}},
+		// a helper tool call (no stored result)
+		{Role: llm.RoleTool, ToolResult: llm.ToolResult{
+			ToolCallID: "c3", ToolName: "cql_validate", Content: "error: failed to parse query"}},
+		// a result missing in the store is skipped
+		{Role: llm.RoleTool, ToolResult: llm.ToolResult{Content: "result_id: r9\n{}"}},
 		{Role: llm.RoleAssistant, Content: "answer [r1]"},
 	}, store)
 	kinds := make([]chatEntryKind, len(entries))
 	for i, e := range entries {
 		kinds[i] = e.kind
 	}
-	assert.Equal(t, []chatEntryKind{entryUser, entryInterim, entryResult, entryResult, entryAssistant}, kinds)
+	assert.Equal(t, []chatEntryKind{
+		entryUser, entryInterim, entryResult, entryResult, entryHelper, entryAssistant}, kinds)
 	assert.Equal(t, "r2", entries[3].result.ID)
+	assert.Equal(t, &agent.HelperCall{
+		Tool: "cql_validate", Args: map[string]any{"q": "[x"}, Content: "error: failed to parse query",
+	}, entries[4].helper)
 }
 
 func TestChatListOpenAndDelete(t *testing.T) {

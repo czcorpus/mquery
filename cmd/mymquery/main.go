@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -93,6 +94,7 @@ func main() {
 		loginURL = defaultLoginURL
 	}
 	apiToken := envLookup(dotenv, "API_TOKEN")
+	cqlizerSpec := envLookup(dotenv, "CQLIZER_MCP")
 	llmCnf := llmConf{
 		backend:    envLookup(dotenv, "LLM_BACKEND"),
 		models:     envLookup(dotenv, "LLM_MODEL"),
@@ -101,7 +103,7 @@ func main() {
 	}
 	headers := make(headerFlags)
 	flag.String("env-file", envPath, "file with environment variables (API_URL, API_TOKEN, LOGIN_URL, "+
-		"LLM_BACKEND, LLM_MODEL, GEMINI_API_KEY, MISTRAL_API_KEY)")
+		"LLM_BACKEND, LLM_MODEL, GEMINI_API_KEY, MISTRAL_API_KEY, CQLIZER_MCP)")
 	flag.Bool("no-env-file", skipEnvFile, "do not read the env file (real environment variables still apply)")
 	flag.StringVar(&apiURL, "api", apiURL, "MQuery API URL (env: MQUERY_API_URL or API_URL)")
 	flag.StringVar(&loginURL, "login-url", loginURL, "login URL used when API_TOKEN is set (env: LOGIN_URL)")
@@ -115,6 +117,11 @@ func main() {
 			"empty = %q for %s, %q for %s (env: LLM_MODEL)",
 		defaultLLMModels[llmBackendGemini], llmBackendGemini,
 		defaultLLMModels[llmBackendMistral], llmBackendMistral))
+	flag.StringVar(&cqlizerSpec, "cqlizer", cqlizerSpec,
+		"CQLizer MCP server providing CQL helper tools to the AI chat: an URL (Streamable HTTP, "+
+			"e.g. http://localhost:8080/mcp) or a command line of a stdio server (e.g. \"cqlizer mcp-server\"; "+
+			"it gets the environment incl. the env file, e.g. CQLIZER_CONF_PATH, REGISTRY_PATH); "+
+			"empty = no helper tools (env: CQLIZER_MCP)")
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
 	contextWidth := flag.Int("context-width", 20, "concordance context width in tokens (max. 50)")
@@ -175,6 +182,14 @@ func main() {
 			os.Exit(1)
 		}
 		defer tools.Close()
+		if cqlizerSpec != "" {
+			// (the chat works without the helper tools, so a failure is just reported)
+			srv, notice := addCQLizer(tools, cqlizerSpec, dotenv)
+			if srv != nil {
+				defer srv.Close()
+			}
+			env.ChatNotice = notice
+		}
 		if env.DB != nil {
 			sess.Recorder = env.DB
 		}
@@ -185,6 +200,45 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// addCQLizer connects to a CQLizer MCP server and adds its helper tools.
+// It returns the server (nil on failure) and a notice for the user.
+func addCQLizer(tools *agent.Toolbox, spec string, dotenv map[string]string) (*agent.ExternalServer, string) {
+	ctx := context.Background()
+	srv, err := agent.ConnectMCP(ctx, spec, "mymquery", helperServerEnv(dotenv))
+	if err != nil {
+		return nil, "CQLizer is not available (CQL helper tools are disabled): " + err.Error()
+	}
+	added, err := tools.AddHelperTools(ctx, srv, agent.CQLizerTools)
+	if err != nil {
+		srv.Close()
+		return nil, "CQLizer is not available (CQL helper tools are disabled): " + err.Error()
+	}
+	if len(added) == 0 {
+		srv.Close()
+		return nil, "CQLizer provides none of the expected tools (" +
+			strings.Join(agent.CQLizerTools, ", ") + "), CQL helper tools are disabled"
+	}
+	return srv, "CQL helper tools (CQLizer): " + strings.Join(added, ", ")
+}
+
+// mymquerySecrets are env file variables not passed to helper servers
+var mymquerySecrets = []string{"API_TOKEN", "GEMINI_API_KEY", "MISTRAL_API_KEY"}
+
+// helperServerEnv returns env file variables for a stdio helper server
+// (e.g. CQLIZER_CONF_PATH, REGISTRY_PATH; real environment variables take
+// precedence, mymquery's secrets are not passed)
+func helperServerEnv(dotenv map[string]string) []string {
+	var ans []string
+	for k, v := range dotenv {
+		if _, ok := os.LookupEnv(k); ok || slices.Contains(mymquerySecrets, k) {
+			continue
+		}
+		ans = append(ans, k+"="+v)
+	}
+	slices.Sort(ans)
+	return ans
 }
 
 func newChatSession(client *api.Client, lang string, setup llmSetup) (*agent.Session, *agent.Toolbox, error) {
