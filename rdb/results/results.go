@@ -25,7 +25,6 @@ import (
 	"mquery/rdb"
 	"slices"
 
-	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/czcorpus/mquery-common/corp"
 	"github.com/rs/zerolog/log"
@@ -257,10 +256,14 @@ func (res *FreqDistrib) MergeWith(other *FreqDistrib) {
 // ----
 
 type ConcSizeResponse struct {
-	Total      int64          `json:"total"`
-	ARF        float64        `json:"arf"`
-	IPM        float64        `json:"ipm"`
-	CorpusSize int64          `json:"corpusSize"`
+	Total int64   `json:"total"`
+	ARF   float64 `json:"arf"`
+	// IPM is relative to the subcorpus size if a subcorpus is involved
+	IPM float64 `json:"ipm"`
+	// CorpusSize is always the whole corpus size
+	CorpusSize int64 `json:"corpusSize"`
+	// SubcSize is the subcorpus size (only if a subcorpus is involved)
+	SubcSize   int64          `json:"subcSize,omitempty"`
 	ResultType rdb.ResultType `json:"resultType"`
 	Error      error          `json:"error,omitempty"`
 } // @name ConcSize
@@ -269,7 +272,17 @@ type ConcSize struct {
 	Total      int64   `json:"total"`
 	ARF        float64 `json:"arf"`
 	CorpusSize int64   `json:"corpusSize"`
-	Error      error   `json:"error,omitempty"`
+	// SubcSize is the subcorpus size in case a subcorpus is involved
+	SubcSize int64 `json:"subcSize,omitempty"`
+	Error    error `json:"error,omitempty"`
+}
+
+// searchSize returns the size of the searched (sub)corpus
+func searchSize(corpusSize, subcSize int64) int64 {
+	if subcSize > 0 {
+		return subcSize
+	}
+	return corpusSize
 }
 
 func (res ConcSize) Err() error {
@@ -282,8 +295,8 @@ func (res ConcSize) Type() rdb.ResultType {
 
 func (res *ConcSize) MarshalJSON() ([]byte, error) {
 	var ipm float64
-	if res.CorpusSize > 0 {
-		ipm = float64(res.Total) / float64(res.CorpusSize) * 1000000
+	if size := searchSize(res.CorpusSize, res.SubcSize); size > 0 {
+		ipm = float64(res.Total) / float64(size) * 1000000
 	}
 	return json.Marshal(
 		ConcSizeResponse{
@@ -291,6 +304,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 			ARF:        rdb.NormRound(res.ARF),
 			IPM:        rdb.NormRound(ipm),
 			CorpusSize: res.CorpusSize,
+			SubcSize:   res.SubcSize,
 			ResultType: res.Type(),
 			Error:      res.Error,
 		},
@@ -367,13 +381,17 @@ func (res CollFreqData) Type() rdb.ResultType {
 // ----
 
 type ConcordanceResponse struct {
-	Lines      []concordance.Line `json:"lines"`
-	ConcSize   int                `json:"concSize"`
-	Corpname   string             `json:"corpname"`
-	CorpusSize int                `json:"corpusSize"`
-	IPM        float64            `json:"ipm"`
-	ResultType rdb.ResultType     `json:"resultType"`
-	Error      error              `json:"error,omitempty"`
+	Lines    []concordance.Line `json:"lines"`
+	ConcSize int                `json:"concSize"`
+	Corpname string             `json:"corpname"`
+	// CorpusSize is always the whole corpus size
+	CorpusSize int `json:"corpusSize"`
+	// SubcSize is the subcorpus size (only if a subcorpus is involved)
+	SubcSize int `json:"subcSize,omitempty"`
+	// IPM is relative to the subcorpus size if a subcorpus is involved
+	IPM        float64        `json:"ipm"`
+	ResultType rdb.ResultType `json:"resultType"`
+	Error      error          `json:"error,omitempty"`
 }
 
 type ConcordanceLines []concordance.Line
@@ -391,8 +409,10 @@ type Concordance struct {
 	ConcSize   int
 	Corpname   string
 	CorpusSize int
-	IPM        float64
-	Error      error
+	// SubcSize is the subcorpus size in case a subcorpus is involved
+	SubcSize int
+	IPM      float64
+	Error    error
 }
 
 func (res Concordance) Err() error {
@@ -410,11 +430,20 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 			ConcSize:   res.ConcSize,
 			Corpname:   res.Corpname,
 			CorpusSize: res.CorpusSize,
-			IPM:        util.Ternary(res.CorpusSize > 0, float64(res.ConcSize)/float64(res.CorpusSize)*1e6, 0),
+			SubcSize:   res.SubcSize,
+			IPM:        res.ipm(),
 			ResultType: res.Type(),
 			Error:      res.Error,
 		},
 	)
+}
+
+func (res Concordance) ipm() float64 {
+	size := searchSize(int64(res.CorpusSize), int64(res.SubcSize))
+	if size <= 0 {
+		return 0
+	}
+	return float64(res.ConcSize) / float64(size) * 1e6
 }
 
 // --------

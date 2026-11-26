@@ -103,6 +103,9 @@ func (w *Worker) freqDistrib(args rdb.FreqDistribArgs) results.FreqDistrib {
 	ans.Freqs = mergedFreqs
 	ans.ConcSize = freqs.ConcSize
 	ans.CorpusSize = freqs.CorpusSize
+	if args.SubcPath != "" {
+		ans.SubcSize = freqs.SubcSize
+	}
 	ans.Fcrit = args.Crit
 	return ans
 }
@@ -155,6 +158,9 @@ func (w *Worker) concSize(args rdb.ConcordanceArgs) results.ConcSize {
 	}
 	ans.Total = concSizeInfo.Value
 	ans.CorpusSize = concSizeInfo.CorpusSize
+	if args.SubcPath != "" {
+		ans.SubcSize = concSizeInfo.SearchSize
+	}
 	ans.ARF = concSizeInfo.ARF
 	return ans
 }
@@ -219,6 +225,9 @@ func (w *Worker) concordance(args rdb.ConcordanceArgs) results.Concordance {
 	}
 	ans.ConcSize = concEx.ConcSize
 	ans.CorpusSize = concEx.CorpusSize
+	if args.SubcPath != "" {
+		ans.SubcSize = concEx.SearchSize
+	}
 	return ans
 }
 
