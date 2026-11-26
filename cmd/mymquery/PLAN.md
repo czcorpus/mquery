@@ -218,7 +218,14 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       messages – tool messages are mapped to results via their `result_id:` prefix; an incomplete
       last turn offers `ctrl+r`), `d` + `y` deletes (deleting the open chat starts a new one).
       Results of a reopened chat open in their views without requerying
-- [ ] saved chats: filtering/search, renaming, opening the list right from the menu
+- [x] saved chats search (`ui/chatsearch.go`, `DB.ChatTexts`): `/` in the list, filtering as you
+      type; each word must occur somewhere in a chat (title, user messages, model texts; tool calls
+      and outputs are not searched). Case-insensitive; a character typed without diacritics
+      matches any (`kocka` finds `kočka`), with diacritics exactly (`pěs` does not find `pes`).
+      Rows show a snippet of the first match in the conversation (not in the title); `enter` keeps
+      the filter, `esc` clears it (a second `esc` closes the list). Texts are loaded once, on the
+      first search (plain scan in Go – fine for a personal DB; FTS5 would be an option for huge ones)
+- [ ] saved chats: renaming, opening the list right from the menu
 - [ ] note: `chats.updated_at` has a 1 s resolution (fine for sorting in practice)
 - [x] markdown rendering of answers (`ui/markdown.go`): glamour with its dark/light style adjusted (no
       margins, default text color, accent headings). Rendered answers are cached per width (the

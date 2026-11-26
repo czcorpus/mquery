@@ -114,3 +114,27 @@ func TestChatListAndDelete(t *testing.T) {
 	_, err = db.SaveChat(id2, agent.ChatUpdate{})
 	assert.Error(t, err, "updating a deleted chat fails")
 }
+
+func TestChatTexts(t *testing.T) {
+	db := openTestDB(t, filepath.Join(t.TempDir(), "test.db"))
+	id1, err := db.SaveChat(0, agent.ChatUpdate{
+		Info: agent.ChatInfo{Title: "Psi a kočky"},
+		Messages: []llm.Message{
+			{Role: llm.RoleUser, Content: "How frequent is pes?"},
+			{Role: llm.RoleAssistant, Content: "", ToolCalls: []llm.ToolCall{{ID: "c1", Name: "freqs", Args: `{"q":"secret"}`}}},
+			{Role: llm.RoleTool, ToolResult: llm.ToolResult{ToolCallID: "c1", Content: "result_id: r1\n{\"word\":\"tool output\"}"}},
+			{Role: llm.RoleAssistant, Content: "It is frequent [r1]."},
+		},
+	})
+	require.NoError(t, err)
+	id2, err := db.SaveChat(0, agent.ChatUpdate{Info: agent.ChatInfo{Title: "empty"}})
+	require.NoError(t, err)
+
+	texts, err := db.ChatTexts()
+	require.NoError(t, err)
+	assert.Equal(t, map[int64]string{
+		// tool calls and outputs are not searched
+		id1: "Psi a kočky\nHow frequent is pes?\nIt is frequent [r1].",
+		id2: "empty",
+	}, texts)
+}

@@ -138,7 +138,7 @@ func TestChatListWithoutDB(t *testing.T) {
 }
 
 func TestChatListRowKeepsDetails(t *testing.T) {
-	l := newChatList(nil, 0, nil)
+	l := newChatList(nil, 0, nil, nil)
 	row := l.renderRow(agent.ChatInfo{
 		Title:    strings.Repeat("long title ", 20),
 		CorpusID: "syn2020", Model: "m1", Updated: time.Now(),

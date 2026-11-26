@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"mquery/cmd/mymquery/agent"
@@ -163,6 +164,51 @@ func (d *DB) ListChats(limit int) ([]agent.ChatInfo, error) {
 		ans = append(ans, info)
 	}
 	return ans, rows.Err()
+}
+
+// ChatTexts returns texts of chats for searching: the title, the user's
+// messages and the model's texts (tool calls and their outputs are not
+// included) joined by newlines, mapped by chat IDs
+func (d *DB) ChatTexts() (map[int64]string, error) {
+	texts := make(map[int64]*strings.Builder)
+	add := func(query string, args ...any) error {
+		rows, err := d.db.Query(query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var text string
+			if err := rows.Scan(&id, &text); err != nil {
+				return err
+			}
+			sb, ok := texts[id]
+			if !ok {
+				sb = &strings.Builder{}
+				texts[id] = sb
+			} else {
+				sb.WriteString("\n")
+			}
+			sb.WriteString(text)
+		}
+		return rows.Err()
+	}
+	if err := add("SELECT id, title FROM chats"); err != nil {
+		return nil, err
+	}
+	if err := add(
+		`SELECT chat_id, content FROM chat_messages
+		WHERE role IN (?, ?) AND content != '' ORDER BY chat_id, seq`,
+		string(llm.RoleUser), string(llm.RoleAssistant),
+	); err != nil {
+		return nil, err
+	}
+	ans := make(map[int64]string, len(texts))
+	for id, sb := range texts {
+		ans[id] = sb.String()
+	}
+	return ans, nil
 }
 
 // ErrChatNotFound is returned by LoadChat for an unknown ID

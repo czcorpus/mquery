@@ -360,7 +360,7 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 			return m, nil
 		}
 		items, err := m.env.DB.ListChats(chatListMaxItems)
-		m.list = newChatList(items, m.env.Chat.ChatID(), err)
+		m.list = newChatList(items, m.env.Chat.ChatID(), err, m.env.DB.ChatTexts)
 		m.input.Blur()
 		return m, nil
 	case "pgup", "pgdown":
