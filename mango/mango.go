@@ -78,6 +78,9 @@ type GoConcordance struct {
 	AlignedLines []string
 	ConcSize     int
 	CorpusSize   int
+	// SearchSize is the size of the searched subcorpus
+	// (or the corpus size if no subcorpus is involved)
+	SearchSize int
 }
 
 // --------------------------
@@ -90,6 +93,9 @@ type GoConcSize struct {
 	Value      int64
 	ARF        float64
 	CorpusSize int64
+	// SearchSize is the size of the searched subcorpus
+	// (or the corpus size if no subcorpus is involved)
+	SearchSize int64
 }
 
 type GoCollItem struct {
@@ -128,6 +134,7 @@ func GetConcSize(corpusPath, subcPath, query string) (GoConcSize, error) {
 		return ret, err
 	}
 	ret.CorpusSize = int64(ans.corpusSize)
+	ret.SearchSize = int64(ans.searchSize)
 	ret.Value = int64(ans.value)
 	ret.ARF = float64(ans.arf)
 	return ret, nil
@@ -193,6 +200,7 @@ func GetConcordance(
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
 	ret.CorpusSize = int(ans.corpusSize)
+	ret.SearchSize = int(ans.searchSize)
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -286,6 +294,7 @@ func GetConcordanceWithCollPhrase(
 	ret.Lines = make([]string, 0, maxItems)
 	ret.ConcSize = int(ans.concSize)
 	ret.CorpusSize = int(ans.corpusSize)
+	ret.SearchSize = int(ans.searchSize)
 	if ans.err != nil {
 		err := errors.New(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))

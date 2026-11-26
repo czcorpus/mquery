@@ -64,6 +64,9 @@ typedef struct ConcSizeRetVal {
     PosInt value;
     double arf;
     PosInt corpusSize;
+    // searchSize is the size of the searched subcorpus
+    // (or the corpus size if no subcorpus is involved)
+    PosInt searchSize;
     const char * err;
 } ConcSizeRetVal;
 
@@ -105,6 +108,9 @@ typedef struct KWICRowsRetval {
     PosInt corpusSize;
     const char * err;
     int errorCode;
+    // searchSize is the size of the searched subcorpus
+    // (or the corpus size if no subcorpus is involved)
+    PosInt searchSize;
 } KWICRowsRetval;
 
 typedef struct CorpRegionRetval {

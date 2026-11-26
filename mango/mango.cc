@@ -91,6 +91,7 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* subcPath, co
     ans.err = nullptr;
     ans.value = 0;
     ans.corpusSize = 0;
+    ans.searchSize = 0;
     ans.arf = 0.0;
     Corpus* corp = nullptr;
     SubCorpus* subc = nullptr;
@@ -99,8 +100,10 @@ ConcSizeRetVal concordance_size(const char* corpusPath, const char* subcPath, co
     try {
         corp = new Corpus(cPath);
         ans.corpusSize = corp->size();
+        ans.searchSize = ans.corpusSize;
         if (subcPath && *subcPath != '\0') {
             subc = new SubCorpus(corp, subcPath);
+            ans.searchSize = subc->search_size();
             conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
 
         } else {
@@ -342,8 +345,10 @@ KWICRowsRetval conc_examples(
     try {
         corp = new Corpus(cPath);
         PosInt corpSize = corp->size();
+        PosInt searchSize = corpSize;
         if (subcPath && *subcPath != '\0') {
             subc = new SubCorpus(corp, subcPath);
+            searchSize = subc->search_size();
             conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
 
         } else {
@@ -446,7 +451,8 @@ KWICRowsRetval conc_examples(
             concSize,
             corpSize,
             nullptr,
-            0
+            0,
+            searchSize
         };
         return ans;
 
@@ -501,8 +507,10 @@ KWICRowsRetval conc_examples_with_coll_phrase(
         try {
             corp = new Corpus(cPath);
             PosInt corpSize = corp->size();
+            PosInt searchSize = corpSize;
             if (subcPath && *subcPath != '\0') {
                 subc = new SubCorpus(corp, subcPath);
+                searchSize = subc->search_size();
                 conc = new Concordance(subc, subc->filter_query(eval_cqpquery(query, subc)));
 
             } else {
@@ -626,7 +634,8 @@ KWICRowsRetval conc_examples_with_coll_phrase(
                 concSize,
                 corpSize,
                 nullptr,
-                0
+                0,
+                searchSize
             };
             return ans;
 
