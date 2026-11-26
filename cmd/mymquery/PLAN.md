@@ -31,7 +31,7 @@ cmd/mymquery/
     form.go        optionsForm (a reusable modal form)
     conc.go        concordance result view
     chat.go        AI chat screen (M5)
-    chatresult.go  stored chat results → result views (or a raw view)
+    chatresult.go  stored chat results → result views (or a generic view, see jsonview.go)
     chatlist.go    saved chats list (open / delete)
     markdown.go    markdown rendering of chat answers (glamour + cache)
     mdtable.go     markdown tables (rendered by us at their natural width)
@@ -186,8 +186,14 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       (`↑/↓`, `enter` opens, `esc` returns to the chat with the selection kept)
 - [x] results open in the regular views with the model's settings and preloaded data (no
       requery): concordance, token freqs, text types, collocations; anything else (or failed /
-      markdown / subcorpus results) in a raw (pretty JSON) view. Settings chosen by the model are
+      markdown / subcorpus results) in a generic view. Settings chosen by the model are
       not remembered as the user's session settings
+- [x] generic result view (`ui/jsonview.go`): JSON results without a dedicated view (e.g.
+      `term_frequency`, `text_types_overview`, `corpus_info`, `text_types_avail_values`) are
+      rendered readably – objects as aligned "key value" lines (nested values as titled sections),
+      arrays of records as tables (numbers right-aligned, thousands separators, 2 decimals), keys
+      in the server's order and humanized (`corpusSize` → "corpus size"), `resultType` hidden.
+      `r` toggles the raw (pretty) JSON; non-JSON results (errors) are shown as text
 - [x] header: model name and session token usage
 - [x] Mistral backend (`llm/mistral.go`, ported from NLQL, plus streaming): `LLM_BACKEND` / `-llm-backend`
       = `gemini` | `mistral` (empty = the first one with an API key: `GEMINI_API_KEY`, `MISTRAL_API_KEY`).

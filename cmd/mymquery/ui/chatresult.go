@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -145,24 +144,31 @@ func (v *ttypesView) CorpusLabel() string { return v.corpus.Label() }
 func (v *collsView) CorpusLabel() string  { return v.corpus.Label() }
 func (v *concView) CorpusLabel() string   { return v.corpus.Label() }
 
-// ---------------------------------- raw result view
+// ---------------------------------- generic result view
 
-// rawResultView shows a stored tool result as (pretty printed) text
+// rawResultView shows a stored tool result without a dedicated view:
+// JSON in a readable form (see renderJSON) or as (pretty printed) text
 type rawResultView struct {
-	res    *agent.Result
-	text   string
-	vp     viewport.Model
-	width  int
-	height int
+	res *agent.Result
+	// text is the (pretty printed) original
+	text string
+	// data is the parsed JSON (nil if the result is not JSON)
+	data *jsonNode
+	// showRaw shows the original text instead of the readable form
+	showRaw bool
+	vp      viewport.Model
+	width   int
+	height  int
 }
 
 func newRawResultView(res *agent.Result) *rawResultView {
-	text := res.Content
-	var buf bytes.Buffer
-	if json.Indent(&buf, []byte(text), "", "  ") == nil {
-		text = buf.String()
+	v := &rawResultView{res: res, text: prettyJSON(res.Content), vp: viewport.New(0, 0)}
+	if res.OK {
+		if data, err := parseOrderedJSON(res.Content); err == nil {
+			v.data = data
+		}
 	}
-	return &rawResultView{res: res, text: text, vp: viewport.New(0, 0)}
+	return v
 }
 
 func (v *rawResultView) Init() tea.Cmd { return nil }
@@ -184,11 +190,18 @@ func (v *rawResultView) SetSize(w, h int) {
 	v.width, v.height = w, h
 	v.vp.Width = max(1, w-2)
 	v.vp.Height = max(1, h-2)
-	body := v.text
-	if !v.res.OK {
-		body = errorStyle.Render(body)
+	v.refresh()
+}
+
+func (v *rawResultView) refresh() {
+	switch {
+	case v.data != nil && !v.showRaw:
+		v.vp.SetContent(renderJSON(v.data, v.vp.Width))
+	case !v.res.OK:
+		v.vp.SetContent(errorStyle.Render(ansi.Wrap(v.text, v.vp.Width, "")))
+	default:
+		v.vp.SetContent(ansi.Wrap(v.text, v.vp.Width, ""))
 	}
-	v.vp.SetContent(ansi.Wrap(body, v.vp.Width, ""))
 }
 
 func (v *rawResultView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
@@ -207,6 +220,13 @@ func (v *rawResultView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 	case "G", "end":
 		v.vp.GotoBottom()
 		return v, nil
+	case "r":
+		if v.data != nil {
+			v.showRaw = !v.showRaw
+			v.refresh()
+			v.vp.GotoTop()
+		}
+		return v, nil
 	}
 	var cmd tea.Cmd
 	v.vp, cmd = v.vp.Update(msg)
@@ -220,7 +240,14 @@ func (v *rawResultView) View() string {
 }
 
 func (v *rawResultView) Help() string {
-	return "↑/↓/pgup/pgdn scroll • g/G top/bottom • esc back • q quit"
+	toggle := ""
+	if v.data != nil {
+		toggle = " • r raw JSON"
+		if v.showRaw {
+			toggle = " • r readable form"
+		}
+	}
+	return "↑/↓/pgup/pgdn scroll • g/G top/bottom" + toggle + " • esc back • q quit"
 }
 
 func indentLines(s, prefix string) string {

@@ -128,6 +128,12 @@ func renderMDTable(text string, maxWidth int) string {
 		}
 		rows = append(rows, row)
 	}
+	return renderTable(header, rows, aligns, maxWidth)
+}
+
+// renderTable renders a table at its natural width (or narrower, up to
+// maxWidth, with wrapped cells) with a bold header and muted separators
+func renderTable(header []string, rows [][]string, aligns []lipgloss.Position, maxWidth int) string {
 	t := table.New().
 		Border(lipgloss.NormalBorder()).
 		BorderTop(false).BorderBottom(false).BorderLeft(false).BorderRight(false).
@@ -148,7 +154,7 @@ func renderMDTable(text string, maxWidth int) string {
 	if ansi.StringWidth(strings.SplitN(out, "\n", 2)[0]) > maxWidth {
 		out = t.Width(maxWidth).String()
 	}
-	lines = strings.Split(out, "\n")
+	lines := strings.Split(out, "\n")
 	for i, line := range lines {
 		lines[i] = trimRightSpaceANSI(line)
 	}
