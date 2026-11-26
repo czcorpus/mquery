@@ -24,10 +24,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Note: the paths in these tests are never accessed - the seed is computed
+// just from their components (corpus and subcorpus IDs), so the tests do not
+// depend on any files.
+
 func concArgs() ConcordanceArgs {
 	return ConcordanceArgs{
-		CorpusPath:        "/var/lib/manatee/registry/syn2020",
-		SubcPath:          "/var/lib/subc/JG/JGa4AcIg/data.subc",
+		CorpusPath:        "/example/install-a/registry/syn2020",
+		SubcPath:          "/example/install-a/subc/JG/JGa4AcIg/data.subc",
 		Query:             `[lemma="pes"]`,
 		Attrs:             []string{"word", "lemma"},
 		RowsOffset:        0,
@@ -50,17 +54,17 @@ func TestShuffleSeedSameConcordance(t *testing.T) {
 	assert.Equal(t, a.ShuffleSeed(), b.ShuffleSeed())
 
 	// installations may differ in paths
-	b.CorpusPath = "/opt/registry/syn2020"
-	b.SubcPath = "/data/subcorpora/JG/JGa4AcIg/data.subc"
+	b.CorpusPath = "/example/install-b/registry/syn2020"
+	b.SubcPath = "/example/install-b/subcorpora/JG/JGa4AcIg/data.subc"
 	assert.Equal(t, a.ShuffleSeed(), b.ShuffleSeed())
 }
 
 func TestShuffleSeedDifferentConcordances(t *testing.T) {
 	base := concArgs()
 	variants := []func(*ConcordanceArgs){
-		func(a *ConcordanceArgs) { a.CorpusPath = "/var/lib/manatee/registry/syn2015" },
+		func(a *ConcordanceArgs) { a.CorpusPath = "/example/install-a/registry/syn2015" },
 		func(a *ConcordanceArgs) { a.SubcPath = "" },
-		func(a *ConcordanceArgs) { a.SubcPath = "/var/lib/subc/LC/LcwOIcoy/data.subc" },
+		func(a *ConcordanceArgs) { a.SubcPath = "/example/install-a/subc/LC/LcwOIcoy/data.subc" },
 		func(a *ConcordanceArgs) { a.Query = `[lemma="kočka"]` },
 		func(a *ConcordanceArgs) { a.CollQuery = `[lemma="velký"]` },
 		func(a *ConcordanceArgs) { a.CollQuery = `[lemma="velký"]`; a.CollLftCtx = -3 },
@@ -84,7 +88,7 @@ func TestShuffleSeedFieldBoundaries(t *testing.T) {
 }
 
 func TestSubcorpusID(t *testing.T) {
-	assert.Equal(t, "JGa4AcIg", subcorpusID("/var/lib/subc/JG/JGa4AcIg/data.subc"))
+	assert.Equal(t, "JGa4AcIg", subcorpusID("/example/install-a/subc/JG/JGa4AcIg/data.subc"))
 	assert.Equal(t, "", subcorpusID(""))
-	assert.Equal(t, "/x/foo.subc", subcorpusID("/x/foo.subc"))
+	assert.Equal(t, "/example/foo.subc", subcorpusID("/example/foo.subc"))
 }
