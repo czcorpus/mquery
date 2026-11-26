@@ -160,6 +160,7 @@ func GetConcordance(
 	refs []string,
 	fromLine, maxItems, maxContext int,
 	shuffle bool,
+	shuffleSeed uint64,
 	viewContextStruct string,
 ) (GoConcordance, error) {
 	if fromLine < 0 {
@@ -195,6 +196,7 @@ func GetConcordance(
 		C.longlong(maxItems),
 		C.longlong(maxContext),
 		shuffleInt,
+		C.ulonglong(shuffleSeed),
 		cs.new(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
@@ -252,6 +254,7 @@ func GetConcordanceWithCollPhrase(
 	refs []string,
 	fromLine, maxItems, maxContext int,
 	shuffle bool,
+	shuffleSeed uint64,
 	viewContextStruct string,
 ) (GoConcordance, error) {
 	if fromLine < 0 {
@@ -289,6 +292,7 @@ func GetConcordanceWithCollPhrase(
 		C.longlong(maxItems),
 		C.longlong(maxContext),
 		shuffleInt,
+		C.ulonglong(shuffleSeed),
 		cs.new(viewContextStruct))
 	var ret GoConcordance
 	ret.Lines = make([]string, 0, maxItems)
