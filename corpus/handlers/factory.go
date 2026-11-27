@@ -19,9 +19,9 @@
 package handlers
 
 import (
-	"mquery/cnf"
-	"mquery/corpus/infoload"
-	"mquery/rdb"
+	"github.com/czcorpus/mquery/cnf"
+	"github.com/czcorpus/mquery/corpus/infoload"
+	"github.com/czcorpus/mquery/rdb"
 )
 
 func NewActions(

@@ -26,7 +26,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"mquery/merror"
+	"github.com/czcorpus/mquery/merror"
 	"strconv"
 	"strings"
 	"unicode"

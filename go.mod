@@ -1,4 +1,4 @@
-module mquery
+module github.com/czcorpus/mquery
 
 go 1.25.5
 

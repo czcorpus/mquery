@@ -19,7 +19,7 @@
 package cnf
 
 import (
-	"mquery/general"
+	"github.com/czcorpus/mquery/general"
 	"net/http/httptest"
 	"testing"
 

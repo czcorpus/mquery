@@ -20,9 +20,9 @@ package worker
 
 import (
 	"fmt"
-	"mquery/mango"
-	"mquery/merror"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/mango"
+	"github.com/czcorpus/mquery/merror"
+	"github.com/czcorpus/mquery/rdb/results"
 	"sort"
 	"strings"
 )

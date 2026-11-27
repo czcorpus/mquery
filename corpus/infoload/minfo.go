@@ -18,8 +18,8 @@
 package infoload
 
 import (
-	"mquery/corpus"
-	"mquery/mango"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/mango"
 	"strings"
 
 	"github.com/czcorpus/mquery-common/corp"

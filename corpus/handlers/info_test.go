@@ -20,7 +20,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"mquery/corpus"
+	"github.com/czcorpus/mquery/corpus"
 	"testing"
 
 	"github.com/czcorpus/mquery-common/corp"

@@ -20,7 +20,7 @@ package rdb
 
 import (
 	"errors"
-	"mquery/merror"
+	"github.com/czcorpus/mquery/merror"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

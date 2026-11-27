@@ -22,9 +22,9 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"mquery/corpus"
-	"mquery/rdb"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 	"net/http"
 	"reflect"
 	"strconv"

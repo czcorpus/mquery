@@ -3,8 +3,8 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/czcorpus/mquery/general"
 	"io"
-	"mquery/general"
 	"net/http"
 	"net/url"
 	"strings"

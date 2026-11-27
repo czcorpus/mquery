@@ -19,9 +19,9 @@
 package handlers
 
 import (
-	"mquery/corpus"
-	"mquery/rdb"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"

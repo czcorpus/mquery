@@ -20,11 +20,11 @@ package worker
 
 import (
 	"fmt"
-	"mquery/corpus/infoload"
-	"mquery/mango"
-	"mquery/merror"
-	"mquery/rdb"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/corpus/infoload"
+	"github.com/czcorpus/mquery/mango"
+	"github.com/czcorpus/mquery/merror"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 	"path/filepath"
 	"strings"
 

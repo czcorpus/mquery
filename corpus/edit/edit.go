@@ -21,9 +21,9 @@ package edit
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/mango"
 	"math"
-	"mquery/corpus"
-	"mquery/mango"
 	"os"
 	"path/filepath"
 

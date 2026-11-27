@@ -19,7 +19,7 @@ package main
 
 import (
 	"errors"
-	"mquery/cnf"
+	"github.com/czcorpus/mquery/cnf"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"

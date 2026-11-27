@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/czcorpus/mquery/corpus"
 	"io"
-	"mquery/corpus"
 	"net/http"
 	"os"
 	"path/filepath"

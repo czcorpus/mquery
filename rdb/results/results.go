@@ -20,9 +20,9 @@ package results
 
 import (
 	"encoding/json"
+	"github.com/czcorpus/mquery/mango"
+	"github.com/czcorpus/mquery/rdb"
 	"math"
-	"mquery/mango"
-	"mquery/rdb"
 	"slices"
 
 	"github.com/czcorpus/mquery-common/concordance"

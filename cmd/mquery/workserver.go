@@ -19,9 +19,9 @@ package main
 
 import (
 	"context"
-	"mquery/cnf"
-	"mquery/rdb"
-	"mquery/worker"
+	"github.com/czcorpus/mquery/cnf"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/worker"
 	"os"
 	"os/signal"
 	"strconv"

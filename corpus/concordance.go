@@ -19,7 +19,7 @@
 package corpus
 
 import (
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/rdb/results"
 
 	"github.com/czcorpus/mquery-common/corp"
 )

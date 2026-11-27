@@ -24,7 +24,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"mquery/merror"
+	"github.com/czcorpus/mquery/merror"
 	"strings"
 	"time"
 
