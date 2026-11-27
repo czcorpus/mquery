@@ -20,7 +20,7 @@ package corpus
 
 import (
 	"fmt"
-	"mquery/mango"
+	"github.com/czcorpus/mquery/mango"
 )
 
 type DBInfo struct {

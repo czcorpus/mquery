@@ -20,8 +20,8 @@
 package monitoring
 
 import (
-	"time"
 	"encoding/json"
+	"time"
 )
 
 // ---

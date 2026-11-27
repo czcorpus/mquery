@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mquery/general"
-	"mquery/mcp"
+	"github.com/czcorpus/mquery/general"
+	"github.com/czcorpus/mquery/mcp"
 
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/mcptools"

@@ -20,8 +20,8 @@ package rdb
 
 import (
 	"encoding/json"
+	"github.com/czcorpus/mquery/merror"
 	"math"
-	"mquery/merror"
 	"strings"
 	"time"
 )

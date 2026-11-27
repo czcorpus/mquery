@@ -20,12 +20,12 @@ package handlers
 
 import (
 	"fmt"
-	"mquery/cnf"
-	"mquery/corpus"
-	"mquery/corpus/edit"
-	"mquery/corpus/infoload"
-	"mquery/rdb"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/cnf"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/corpus/edit"
+	"github.com/czcorpus/mquery/corpus/infoload"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 	"net/http"
 	"sync"
 

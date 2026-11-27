@@ -37,13 +37,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
-	"mquery/cmd/mquery/docs"
-	"mquery/cnf"
-	"mquery/corpus/handlers"
-	"mquery/general"
-	"mquery/merror"
-	"mquery/rdb"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/cmd/mquery/docs"
+	"github.com/czcorpus/mquery/cnf"
+	"github.com/czcorpus/mquery/corpus/handlers"
+	"github.com/czcorpus/mquery/general"
+	"github.com/czcorpus/mquery/merror"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 )
 
 const (

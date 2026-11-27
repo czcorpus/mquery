@@ -21,9 +21,9 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"mquery/mango"
-	"mquery/rdb"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/mango"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 	"net/http"
 	"reflect"
 	"strings"

@@ -21,7 +21,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"mquery/corpus"
+	"github.com/czcorpus/mquery/corpus"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"

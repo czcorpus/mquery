@@ -20,8 +20,8 @@ package transform
 
 import (
 	"fmt"
-	"mquery/corpus"
-	"mquery/rdb/results"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/rdb/results"
 	"strings"
 
 	"github.com/czcorpus/mquery-common/concordance"

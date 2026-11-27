@@ -20,7 +20,7 @@ package monitoring
 
 import (
 	"context"
-	"mquery/rdb"
+	"github.com/czcorpus/mquery/rdb"
 	"time"
 
 	"github.com/czcorpus/hltscl"

@@ -21,10 +21,10 @@ package worker
 import (
 	"context"
 	"fmt"
+	"github.com/czcorpus/mquery/merror"
+	"github.com/czcorpus/mquery/rdb"
+	"github.com/czcorpus/mquery/rdb/results"
 	"math/rand"
-	"mquery/merror"
-	"mquery/rdb"
-	"mquery/rdb/results"
 	"os/exec"
 	"time"
 

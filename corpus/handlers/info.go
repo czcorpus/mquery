@@ -20,9 +20,9 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/czcorpus/mquery/corpus"
+	"github.com/czcorpus/mquery/rdb/results"
 	"maps"
-	"mquery/corpus"
-	"mquery/rdb/results"
 	"net/http"
 	"slices"
 
