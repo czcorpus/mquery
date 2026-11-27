@@ -26,6 +26,19 @@ type Env struct {
 	// ChatNotice is an info shown at the start of the chat transcript
 	// (e.g. about helper tools)
 	ChatNotice string
+	// ChatBackends are the AI chat backends the user can choose from
+	ChatBackends []ChatBackend
+	// ChatConfigure creates a new chat session for a setup chosen in the UI
+	// (it returns a notice for the user, e.g. about the saved setup)
+	ChatConfigure func(setup ChatSetup) (*agent.Session, string, error)
+	// ChatCurrent is the current setup (without the API key)
+	ChatCurrent ChatSetup
+	// ChatConfigPath is where the setup can be saved ("" = unknown)
+	ChatConfigPath string
+
+	// StartupNotice is a warning shown in the menu at startup
+	// (e.g. about configuration files readable by other users)
+	StartupNotice string
 
 	// attrCache maps corpus ID => ordered positional attributes
 	attrCache map[string][]corpusAttr
@@ -204,3 +217,33 @@ func DefaultFeatures() []Feature {
 type backMsg struct{}
 
 func goBack() tea.Msg { return backMsg{} }
+
+// ChatBackend describes an AI chat backend
+type ChatBackend struct {
+	ID    string
+	Label string
+	// DefaultModels is a comma separated list of the default models
+	DefaultModels string
+	// KeyName is the variable with the API key
+	KeyName string
+	// KeyOptional means the backend works without an API key
+	KeyOptional bool
+	// HasURL means the backend needs a server URL (see ChatSetup.URL)
+	HasURL bool
+	// DefaultURL is the URL used if none is set
+	DefaultURL string
+}
+
+// ChatSetup is an AI chat configuration chosen by the user
+type ChatSetup struct {
+	Backend string
+	// Models is a comma separated list of models ("" = the defaults)
+	Models string
+	// APIKey is the key ("" = the currently configured one)
+	APIKey string
+	// URL is the server of a backend with ChatBackend.HasURL
+	// ("" = ChatBackend.DefaultURL)
+	URL string
+	// Save saves the setup (incl. the key) to the user's configuration
+	Save bool
+}

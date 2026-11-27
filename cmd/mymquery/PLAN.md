@@ -200,8 +200,15 @@ A chat with an LLM which queries MQuery via an in-process MQuery MCP server
       `LLM_MODEL` empty = per-backend defaults (Mistral: `mistral-medium-latest,mistral-small-latest`).
       Fallback models on 429/5xx work the same as for Gemini (`llm/models.go`). Reasoning models return
       content as chunk arrays; they are replayed as `Opaque` (rebuilt from the parts when streaming)
-- [ ] more backends: OpenAI-compatible (llama.cpp), Anthropic (nlql has them); they can
-      implement just `llm.Backend` first and `StreamCompletion` later
+- [x] OpenAI-compatible backend (`llm/openai.go`, go-openai as in NLQL, plus streaming): `LLM_BACKEND=openai`,
+      server `OPENAI_API_URL` / `-llm-url` (default llama-server's `http://localhost:8080/v1`), optional
+      `OPENAI_API_KEY` sent as a Bearer token (llama-server `--api-key`). Empty `LLM_MODEL` = the first model
+      from `/v1/models` (looked up lazily on the first request, so a server that is down does not break the
+      startup). Auto-selection (empty `LLM_BACKEND`) picks it only if `OPENAI_API_URL` is set and no
+      Gemini/Mistral key is. `chat_template_kwargs.enable_thinking` is sent (except to api.openai.com);
+      `reasoning_content` is ignored. The setup form shows a "Server URL" field for this backend only
+      (`formField.shownIf`)
+- [ ] Anthropic backend (nlql has it); it can implement just `llm.Backend` first and `StreamCompletion` later
 - [x] streaming of answers: optional `llm.StreamingBackend` (Gemini: `GenerateContentStream`; request
       building and response parsing are shared with the non-streaming call). The callback gets the
       accumulated text, a retried attempt starts with `""` (= discard the partial text). The agent

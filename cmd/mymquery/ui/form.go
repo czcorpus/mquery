@@ -25,6 +25,8 @@ type formField struct {
 	// and normalizes the value
 	input textinput.Model
 	parse func(string) (string, error)
+	// visible tells whether the field is shown (nil = always)
+	visible func() bool
 }
 
 func newChoiceField(label, hint string, options []selectItem, current string) *formField {
@@ -45,6 +47,36 @@ func newInputField(label, hint, value string, parse func(string) (string, error)
 	ti.SetValue(value)
 	ti.CursorEnd()
 	return &formField{label: label, hint: hint, input: ti, parse: parse}
+}
+
+// withCharLimit sets the max. length of an input field (0 = no limit)
+func (f *formField) withCharLimit(n int) *formField {
+	f.input.CharLimit = n
+	return f
+}
+
+// withPlaceholder sets a text shown in an empty input field
+func (f *formField) withPlaceholder(s string) *formField {
+	f.input.Placeholder = s
+	return f
+}
+
+// shownIf makes the field visible only if cond returns true (it is
+// evaluated on each change of the form, e.g. on a value of another field)
+func (f *formField) shownIf(cond func() bool) *formField {
+	f.visible = cond
+	return f
+}
+
+func (f *formField) isVisible() bool {
+	return f.visible == nil || f.visible()
+}
+
+// masked hides the typed value (e.g. a password)
+func (f *formField) masked() *formField {
+	f.input.EchoMode = textinput.EchoPassword
+	f.input.EchoCharacter = '•'
+	return f
 }
 
 func (f *formField) isChoice() bool {
@@ -68,6 +100,8 @@ type optionsForm struct {
 	fields []*formField
 	focus  int
 	err    string
+	// minWidth is the min. inner width (0 = as needed by the fields)
+	minWidth int
 }
 
 func newOptionsForm(title string, fields ...*formField) *optionsForm {
@@ -89,6 +123,19 @@ func (f *optionsForm) setFocus(i int) {
 			fld.input.Blur()
 		}
 	}
+}
+
+// moveFocus moves the focus to the next/previous (d = 1/-1) visible field
+func (f *optionsForm) moveFocus(d int) {
+	i := f.focus
+	for range f.fields {
+		i += d
+		n := len(f.fields)
+		if f.fields[((i%n)+n)%n].isVisible() {
+			break
+		}
+	}
+	f.setFocus(i)
 }
 
 // values returns validated values of all the fields (in the field order);
@@ -121,10 +168,10 @@ func (f *optionsForm) Update(msg tea.KeyMsg) selectResult {
 		}
 		return selectChosen
 	case "up", "shift+tab":
-		f.setFocus(f.focus - 1)
+		f.moveFocus(-1)
 		return selectPending
 	case "down", "tab":
-		f.setFocus(f.focus + 1)
+		f.moveFocus(1)
 		return selectPending
 	case "left", "right", " ":
 		if fld.isChoice() {
@@ -153,10 +200,17 @@ func (f *optionsForm) View(maxWidth int) string {
 		}
 	}
 	innerW := max(selectMinWidth, min(labelW+3+valueW, maxWidth-6, selectMaxWidth))
+	if f.minWidth > innerW {
+		innerW = min(f.minWidth, maxWidth-6)
+		valueW = max(valueW, innerW-labelW-3)
+	}
 
 	var b strings.Builder
 	b.WriteString(titleStyle.Render(f.title) + "\n\n")
 	for i, fld := range f.fields {
+		if !fld.isVisible() {
+			continue
+		}
 		focused := i == f.focus
 		marker, labStyle := "  ", mutedStyle
 		if focused {

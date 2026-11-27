@@ -83,6 +83,7 @@ func NewApp(env *Env) *App {
 	features := DefaultFeatures()
 	history := newQueryHistory(env.DB, env.HistorySize)
 	menu := newMenu(features)
+	menu.notice = env.StartupNotice
 	if err := history.Load(); err != nil {
 		menu.notice = "failed to load query history: " + err.Error()
 	}
@@ -142,6 +143,7 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width, a.height = msg.Width, msg.Height
+		a.menu.width = a.width - 2*bodyPadX
 		a.corpSel.SetSize(a.width, a.bodyHeight())
 		a.query.SetSize(a.width, a.bodyHeight())
 		a.chat.SetSize(a.width, a.bodyHeight())
@@ -178,7 +180,14 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case featureSelectedMsg:
 		if a.features[msg.idx].Chat {
 			if a.env.Chat == nil {
-				a.menu.notice = a.env.ChatUnavailable
+				if a.env.ChatConfigure == nil {
+					a.menu.notice = a.env.ChatUnavailable
+					return a, nil
+				}
+				// no API key configured => the user can set the chat up now
+				a.featureIdx = msg.idx
+				a.screen = scrChat
+				a.chat.openSetup()
 				return a, nil
 			}
 			a.featureIdx = msg.idx

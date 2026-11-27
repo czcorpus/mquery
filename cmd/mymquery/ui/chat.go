@@ -102,6 +102,8 @@ type chatModel struct {
 	canRetry bool
 	// list shows saved chats instead of the transcript (nil = not shown)
 	list *chatList
+	// setup is the AI chat setup form (nil = not shown)
+	setup *optionsForm
 	// md renders the answers (markdown)
 	md *mdRenderer
 	// persistWarned is true if the running turn already reported
@@ -301,6 +303,9 @@ func (m chatModel) Update(msg tea.Msg) (chatModel, tea.Cmd) {
 		return m.updateMouse(msg)
 
 	case tea.KeyMsg:
+		if m.setup != nil {
+			return m.updateSetup(msg)
+		}
 		if m.list != nil {
 			return m.updateList(msg)
 		}
@@ -350,6 +355,9 @@ func (m chatModel) updateInput(msg tea.KeyMsg) (chatModel, tea.Cmd) {
 		} else {
 			m.add(chatEntry{kind: entryInfo, text: "── new conversation ──"})
 		}
+		return m, nil
+	case "ctrl+l":
+		m.openSetup()
 		return m, nil
 	case "ctrl+o":
 		if m.running {
@@ -723,6 +731,9 @@ func formatToolArgs(args map[string]any) string {
 }
 
 func (m chatModel) View() string {
+	if m.setup != nil {
+		return placeOverlay(m.vp.View(), m.setup.View(m.width), m.width, m.height)
+	}
 	if m.list != nil {
 		return m.list.View(m.vp.Width, m.listHeight())
 	}
@@ -734,6 +745,9 @@ func (m chatModel) View() string {
 }
 
 func (m chatModel) Help() string {
+	if m.setup != nil {
+		return m.setup.Help()
+	}
 	if m.list != nil {
 		return m.list.Help()
 	}
@@ -747,7 +761,7 @@ func (m chatModel) Help() string {
 	if m.canRetry {
 		retry = " • ctrl+r retry"
 	}
-	return "enter send" + retry + " • alt+enter newline • tab browse results • click a result/reference to open it • pgup/pgdn scroll • ctrl+n new conversation • ctrl+o saved chats • esc menu"
+	return "enter send" + retry + " • alt+enter newline • tab browse results • click a result/reference to open it • pgup/pgdn scroll • ctrl+n new conversation • ctrl+o saved chats • ctrl+l model/API key • esc menu"
 }
 
 // chatSubmitMsg asks the app to submit the chat input or to retry the last
