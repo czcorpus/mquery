@@ -41,6 +41,8 @@ type ttLoadedMsg struct {
 	args   api.TextTypesArgs
 	resp   *api.FreqsResponse
 	err    error
+	// preloaded is true for data not fetched by the view itself
+	preloaded bool
 }
 
 // loadTTAttrOptions combines configured text properties (incl. attributes
@@ -108,7 +110,7 @@ func parseStructAttr(s string) (string, error) {
 type ttypesView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	width  int
 	height int
@@ -137,11 +139,14 @@ type ttypesView struct {
 
 	table freqTable
 
+	// preloaded is a response to be used instead of the first fetch
+	preloaded *api.FreqsResponse
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func newTTypesView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newTTypesView(env *Env, corpus searchTarget, query string) ResultView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -176,11 +181,14 @@ func (v *ttypesView) Init() tea.Cmd {
 	)
 }
 
-// setAttrOptions chooses the attribute (last used => configured default) and
-// starts the calculation. With no known attribute, the picker is opened.
+// setAttrOptions chooses the attribute (preset => last used => configured
+// default) and starts the calculation. With no known attribute, the picker
+// is opened.
 func (v *ttypesView) setAttrOptions(opts ttAttrOptions) tea.Cmd {
 	v.attrOpts = opts
-	v.attr = v.env.ttAttr[v.corpus.ID]
+	if v.attr == "" {
+		v.attr = v.env.ttAttr[v.corpus.ID]
+	}
 	if v.attr == "" {
 		v.attr = opts.defaultAttr
 	}
@@ -213,10 +221,17 @@ func (v *ttypesView) fetch() tea.Cmd {
 	reqID, viewID := v.reqID, v.id
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.TextTypesArgs{
-		Query:    v.query,
-		Attr:     v.attr,
-		MaxItems: v.maxItems,
-		FLimit:   v.flimit,
+		Query:     v.query,
+		Subcorpus: v.corpus.Subc,
+		Attr:      v.attr,
+		MaxItems:  v.maxItems,
+		FLimit:    v.flimit,
+	}
+	if resp := v.preloaded; resp != nil {
+		v.preloaded = nil
+		return func() tea.Msg {
+			return ttLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, preloaded: true}
+		}
 	}
 	return tea.Batch(
 		v.spinner.Tick,
@@ -258,10 +273,12 @@ func (v *ttypesView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		}
 		v.resp = msg.resp
 		v.respArgs = msg.args
-		// remember only settings which work
-		v.env.ttAttr[v.corpus.ID] = v.attr
-		v.env.ttMaxItems = v.maxItems
-		v.env.ttFLimit = v.flimit
+		// remember only settings which work (and which were chosen by the user)
+		if !msg.preloaded {
+			v.env.ttAttr[v.corpus.ID] = v.attr
+			v.env.ttMaxItems = v.maxItems
+			v.env.ttFLimit = v.flimit
+		}
 		v.table.valueHeader = v.attr
 		v.table.setData(msg.resp.Freqs, msg.resp.ConcSize)
 		return v, nil

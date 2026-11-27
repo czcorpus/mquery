@@ -24,12 +24,15 @@ type freqsLoadedMsg struct {
 	args   api.FreqsArgs
 	resp   *api.FreqsResponse
 	err    error
+	// preloaded is true for data not fetched by the view itself
+	// (e.g. a stored AI chat result)
+	preloaded bool
 }
 
 type freqsView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	width  int
 	height int
@@ -59,11 +62,14 @@ type freqsView struct {
 
 	table freqTable
 
+	// preloaded is a response to be used instead of the first fetch
+	preloaded *api.FreqsResponse
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func newFreqsView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newFreqsView(env *Env, corpus searchTarget, query string) ResultView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -109,10 +115,10 @@ func (v *freqsView) tableHeight() int {
 	return max(2, v.height-freqsSummaryHeight)
 }
 
-// chooseAttr picks the last used attribute for the corpus,
-// then `lemma` (= the server default), then `word`
+// chooseAttr picks the preset attribute (if any), the last used attribute
+// for the corpus, then `lemma` (= the server default), then `word`
 func (v *freqsView) chooseAttr() {
-	for _, a := range []string{v.env.freqAttr[v.corpus.ID], "lemma", "word"} {
+	for _, a := range []string{v.attr, v.env.freqAttr[v.corpus.ID], "lemma", "word"} {
 		if a != "" && (len(v.attrs) == 0 || slices.Contains(v.attrs, a)) {
 			v.attr = a
 			return
@@ -129,10 +135,17 @@ func (v *freqsView) fetch() tea.Cmd {
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.FreqsArgs{
 		Query:     v.query,
+		Subcorpus: v.corpus.Subc,
 		Attr:      v.attr,
 		MatchCase: v.matchCase,
 		MaxItems:  v.maxItems,
 		FLimit:    v.flimit,
+	}
+	if resp := v.preloaded; resp != nil {
+		v.preloaded = nil
+		return func() tea.Msg {
+			return freqsLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, preloaded: true}
+		}
 	}
 	return tea.Batch(
 		v.spinner.Tick,
@@ -150,7 +163,7 @@ func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		if msg.err == nil {
-			v.env.attrCache[msg.corpusID] = msg.attrs
+			v.env.storeCorpusInfo(msg)
 			v.attrs = attrNames(msg.attrs)
 		} else {
 			// we can still try the server default, just without attr switching
@@ -172,11 +185,13 @@ func (v *freqsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		}
 		v.resp = msg.resp
 		v.respArgs = msg.args
-		// remember only settings which work
-		v.env.freqAttr[v.corpus.ID] = v.attr
-		v.env.freqMatchCase = v.matchCase
-		v.env.freqMaxItems = v.maxItems
-		v.env.freqFLimit = v.flimit
+		// remember only settings which work (and which were chosen by the user)
+		if !msg.preloaded {
+			v.env.freqAttr[v.corpus.ID] = v.attr
+			v.env.freqMatchCase = v.matchCase
+			v.env.freqMaxItems = v.maxItems
+			v.env.freqFLimit = v.flimit
+		}
 		v.table.valueHeader = v.attr
 		v.table.setData(msg.resp.Freqs, msg.resp.ConcSize)
 		return v, nil

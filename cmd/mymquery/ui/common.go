@@ -50,12 +50,23 @@ func pushResult(v ResultView) tea.Cmd {
 	return func() tea.Msg { return pushResultMsg{view: v} }
 }
 
-// corpusAttrsMsg delivers positional attributes of a corpus (in the corpus order)
+// corpusAttrsMsg delivers positional attributes and structures of a corpus
+// (in the corpus order)
 type corpusAttrsMsg struct {
 	viewID   int
 	corpusID string
 	attrs    []corpusAttr
+	structs  []corpusAttr
 	err      error
+}
+
+// storeCorpusInfo caches the attributes and structures from a successful msg
+func (env *Env) storeCorpusInfo(msg corpusAttrsMsg) {
+	env.attrCache[msg.corpusID] = msg.attrs
+	if msg.structs == nil {
+		msg.structs = []corpusAttr{} // known to be empty
+	}
+	env.structCache[msg.corpusID] = msg.structs
 }
 
 // fetchCorpusAttrs loads positional attributes of a corpus via /info.
@@ -67,7 +78,8 @@ func fetchCorpusAttrs(env *Env, ctx context.Context, corpusID string, viewID int
 		if err != nil {
 			return corpusAttrsMsg{viewID: viewID, corpusID: corpusID, err: err}
 		}
-		return corpusAttrsMsg{viewID: viewID, corpusID: corpusID, attrs: info.AttrList}
+		return corpusAttrsMsg{
+			viewID: viewID, corpusID: corpusID, attrs: info.AttrList, structs: info.StructList}
 	}
 }
 

@@ -2,8 +2,9 @@
 
 A Bubble Tea based TUI client for the MQuery HTTP API. It is a pure HTTP
 client: it uses only the public GET endpoints, no CGO and no `mquery/*`
-server packages. Response types are taken from `mquery-common` where
-possible.
+server packages (the only exception is the CGO-free `mquery/mcp` package,
+embedded for the AI chat). Response types are taken from `mquery-common`
+where possible.
 
 ```
 go build -o mymquery ./cmd/mymquery
@@ -25,7 +26,21 @@ cmd/mymquery/
     menu.go        function menu
     corpsel.go     corpus selection (filterable list)
     query.go       query input
+    subc.go        subcorpus picker (ctrl+s in the query input)
+    concopts.go    concordance options (form)
+    form.go        optionsForm (a reusable modal form)
     conc.go        concordance result view
+    chat.go        AI chat screen (M5)
+    chatresult.go  stored chat results → result views (or a generic view, see jsonview.go)
+    chatlist.go    saved chats list (open / delete)
+    markdown.go    markdown rendering of chat answers (glamour + cache)
+    mdtable.go     markdown tables (rendered by us at their natural width)
+  llm/             provider-neutral chat completion + tool calling (ported from NLQL)
+    genai.go       Gemini backend
+    mistral.go     Mistral backend (plain HTTP + SSE, ported from NLQL)
+    models.go      primary + fallback models (shared by the backends)
+  agent/           AI chat: in-process MQuery MCP server, agent loop, result store
+  storage/         local SQLite DB: query history, saved chats
 ```
 
 Every function is a `Feature` with its own `ResultView`. The app shell
@@ -46,11 +61,27 @@ change it.
 - [x] corpus selection from `/corplist` (filterable with `/`)
 - [x] query input (CQL; prefilled with the last query, shared by features with the same `QueryType`)
 - [x] query history (`ui/history.go`): submitted CQL queries, deduplicated, max. `-history-size`
-      (default 100), stored in `-history-file` (default `$XDG_STATE_HOME/mymquery/history`,
-      one query per line; empty = memory only). `↑/↓` (`ctrl+p/n`) browse it in the query input,
+      (default 100), stored in the local DB (see below; `-db ""` = memory only). `↑/↓` (`ctrl+p/n`) browse it in the query input,
       going past the newest restores the typed draft. The last stored query prefills the input
       on startup
 - [x] header showing function / corpus / query, contextual footer help
+- [x] local SQLite database (`storage/`, pure Go `modernc.org/sqlite`, pinned to v1.59 as newer
+      versions require go 1.26): `-db` (default `$XDG_STATE_HOME/mymquery/mymquery.db`), WAL +
+      busy timeout so more instances can share it, migrations tracked by `PRAGMA user_version`.
+      Table `queries` logs every submitted query with time, corpus and feature (`Feature.ID`);
+      the history shows distinct queries ordered by their last use
+- [x] subcorpus selection (`ui/subc.go`, `ctrl+s` in the query input). Only IDs are used: the CNC
+      information system with subcorpus metadata is not accessible, and MQuery resolves an ID
+      itself (configured alias first, then `<savedSubcorporaDir>/<ID[:2]>/<ID>/data.subc`). The picker
+      offers the whole corpus, configured aliases (from `/corplist`), saved subcorpora used before
+      (local DB table `subcorpora`: size, last use, optional label via `ctrl+r`, `ctrl+x` forgets one)
+      and a typed ID. Saved ones are verified via MQuery's `/subcorpus/:corpusId/:subcorpusId` before
+      they are accepted (unknown → 404; a `.subc` spanning beyond the corpus end → 422 – the file has
+      no reference to its corpus, so this is the only possible check). The choice is session state
+      (`searchTarget` = corpus + subcorpus): shown in the header (`syn2020 / ID`) and on the query
+      screen (size, % of the corpus), sent with all requests, inherited by drill-downs, included in
+      CSV file name hashes and logged in `queries.subcorpus`. Selecting a different corpus resets it.
+      The AI chat gets it in the system prompt
 - [x] HTTP errors shown inline (MQuery's `{"error": ...}` is decoded)
 - [x] `.env` support (`-env-file`, default `./.env`; `-no-env-file` skips it; real env vars take precedence):
       `API_URL` (or `MQUERY_API_URL`), `API_TOKEN`, `LOGIN_URL` (default `https://korpus.cz/login`).
@@ -69,10 +100,18 @@ change it.
 - [x] `a` opens a picker for the attribute displayed in the lines (word, lemma, tag …),
       attribute order, sizes and descriptions are taken from `/info/:corpusId`
 - [x] lines with `errMsg` are shown as errors and are not dropped
-- [ ] options form: contextWidth, contextStruct, noShuffle, subcorpus, showTextProps
-- [ ] showing structures (`showMarkup=1`). Note: `TokenSlice.UnmarshalJSON`
-      in mquery-common has no element type for `"close"` markup, so that has
-      to be fixed in mquery-common first
+- [x] options form (`o`, `ui/concopts.go`): context width (0–50), context limited to a structure
+      (corpus default = MQuery's `viewContextStruct`, typically a sentence; "tokens only" sends an
+      empty `contextStruct` to override it; or any structure from `/info`), line order
+      (shuffled / corpus order = `noShuffle`), text properties (none/basic/all), lines per page.
+      Settings are session-wide (also for drill-downs; `-context-width` / `-page-size` are the
+      defaults). Changing the order resets paging, a page size change keeps the current first line's
+      page. Non-default context/order are shown in the summary line
+- [x] showing structures (`showMarkup=1`, "Structures" in the options form; which structures are
+      sent is decided by the corpus' `ConcMarkupStructures`). Tags are rendered muted between
+      tokens (`<s>`, `</p>`, `<lb/>`), the glue structure `<g/>` joins the surrounding tokens
+      instead (also around KWIC, keeping its column). Needed mquery-common v0.10.6
+      (decoding of `"close"` and self-closing markup)
 - [x] collocate filter + highlighting (`coll`, `collRange`) – used by the M4 drill-down
 - [x] collocate filter in the query input: the concordance query screen has extra fields
       "Collocate (CQL)" and "Collocate window" (`left,right`, shared with the collocations
@@ -129,6 +168,129 @@ change it.
 - [ ] `minCorpFreq` (server uses `minCollFreq` by default)
 - [ ] `/collocations-extended` (collocates with examples)
 
+### M5 – AI chat ✅ (first iteration)
+A chat with an LLM which queries MQuery via an in-process MQuery MCP server
+(`mquery/mcp`, sharing the HTTP client – incl. the session cookie – with the UI).
+- [x] `llm` package: `Backend` interface (non-streaming), Gemini backend (`google.golang.org/genai`)
+      with fallback models and retries on 429/5xx. Config: `GEMINI_API_KEY`, `LLM_MODEL` /
+      `-llm-model` (comma separated, first = primary; default `gemini-3.5-flash-lite,gemini-3.1-flash-lite`)
+- [x] `agent` package: agent loop (max 15 iterations), builtin `corpus_list` tool (MCP has none),
+      session `Store` of all tool results (`r1`, `r2`, …; failed calls too). The model gets
+      results prefixed with `result_id: rN`, truncated to 40 kB; it is asked to cite `[rN]`.
+      A failed/cancelled turn keeps its progress up to the last completed step (user message or
+      a complete set of tool results): `ctrl+r` continues from there (tool calls are not repeated,
+      new iteration budget), a new message discards the failed turn
+- [x] chat screen (menu item 5): transcript (viewport) + textarea; `enter` send, `alt+enter`
+      newline, `esc` cancels a running turn, `ctrl+n` new conversation (clears the screen,
+      new result store), `tab` browses results
+      (`↑/↓`, `enter` opens, `esc` returns to the chat with the selection kept)
+- [x] results open in the regular views with the model's settings and preloaded data (no
+      requery): concordance, token freqs, text types, collocations; anything else (or failed /
+      markdown / subcorpus results) in a generic view. Settings chosen by the model are
+      not remembered as the user's session settings
+- [x] generic result view (`ui/jsonview.go`): JSON results without a dedicated view (e.g.
+      `term_frequency`, `text_types_overview`, `corpus_info`, `text_types_avail_values`) are
+      rendered readably – objects as aligned "key value" lines (nested values as titled sections),
+      arrays of records as tables (numbers right-aligned, thousands separators, 2 decimals), keys
+      in the server's order and humanized (`corpusSize` → "corpus size"), `resultType` hidden.
+      `r` toggles the raw (pretty) JSON; non-JSON results (errors) are shown as text
+- [x] header: model name and session token usage
+- [x] Mistral backend (`llm/mistral.go`, ported from NLQL, plus streaming): `LLM_BACKEND` / `-llm-backend`
+      = `gemini` | `mistral` (empty = the first one with an API key: `GEMINI_API_KEY`, `MISTRAL_API_KEY`).
+      `LLM_MODEL` empty = per-backend defaults (Mistral: `mistral-medium-latest,mistral-small-latest`).
+      Fallback models on 429/5xx work the same as for Gemini (`llm/models.go`). Reasoning models return
+      content as chunk arrays; they are replayed as `Opaque` (rebuilt from the parts when streaming)
+- [x] OpenAI-compatible backend (`llm/openai.go`, go-openai as in NLQL, plus streaming): `LLM_BACKEND=openai`,
+      server `OPENAI_API_URL` / `-llm-url` (default llama-server's `http://localhost:8080/v1`), optional
+      `OPENAI_API_KEY` sent as a Bearer token (llama-server `--api-key`). Empty `LLM_MODEL` = the first model
+      from `/v1/models` (looked up lazily on the first request, so a server that is down does not break the
+      startup). Auto-selection (empty `LLM_BACKEND`) picks it only if `OPENAI_API_URL` is set and no
+      Gemini/Mistral key is. `chat_template_kwargs.enable_thinking` is sent (except to api.openai.com);
+      `reasoning_content` is ignored. The setup form shows a "Server URL" field for this backend only
+      (`formField.shownIf`)
+- [ ] Anthropic backend (nlql has it); it can implement just `llm.Backend` first and `StreamCompletion` later
+- [x] streaming of answers: optional `llm.StreamingBackend` (Gemini: `GenerateContentStream`; request
+      building and response parsing are shared with the non-streaming call). The callback gets the
+      accumulated text, a retried attempt starts with `""` (= discard the partial text). The agent
+      emits `TextStreaming` events (`Session.Stream`, on by default); the chat shows the text below the
+      transcript ("writing…") until the completion finishes – then it becomes the final answer or an
+      interim text (if tool calls follow); a partial text of a failed turn is not kept. Note: Gemini can
+      fail with 503 in the middle of a stream – this is retried like any other 503
+- [ ] a list of all stored results (also from previous conversations) + jump to the chat from anywhere
+- [x] subcorpus support in result views (chat results with `subcorpus` open in their dedicated view)
+- [x] chats are saved to the local DB (tables `chats`, `chat_messages`, `chat_results`) via
+      `agent.Recorder` (implemented by `storage.DB`) after each completed step: the user message,
+      each complete set of tool results, the final answer, a failed turn (up to its checkpoint).
+      Saving is incremental (`ChatUpdate.KeepMessages` + new messages/results); a save failure is
+      shown once per turn and does not fail it. `llm.Message/ToolCall.Opaque` became `[]byte`
+      (Gemini thought signatures are saved). `Session.Load` restores a chat: an incomplete last turn
+      (failed, interrupted by quitting) can be retried, result IDs continue the numbering, opaque
+      state is dropped if the chat was run by another vendor
+- [x] saved chats list (`ctrl+o` in the chat input; replaces the transcript): newest first, the open
+      chat marked `●` and preselected; `enter` opens a chat (the transcript is rebuilt from saved
+      messages – tool messages are mapped to results via their `result_id:` prefix; an incomplete
+      last turn offers `ctrl+r`), `d` + `y` deletes (deleting the open chat starts a new one).
+      Results of a reopened chat open in their views without requerying
+- [x] saved chats search (`ui/chatsearch.go`, `DB.ChatTexts`): `/` in the list, filtering as you
+      type; each word must occur somewhere in a chat (title, user messages, model texts; tool calls
+      and outputs are not searched). Case-insensitive; a character typed without diacritics
+      matches any (`kocka` finds `kočka`), with diacritics exactly (`pěs` does not find `pes`).
+      Rows show a snippet of the first match in the conversation (not in the title); `enter` keeps
+      the filter, `esc` clears it (a second `esc` closes the list). Texts are loaded once, on the
+      first search (plain scan in Go – fine for a personal DB; FTS5 would be an option for huge ones)
+- [ ] saved chats: renaming, opening the list right from the menu
+- [ ] note: `chats.updated_at` has a 1 s resolution (fine for sorting in practice)
+- [x] markdown rendering of answers (`ui/markdown.go`): glamour with its dark/light style adjusted (no
+      margins, default text color, accent headings). Rendered answers are cached per width (the
+      transcript is re-rendered on every spinner tick); a streamed answer is rendered on each update
+      (a partial markup may look odd for a moment). `[rN]` references are replaced by private-use
+      runes before rendering and highlighted afterwards. Tables are split out and rendered by us
+      (`ui/mdtable.go`) – glamour always stretches them to the full width. Interim texts stay plain.
+      The system prompt now asks for markdown (lists, bold, small tables)
+- [x] clickable `[rN]` references (`ui/chatlinks.go`): result lines and each `rN` of a reference
+      in an answer are links (refs to unknown results are not). `tab` selects the most recent one,
+      ↑/↓ go through all of them in the transcript order (the selected `rN` is highlighted in place),
+      `enter` opens it. Mouse reporting is enabled only on the chat screen: a click opens a link,
+      the wheel scrolls (text selection in the chat then needs shift+drag in most terminals).
+      References are never wrapped (spaces inside them are private-use runes while rendering)
+- [x] CQL helper tools from CQLizer (`agent/external.go`; `CQLIZER_MCP` / `-cqlizer`): an URL
+      (Streamable HTTP) or a command line of a stdio server (e.g. `cqlizer mcp-server`; it gets
+      the env file variables except mymquery's secrets, e.g. `REGISTRY_PATH`, `CQLIZER_CONF_PATH`,
+      `LOG_PATH`; its stderr is drained, the last lines are used in error messages). Offered tools:
+      `cql_validate`, `build_tag_condition`, `tagset_reference`, `cql_eval_complexity` (if
+      provided). They are "helper" tools: outputs go to the model without a result ID, are not
+      stored nor citable, and are shown as `✓/✗ tool args → output` lines (restored from saved
+      chats too). The system prompt describes only the available ones. Without CQLizer (or if it
+      fails to start), the chat works as before and a notice explains why.
+      Needs CQLizer >= v0.16.0 (`cql_validate` checks just the syntax for corpora missing in its
+      `REGISTRY_PATH`, e.g. when mymquery uses a remote MQuery).
+      First test (syn2020, Mistral): 2 failed data queries of 14 (was 8 of 21 without CQLizer).
+- [x] tagset support is a matter of the CQLizer instance, not mymquery: UD attributes (`upos`,
+      `feats`, `deprel`) are known automatically, positional tags need a per-corpus mapping in
+      CQLizer's config (`corporaProps.<corpus>.tagsets`, e.g. `{"tag": "cs_cnc2020"}`; data for
+      `cs_cnc2000(_spk)`, `cs_cnc2020(_spk)`, `verbtag`). The CNC production CQLizer (HTTP) has it
+      for basically all corpora; a local one only for corpora in its registry + config (others get
+      a syntax check only). Tested with the production one (local MQuery, Mistral): the test question
+      took 10 calls / 43k input tokens (vs. 67-76k), `build_tag_condition` gave `tag="A.*"`, and
+      `[tag="ADJ.*"]` was rejected with the positional tagset issues (shown wrapped, up to 3 lines)
+- [x] automatic CQL validation (`agent/validate.go`): if CQLizer provides `cql_validate`, the
+      session validates CQL arguments (`q`, `coll`) of each search tool call before running it,
+      and the tool is not offered to the model (the prompt says validation is automatic).
+      A rejected query is not run nor stored (no `rN`); the model gets the reason (whole, e.g.
+      a list of tagset issues) and the transcript shows `✗ tool args` + the reason on the next
+      line. Warnings ("query OK, but …") are passed to the model with the result, plain OKs are
+      silent. If the model repeats exactly the same rejected call, it is run without validation
+      (the validator may be wrong). If CQLizer is unreachable, queries just run.
+      Live test (same question as above): 8 search calls, none failed
+- [ ] with a CQLizer not knowing a corpus' tagset, the tagset tools are called and fail – each
+      such call costs an iteration (could be avoided by telling the model which corpora have
+      a known tagset)
+- [ ] the `attr` argument of `text_types` is not validated (the model tried `text.text-type`
+      which syn2020 lacks; the call failed) – could be checked against `corpus_info` structures
+- [ ] the MCP server sends `X-Mquery-Public-Client: 1`, so the chat may see fewer corpora than
+      the regular UI when running on an internal network
+- [ ] token costs: `corpus_list` and `corpus_info` outputs are large and re-sent each iteration
+
 ### Shared UI components
 - `selectList` (`ui/selectlist.go`): modal "pick one" box drawn over the view
   (`placeOverlay`), filter by typing (exact match first), current value marked `●`,
@@ -139,6 +301,9 @@ change it.
   subtitle and scroll position. The box fits the content (grow-only while open so it
   does not jump when the content changes). The owner handles open/close and its own keys,
   the modal handles scrolling (`↑/↓`, `pgup/pgdn`, `g/G`). Used by the M1 line detail
+- `optionsForm` (`ui/form.go`): modal form with choice fields (`←/→`) and validated input fields;
+  `↑/↓`/`tab` move, `enter` validates and applies. Used by the concordance options; the per-option
+  pickers of M2–M4 could move to it
 - `csvDialog` (`ui/savecsv.go`): modal path input which writes prepared rows as CSV
   (`~` expansion, overwrite confirmation)
 - `listNav`: cursor + scroll for single-line-row lists
@@ -147,8 +312,7 @@ change it.
 
 ### Later / cross-cutting
 - config file (API URL, headers, defaults)
-- query history: a searchable picker (`ctrl+r`, `selectList`), maybe remember corpus per entry
-- subcorpus selection in the corpus picker (`/corplist` already returns them)
+- query history: a searchable picker (`ctrl+r`, `selectList`), maybe filter by corpus (already stored)
 - [x] `e` saves the token freqs / text types / collocations table as CSV (`ui/savecsv.go`):
       a path dialog prefilled with `<token-freqs|text-types|colls>-<hash>.csv`, where the hash
       covers the corpus and all request args (query, attr, limits, …) of the shown result.
@@ -162,15 +326,22 @@ change it.
   so `go build -o mymquery ./cmd/mymquery` works. Consider adding the binary to `.gitignore`
 
 ### Known server-side / library issues (found while building the TUI)
-- mquery-common line parser: lines containing multi-word tokens (e.g. BNC `away from`)
-  come back with `errMsg: unparseable Manatee KWIC line: expected 4N elms…`
-  (the parser splits on whitespace). The TUI shows them as ⚠ lines
-- mquery-common `TokenSlice.UnmarshalJSON` has no element type for `"close"` markup
-  → `showMarkup=1` will likely fail to decode (blocks M1 "showing structures")
+- ~~mquery-common line parser: multi-word tokens (e.g. BNC `away from`) gave `errMsg`~~
+  – fixed in mquery-common v0.10.5 (no errors in 200 BNC `away` lines)
+- ~~mquery-common `TokenSlice.UnmarshalJSON` could not decode `"close"` markup~~ – fixed in v0.10.6
+- ~~`/concordance` shuffling was random per request, so paging repeated/skipped lines~~ – fixed
+  in the server (v0.29.13): the order is seeded from corpus, subcorpus, query and collocate
+  filter, so all pages come from the same order (and e.g. "Structures" keeps the same lines).
+  A "reshuffle" (another sample) would need an optional seed parameter in `/concordance`
 - `/text-types` on KSP fails with `FileAccessError (…/KSP/doc.date.token)` – missing
   struct attr `.token` coverage file (see the mktokencov follow-up)
 - `/freqs` response field `examplesQueryTpl` is never filled
 - `/collocations` with `minItems` > number of results returns an empty body (handler just returns)
+- ~~`/concordance` and `/term-frequency` in a subcorpus: `ipm` relative to the whole corpus~~
+  – fixed in the server (PR #292): ipm is relative to the subcorpus, responses contain `subcSize`
+  (`corpusSize` stays the whole corpus); `/freqs` now fills its `subcSize` too
+- `/collocations` returns `subcSize` equal to the corpus size even without a subcorpus
+  (other endpoints omit it); left as is to keep the response unchanged
 
 ### Testing notes
 - unit tests: `go test ./cmd/mymquery/...` (CQL helpers, select list, collocation window)

@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type featureSelectedMsg struct{ idx int }
@@ -12,6 +14,8 @@ type menuModel struct {
 	features []Feature
 	cursor   int
 	notice   string
+	// width is the available width (for wrapping the notice)
+	width int
 }
 
 func newMenu(features []Feature) menuModel {
@@ -73,11 +77,11 @@ func (m menuModel) View() string {
 		b.WriteString(line + "  " + mutedStyle.Render(desc) + "\n")
 	}
 	if m.notice != "" {
-		b.WriteString("\n" + errorStyle.Render(m.notice) + "\n")
+		b.WriteString("\n" + errorStyle.Render(ansi.Wordwrap(m.notice, max(20, m.width), " ")) + "\n")
 	}
 	return b.String()
 }
 
 func (m menuModel) Help() string {
-	return "↑/↓ move • enter select • 1-4 quick select • q quit"
+	return fmt.Sprintf("↑/↓ move • enter select • 1-%d quick select • q quit", len(m.features))
 }

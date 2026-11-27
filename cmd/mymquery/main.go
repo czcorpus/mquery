@@ -6,10 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
 	"mquery/cmd/mymquery/api"
+	"mquery/cmd/mymquery/llm"
+	"mquery/cmd/mymquery/storage"
 	"mquery/cmd/mymquery/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,10 +43,9 @@ func (h headerFlags) Set(s string) error {
 }
 
 // envFileArgs pre-scans the command line for `-env-file` and `-no-env-file`.
-// They must be known before the other flags are defined, because the .env
-// file provides their defaults.
+// They must be known before the other flags are defined, because the env
+// files provide their defaults. The path is "" if `-env-file` is not set.
 func envFileArgs(args []string) (path string, skip bool) {
-	path = ".env"
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if a == "--" {
@@ -70,12 +72,14 @@ func envFileArgs(args []string) (path string, skip bool) {
 
 func main() {
 	envPath, skipEnvFile := envFileArgs(os.Args[1:])
+	cfgLoc := defaultConfigLocations(envPath)
 	dotenv := map[string]string{}
+	var configWarnings []string
 	if !skipEnvFile {
 		var err error
-		dotenv, err = loadDotEnv(envPath)
+		dotenv, configWarnings, err = loadConfig(cfgLoc)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to read %s: %s\n", envPath, err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
 	}
@@ -91,16 +95,49 @@ func main() {
 		loginURL = defaultLoginURL
 	}
 	apiToken := envLookup(dotenv, "API_TOKEN")
+	cqlizerSpec := envLookup(dotenv, "CQLIZER_MCP")
+	llmCnf := llmConf{
+		backend:    envLookup(dotenv, "LLM_BACKEND"),
+		models:     envLookup(dotenv, "LLM_MODEL"),
+		geminiKey:  envLookup(dotenv, "GEMINI_API_KEY"),
+		mistralKey: envLookup(dotenv, "MISTRAL_API_KEY"),
+		openaiURL:  envLookup(dotenv, "OPENAI_API_URL"),
+		openaiKey:  envLookup(dotenv, "OPENAI_API_KEY"),
+	}
 	headers := make(headerFlags)
-	flag.String("env-file", envPath, "file with environment variables (API_URL, API_TOKEN, LOGIN_URL)")
-	flag.Bool("no-env-file", skipEnvFile, "do not read the env file (real environment variables still apply)")
+	flag.String("env-file", envPath, "an env file with configuration (API_URL, API_TOKEN, LOGIN_URL, "+
+		"LLM_BACKEND, LLM_MODEL, GEMINI_API_KEY, MISTRAL_API_KEY, OPENAI_API_URL, OPENAI_API_KEY, CQLIZER_MCP); by default, "+
+		"$XDG_CONFIG_DIRS/mymquery/env (e.g. /etc/xdg/mymquery/env) and then "+
+		"$XDG_CONFIG_HOME/mymquery/env (e.g. ~/.config/mymquery/env) are read, plus ./.env if "+
+		"the binary is run from the current directory (a development setup); a later file "+
+		"overrides an earlier one, real environment variables override the files. "+
+		"With this option, it is read instead of ./.env")
+	flag.Bool("no-env-file", skipEnvFile, "do not read any env files (real environment variables still apply)")
 	flag.StringVar(&apiURL, "api", apiURL, "MQuery API URL (env: MQUERY_API_URL or API_URL)")
 	flag.StringVar(&loginURL, "login-url", loginURL, "login URL used when API_TOKEN is set (env: LOGIN_URL)")
 	flag.Var(headers, "H", "additional HTTP header 'Name: value' (can be repeated)")
+	flag.StringVar(&llmCnf.backend, "llm-backend", llmCnf.backend, fmt.Sprintf(
+		"AI chat backend: %s (needs GEMINI_API_KEY), %s (needs MISTRAL_API_KEY) or %s "+
+			"(an OpenAI-compatible server, e.g. llama-server, at -llm-url; optional OPENAI_API_KEY); "+
+			"empty = the first one with an API key, then %s if -llm-url is set (env: LLM_BACKEND)",
+		llmBackendGemini, llmBackendMistral, llmBackendOpenAI, llmBackendOpenAI))
+	flag.StringVar(&llmCnf.openaiURL, "llm-url", llmCnf.openaiURL, fmt.Sprintf(
+		"URL of the OpenAI-compatible server of the %s backend; empty = %s (env: OPENAI_API_URL)",
+		llmBackendOpenAI, llm.DefaultOpenAIAPIURL))
+	flag.StringVar(&llmCnf.models, "llm-model", llmCnf.models, fmt.Sprintf(
+		"AI chat model(s); comma separated, the first one is primary, the others are fallbacks; "+
+			"empty = %q for %s, %q for %s, the server's model for %s (env: LLM_MODEL)",
+		defaultLLMModels[llmBackendGemini], llmBackendGemini,
+		defaultLLMModels[llmBackendMistral], llmBackendMistral, llmBackendOpenAI))
+	flag.StringVar(&cqlizerSpec, "cqlizer", cqlizerSpec,
+		"CQLizer MCP server providing CQL helper tools to the AI chat: an URL (Streamable HTTP, "+
+			"e.g. http://localhost:8080/mcp) or a command line of a stdio server (e.g. \"cqlizer mcp-server\"; "+
+			"it gets the environment incl. the env file, e.g. CQLIZER_CONF_PATH, REGISTRY_PATH); "+
+			"empty = no helper tools (env: CQLIZER_MCP)")
 	lang := flag.String("lang", "", "locale for corpus names and descriptions (e.g. en, cs)")
 	pageSize := flag.Int("page-size", 50, "number of concordance lines per page")
 	contextWidth := flag.Int("context-width", 20, "concordance context width in tokens (max. 50)")
-	historyFile := flag.String("history-file", ui.DefaultHistoryPath(), "file for storing query history (empty = do not store)")
+	dbPath := flag.String("db", storage.DefaultPath(), "SQLite database for query history and AI chats (empty = do not store anything)")
 	historySize := flag.Int("history-size", ui.DefaultHistorySize, "max. number of stored queries")
 	timeout := flag.Duration("timeout", 90*time.Second, "HTTP request timeout")
 	flag.Usage = func() {
@@ -132,11 +169,67 @@ func main() {
 		}
 	}
 	env := ui.NewEnv(client, *lang, *pageSize, *contextWidth)
-	env.HistoryPath = *historyFile
 	env.HistorySize = *historySize
+	env.StartupNotice = strings.Join(configWarnings, "; ")
+	if *dbPath != "" {
+		db, err := storage.Open(*dbPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer db.Close()
+		env.DB = db
+	}
+	llmSetup, chatUnavailable, err := llmCnf.resolve()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	chats := &chatManager{
+		client: client, lang: *lang, db: env.DB, llmConf: llmCnf, cqlizerSpec: cqlizerSpec,
+		helperEnv: helperServerEnv(dotenv), userConfig: cfgLoc.userConfigPath(),
+	}
+	defer chats.Close()
+	env.ChatBackends = chatBackends()
+	env.ChatConfigure = chats.configure
+	env.ChatConfigPath = chats.userConfig
+	if chatUnavailable != "" {
+		// (the user can configure the chat in the UI)
+		env.ChatUnavailable = chatUnavailable
+		env.ChatCurrent = ui.ChatSetup{
+			Backend: llmCnf.backend, Models: llmCnf.models, URL: llmCnf.openaiURL}
+
+	} else {
+		sess, notice, err := chats.connect(llmSetup)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "failed to initialize AI chat:", err)
+			os.Exit(1)
+		}
+		env.Chat = sess
+		env.ChatNotice = notice
+		env.ChatCurrent = chats.current()
+	}
 	p := tea.NewProgram(ui.NewApp(env), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// mymquerySecrets are env file variables not passed to helper servers
+var mymquerySecrets = []string{"API_TOKEN", "GEMINI_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY"}
+
+// helperServerEnv returns env file variables for a stdio helper server
+// (e.g. CQLIZER_CONF_PATH, REGISTRY_PATH; real environment variables take
+// precedence, mymquery's secrets are not passed)
+func helperServerEnv(dotenv map[string]string) []string {
+	var ans []string
+	for k, v := range dotenv {
+		if _, ok := os.LookupEnv(k); ok || slices.Contains(mymquerySecrets, k) {
+			continue
+		}
+		ans = append(ans, k+"="+v)
+	}
+	slices.Sort(ans)
+	return ans
 }

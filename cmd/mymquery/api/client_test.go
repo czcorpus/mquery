@@ -71,3 +71,25 @@ func TestServerInfoUsesRootPath(t *testing.T) {
 		t.Fatalf("unexpected server info: %+v", info)
 	}
 }
+
+func TestConcordanceArgsContextStruct(t *testing.T) {
+	if v := (ConcordanceArgs{Query: "x"}).values(); v.Has("contextStruct") {
+		t.Error("contextStruct should be omitted by default")
+	}
+	if v := (ConcordanceArgs{Query: "x", ContextStruct: "p"}).values(); v.Get("contextStruct") != "p" {
+		t.Errorf("unexpected contextStruct %q", v.Get("contextStruct"))
+	}
+	v := ConcordanceArgs{Query: "x", ContextStruct: "p", TokenContext: true}.values()
+	if !v.Has("contextStruct") || v.Get("contextStruct") != "" {
+		t.Errorf("TokenContext must send an empty contextStruct, got %v", v)
+	}
+}
+
+func TestConcordanceArgsShowMarkup(t *testing.T) {
+	if v := (ConcordanceArgs{Query: "x"}).values(); v.Has("showMarkup") {
+		t.Error("showMarkup should be omitted by default")
+	}
+	if v := (ConcordanceArgs{Query: "x", ShowMarkup: true}).values(); v.Get("showMarkup") != "1" {
+		t.Errorf("unexpected showMarkup %q", v.Get("showMarkup"))
+	}
+}

@@ -18,10 +18,18 @@ const (
 	scrCorpus
 	scrQuery
 	scrResult
+	scrChat
 )
 
 // header + empty line + footer
 const chromeHeight = 3
+
+// position of the body on the screen: below the header and an empty line;
+// screens other than the corpus selection and results have side padding
+const (
+	bodyTop  = 2
+	bodyPadX = 2
+)
 
 // App is the root Bubble Tea model. It owns the session state
 // (selected function, corpus, queries) and routes messages to screens.
@@ -35,17 +43,24 @@ type App struct {
 	menu    menuModel
 	corpSel corpSelModel
 	query   queryModel
+	chat    chatModel
 	// results is a stack of result views; the last one is active
 	// (nested views are e.g. concordances opened from a frequency list)
 	results []ResultView
+	// resultsFromChat is true if the results were opened from the AI chat
+	// (so leaving them returns to the chat instead of the query screen)
+	resultsFromChat bool
 
 	featureIdx int
 	corpus     *api.CorpusItem
+	// subc is the subcorpus of the corpus selected for the session
+	subc       subcState
+	subcPicker *subcPicker
 	// queries stores the last query per query type (see Feature.QueryType)
 	queries map[string]string
 	// collQuery is the last collocate query (for features with Feature.HasColl)
 	collQuery string
-	history *queryHistory
+	history   *queryHistory
 	// historyErr is a pending history save error to be shown in the query screen
 	historyErr error
 	// serverVersion is the MQuery server version ("" = not (yet) known)
@@ -66,8 +81,9 @@ func fetchServerInfo(client *api.Client) tea.Cmd {
 
 func NewApp(env *Env) *App {
 	features := DefaultFeatures()
-	history := newQueryHistory(env.HistoryPath, env.HistorySize)
+	history := newQueryHistory(env.DB, env.HistorySize)
 	menu := newMenu(features)
+	menu.notice = env.StartupNotice
 	if err := history.Load(); err != nil {
 		menu.notice = "failed to load query history: " + err.Error()
 	}
@@ -76,14 +92,22 @@ func NewApp(env *Env) *App {
 		queries[queryTypeCQL] = history.Recent(0)
 	}
 	return &App{
-		env:      env,
-		features: features,
-		menu:     menu,
-		corpSel:  newCorpSel(env),
-		query:    newQuery(history),
-		queries:  queries,
-		history:  history,
+		env:        env,
+		features:   features,
+		menu:       menu,
+		corpSel:    newCorpSel(env),
+		subcPicker: newSubcPicker(env),
+		query:      newQuery(history),
+		chat:       newChat(env),
+		queries:    queries,
+		history:    history,
 	}
+}
+
+// target returns the corpus (incl. subcorpus) queries run in
+// (the corpus must be selected)
+func (a *App) target() searchTarget {
+	return searchTarget{CorpusItem: *a.corpus, Subc: a.subc.ID}
 }
 
 func (a *App) queryType() string {
@@ -99,12 +123,30 @@ func (a *App) bodyHeight() int {
 	return max(1, a.height-chromeHeight)
 }
 
+// Update processes a message. Mouse reporting is enabled only on the chat
+// screen (where results can be opened by a click) - elsewhere it would
+// just disable the terminal's usual text selection.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	wasChat := a.screen == scrChat
+	model, cmd := a.update(msg)
+	if isChat := a.screen == scrChat; isChat != wasChat {
+		mouse := tea.DisableMouse
+		if isChat {
+			mouse = tea.EnableMouseCellMotion
+		}
+		cmd = tea.Batch(cmd, mouse)
+	}
+	return model, cmd
+}
+
+func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width, a.height = msg.Width, msg.Height
+		a.menu.width = a.width - 2*bodyPadX
 		a.corpSel.SetSize(a.width, a.bodyHeight())
 		a.query.SetSize(a.width, a.bodyHeight())
+		a.chat.SetSize(a.width, a.bodyHeight())
 		for _, r := range a.results {
 			r.SetSize(a.width, a.bodyHeight())
 		}
@@ -117,14 +159,41 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case tea.MouseMsg:
+		if a.screen == scrChat {
+			msg.X -= bodyPadX
+			msg.Y -= bodyTop
+			var cmd tea.Cmd
+			a.chat, cmd = a.chat.Update(msg)
+			return a, cmd
+		}
+		return a, nil
+
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			a.closeResults()
+			a.chat.Close()
 			return a, tea.Quit
 		}
 		return a.updateActive(msg)
 
 	case featureSelectedMsg:
+		if a.features[msg.idx].Chat {
+			if a.env.Chat == nil {
+				if a.env.ChatConfigure == nil {
+					a.menu.notice = a.env.ChatUnavailable
+					return a, nil
+				}
+				// no API key configured => the user can set the chat up now
+				a.featureIdx = msg.idx
+				a.screen = scrChat
+				a.chat.openSetup()
+				return a, nil
+			}
+			a.featureIdx = msg.idx
+			a.screen = scrChat
+			return a, a.chat.Activate()
+		}
 		a.featureIdx = msg.idx
 		if a.corpus == nil {
 			a.screen = scrCorpus
@@ -134,6 +203,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case corpusSelectedMsg:
 		c := msg.corpus
+		if a.corpus == nil || a.corpus.ID != c.ID {
+			a.subc = subcState{}
+		}
 		a.corpus = &c
 		return a, a.toQuery()
 
@@ -145,13 +217,28 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.screen = scrCorpus
 		return a, nil
 
+	case openSubcPickerMsg:
+		if a.corpus != nil {
+			a.subcPicker.Open(*a.corpus, a.subc.ID)
+		}
+		return a, nil
+
+	case subcCheckedMsg:
+		return a, a.subcPicker.Update(msg)
+
+	case subcSelectedMsg:
+		a.subc = msg.subc
+		a.query.SetTarget(a.corpus.ID, a.subc.summary())
+		a.query.notice = msg.notice
+		return a, nil
+
 	case querySubmittedMsg:
 		a.queries[a.queryType()] = msg.query
 		if a.queryType() == queryTypeCQL {
-			a.historyErr = a.history.Add(msg.query)
+			a.historyErr = a.history.Add(a.corpus.ID, a.subc.ID, a.features[a.featureIdx].ID, msg.query)
 		}
 		feat := a.features[a.featureIdx]
-		view := feat.NewView(a.env, *a.corpus, msg.query)
+		view := feat.NewView(a.env, a.target(), msg.query)
 		if feat.HasColl {
 			a.collQuery = msg.coll
 			if msg.coll != "" {
@@ -162,8 +249,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		a.closeResults()
+		a.resultsFromChat = false
 		a.screen = scrResult
 		return a, a.pushResult(view)
+
+	case chatSubmitMsg:
+		var corpusID string
+		if a.corpus != nil {
+			corpusID = a.corpus.ID
+		}
+		return a, a.chat.submit(corpusID, a.subc.ID, msg.retry)
+
+	case openChatResultMsg:
+		a.closeResults()
+		a.resultsFromChat = true
+		a.chat.Blur()
+		a.screen = scrResult
+		return a, a.pushResult(newChatResultView(a.env, msg.result))
 
 	case pushResultMsg:
 		if a.screen != scrResult {
@@ -183,11 +285,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.saveQueryInput()
 			a.query.Blur()
 			a.screen = scrMenu
+		case scrChat:
+			a.chat.Blur()
+			a.screen = scrMenu
 		case scrResult:
 			top := len(a.results) - 1
 			a.results[top].Close()
 			a.results = a.results[:top]
 			if len(a.results) == 0 {
+				if a.resultsFromChat {
+					a.screen = scrChat
+					return a, a.chat.Activate()
+				}
 				return a, a.toQuery()
 			}
 		}
@@ -207,6 +316,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.query, cmd = a.query.Update(msg) // cursor blinking
 		cmds = append(cmds, cmd)
 	}
+	// chat events, spinner ticks, cursor blinking
+	a.chat, cmd = a.chat.Update(msg)
+	cmds = append(cmds, cmd)
 	return a, tea.Batch(cmds...)
 }
 
@@ -218,16 +330,23 @@ func (a *App) updateActive(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case scrCorpus:
 		a.corpSel, cmd = a.corpSel.Update(msg)
 	case scrQuery:
-		a.query, cmd = a.query.Update(msg)
+		if a.subcPicker.Active() {
+			cmd = a.subcPicker.Update(msg)
+		} else {
+			a.query, cmd = a.query.Update(msg)
+		}
 	case scrResult:
 		top := len(a.results) - 1
 		a.results[top], cmd = a.results[top].Update(msg)
+	case scrChat:
+		a.chat, cmd = a.chat.Update(msg)
 	}
 	return a, cmd
 }
 
 func (a *App) toQuery() tea.Cmd {
 	a.screen = scrQuery
+	a.query.SetTarget(a.corpus.ID, a.subc.summary())
 	cmd := a.query.Reset(a.features[a.featureIdx], a.queries[a.queryType()], a.collQuery, a.env.collWindow)
 	if a.historyErr != nil {
 		a.query.notice = "failed to save query history: " + a.historyErr.Error()
@@ -273,14 +392,23 @@ func (a *App) View() string {
 		body, help = a.corpSel.View(), a.corpSel.Help()
 	case scrQuery:
 		body, help = a.query.View(), a.query.Help()
+		if a.subcPicker.Active() {
+			help = a.subcPicker.Help()
+		}
 	case scrResult:
 		body, help = a.activeResult().View(), a.activeResult().Help()
+	case scrChat:
+		body, help = a.chat.View(), a.chat.Help()
 	}
 	if a.screen != scrCorpus && a.screen != scrResult {
-		body = lipgloss.NewStyle().Padding(0, 2).Render(body)
+		body = lipgloss.NewStyle().Padding(0, bodyPadX).Render(body)
 	}
 	body = lipgloss.NewStyle().Height(a.bodyHeight()).MaxHeight(a.bodyHeight()).Render(body)
-	footer := footerStyle.Render(ansi.Truncate(help, max(0, a.width-2), "…"))
+	if a.screen == scrQuery && a.subcPicker.Active() {
+		body = placeOverlay(body, a.subcPicker.View(a.width), a.width, a.bodyHeight())
+	}
+	footer := footerStyle.Render(ansi.Truncate(renderHelp(help), max(0, a.width-2), "…"))
+	// (see bodyTop)
 	return a.header() + "\n\n" + body + "\n" + footer
 }
 
@@ -299,10 +427,22 @@ func (a *App) header() string {
 	} else if a.screen != scrMenu {
 		parts = append(parts, seg.Render(a.features[a.featureIdx].Title))
 	}
+	corpusID := ""
 	if a.corpus != nil {
-		parts = append(parts, seg.Render("corpus: ")+headerKeyStyle.Render(a.corpus.ID))
+		corpusID = a.target().Label()
 	}
-	if a.screen == scrResult {
+	if a.screen == scrResult && a.resultsFromChat {
+		if cv, ok := a.activeResult().(corpusOfView); ok {
+			corpusID = cv.CorpusLabel()
+		}
+	}
+	if corpusID != "" {
+		parts = append(parts, seg.Render("corpus: ")+headerKeyStyle.Render(corpusID))
+	}
+	if a.screen == scrChat {
+		parts = append(parts, seg.Render(chatUsageInfo(a.env)))
+	}
+	if a.screen == scrResult && a.activeResult().Query() != "" {
 		parts = append(parts, seg.Render("query: "+a.activeResult().Query()))
 	}
 	content := strings.Join(parts, seg.Render(" │ "))

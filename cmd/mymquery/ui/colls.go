@@ -134,12 +134,14 @@ type collsLoadedMsg struct {
 	args   api.CollocationsArgs
 	resp   *api.CollocationsResponse
 	err    error
+	// preloaded is true for data not fetched by the view itself
+	preloaded bool
 }
 
 type collsView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	width  int
 	height int
@@ -172,11 +174,14 @@ type collsView struct {
 	sortBy collSort
 	nav    listNav
 
+	// preloaded is a response to be used instead of the first fetch
+	preloaded *api.CollocationsResponse
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func newCollsView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newCollsView(env *Env, corpus searchTarget, query string) ResultView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -221,10 +226,10 @@ func (v *collsView) rowsHeight() int {
 	return max(1, v.height-3)
 }
 
-// chooseAttr picks the last used attribute for the corpus, then `lemma`
-// (= the server default), then `word`
+// chooseAttr picks the preset attribute (if any), the last used attribute
+// for the corpus, then `lemma` (= the server default), then `word`
 func (v *collsView) chooseAttr() {
-	for _, a := range []string{v.env.collAttr[v.corpus.ID], "lemma", "word"} {
+	for _, a := range []string{v.attr, v.env.collAttr[v.corpus.ID], "lemma", "word"} {
 		if a != "" && (len(v.attrs) == 0 || slices.Contains(v.attrs, a)) {
 			v.attr = a
 			return
@@ -241,12 +246,19 @@ func (v *collsView) fetch() tea.Cmd {
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
 	args := api.CollocationsArgs{
 		Query:       v.query,
+		Subcorpus:   v.corpus.Subc,
 		Measure:     v.measure,
 		SrchLeft:    v.window[0],
 		SrchRight:   v.window[1],
 		SrchAttr:    v.attr,
 		MinCollFreq: v.minFreq,
 		MaxItems:    v.maxItems,
+	}
+	if resp := v.preloaded; resp != nil {
+		v.preloaded = nil
+		return func() tea.Msg {
+			return collsLoadedMsg{viewID: viewID, reqID: reqID, args: args, resp: resp, preloaded: true}
+		}
 	}
 	return tea.Batch(
 		v.spinner.Tick,
@@ -283,7 +295,7 @@ func (v *collsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 			return v, nil
 		}
 		if msg.err == nil {
-			v.env.attrCache[msg.corpusID] = msg.attrs
+			v.env.storeCorpusInfo(msg)
 			v.attrs = attrNames(msg.attrs)
 		} else {
 			v.attrs = []string{}
@@ -305,12 +317,14 @@ func (v *collsView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		v.resp = msg.resp
 		v.respAttr = v.attr
 		v.respArgs = msg.args
-		// remember only settings which work
-		v.env.collAttr[v.corpus.ID] = v.attr
-		v.env.collMeasure = v.measure
-		v.env.collWindow = v.window
-		v.env.collMinFreq = v.minFreq
-		v.env.collMaxItems = v.maxItems
+		// remember only settings which work (and which were chosen by the user)
+		if !msg.preloaded {
+			v.env.collAttr[v.corpus.ID] = v.attr
+			v.env.collMeasure = v.measure
+			v.env.collWindow = v.window
+			v.env.collMinFreq = v.minFreq
+			v.env.collMaxItems = v.maxItems
+		}
 		v.applySort()
 		return v, nil
 

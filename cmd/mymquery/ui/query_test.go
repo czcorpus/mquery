@@ -20,7 +20,7 @@ func submitQuery(t *testing.T, m queryModel) (queryModel, *querySubmittedMsg) {
 }
 
 func TestQueryFieldSwitching(t *testing.T) {
-	m := newQuery(newQueryHistory("", 10))
+	m := newQuery(newQueryHistory(nil, 10))
 	m.Reset(Feature{QueryType: queryTypeCQL, HasColl: true}, "[word=\"a\"]", "", [2]int{5, 5})
 	assert.Equal(t, fieldQuery, m.focus)
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
@@ -37,7 +37,7 @@ func TestQueryFieldSwitching(t *testing.T) {
 }
 
 func TestQueryTabWithoutColl(t *testing.T) {
-	m := newQuery(newQueryHistory("", 10))
+	m := newQuery(newQueryHistory(nil, 10))
 	m.Reset(Feature{QueryType: queryTypeCQL}, "q", "", [2]int{5, 5})
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	assert.Equal(t, fieldQuery, m.focus)
@@ -46,7 +46,7 @@ func TestQueryTabWithoutColl(t *testing.T) {
 }
 
 func TestQuerySubmitColl(t *testing.T) {
-	m := newQuery(newQueryHistory("", 10))
+	m := newQuery(newQueryHistory(nil, 10))
 	m.Reset(Feature{QueryType: queryTypeCQL, HasColl: true}, "q", " [c] ", [2]int{5, 5})
 	m.windowInput.SetValue("3 0")
 	_, msg := submitQuery(t, m)

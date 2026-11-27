@@ -10,15 +10,23 @@ import (
 
 // ConcordanceArgs mirrors query arguments of GET /concordance/:corpusId
 type ConcordanceArgs struct {
-	Query         string
-	Subcorpus     string
-	RowsOffset    int
-	MaxRows       int
-	ContextWidth  int
+	Query        string
+	Subcorpus    string
+	RowsOffset   int
+	MaxRows      int
+	ContextWidth int
+	// ContextStruct limits the context to a structure (typically a sentence)
+	// containing KWIC; "" = the corpus default (see TokenContext)
 	ContextStruct string
+	// TokenContext disables the corpus default context structure, i.e.
+	// the context is just ContextWidth tokens (ContextStruct is ignored)
+	TokenContext bool
 	// ShowTextProps: 0 = none, 1 = basic, 2 = all
 	ShowTextProps int
 	NoShuffle     bool
+	// ShowMarkup adds structural markup (the corpus' configured structures,
+	// e.g. <s>, <p>, <g/>) to the lines
+	ShowMarkup bool
 	// Coll is an optional collocate query (CQL); only lines with
 	// the collocate within CollRange are returned
 	Coll string
@@ -41,7 +49,11 @@ func (a ConcordanceArgs) values() url.Values {
 	if a.ContextWidth > 0 {
 		v.Set("contextWidth", strconv.Itoa(a.ContextWidth))
 	}
-	if a.ContextStruct != "" {
+	if a.TokenContext {
+		// an explicitly empty value overrides the corpus default
+		v.Set("contextStruct", "")
+
+	} else if a.ContextStruct != "" {
 		v.Set("contextStruct", a.ContextStruct)
 	}
 	if a.ShowTextProps > 0 {
@@ -49,6 +61,9 @@ func (a ConcordanceArgs) values() url.Values {
 	}
 	if a.NoShuffle {
 		v.Set("noShuffle", "1")
+	}
+	if a.ShowMarkup {
+		v.Set("showMarkup", "1")
 	}
 	if a.Coll != "" {
 		v.Set("coll", a.Coll)
@@ -58,11 +73,15 @@ func (a ConcordanceArgs) values() url.Values {
 }
 
 type ConcordanceResponse struct {
-	Lines      []concordance.Line `json:"lines"`
-	ConcSize   int                `json:"concSize"`
-	Corpname   string             `json:"corpname"`
-	CorpusSize int                `json:"corpusSize"`
-	IPM        float64            `json:"ipm"`
+	Lines    []concordance.Line `json:"lines"`
+	ConcSize int                `json:"concSize"`
+	Corpname string             `json:"corpname"`
+	// CorpusSize is always the whole corpus size
+	CorpusSize int `json:"corpusSize"`
+	// SubcSize is the subcorpus size (only if a subcorpus is searched)
+	SubcSize int `json:"subcSize"`
+	// IPM is relative to the subcorpus size if a subcorpus is searched
+	IPM float64 `json:"ipm"`
 }
 
 func (c *Client) Concordance(ctx context.Context, corpusID string, args ConcordanceArgs) (*ConcordanceResponse, error) {

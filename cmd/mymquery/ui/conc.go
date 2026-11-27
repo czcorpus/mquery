@@ -31,7 +31,7 @@ type concLoadedMsg struct {
 type concView struct {
 	id     int
 	env    *Env
-	corpus api.CorpusItem
+	corpus searchTarget
 	query  string
 	// note is an optional info shown in the summary line
 	note string
@@ -57,20 +57,25 @@ type concView struct {
 	dispAttr int
 	// attrPicker is open when selecting the displayed attribute
 	attrPicker *selectList
+	// optsForm is open when editing the concordance options
+	optsForm *optionsForm
 
 	// detail is a modal with the selected line's tokens or text properties
 	detail     *modal
 	detailMode detailMode
 
+	// preloaded is a response to be used instead of the first fetch
+	preloaded *api.ConcordanceResponse
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func newConcView(env *Env, corpus api.CorpusItem, query string) ResultView {
+func newConcView(env *Env, corpus searchTarget, query string) ResultView {
 	return newConcViewWithNote(env, corpus, query, "")
 }
 
-func newConcViewWithNote(env *Env, corpus api.CorpusItem, query, note string) *concView {
+func newConcViewWithNote(env *Env, corpus searchTarget, query, note string) *concView {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -89,7 +94,8 @@ func newConcViewWithNote(env *Env, corpus api.CorpusItem, query, note string) *c
 
 func (v *concView) Init() tea.Cmd {
 	cmds := []tea.Cmd{v.fetch()}
-	if v.infoAttrs == nil {
+	// (structures are needed for the options)
+	if v.infoAttrs == nil || v.env.structCache[v.corpus.ID] == nil {
 		cmds = append(cmds, fetchCorpusAttrs(v.env, v.ctx, v.corpus.ID, v.id))
 	}
 	return tea.Batch(cmds...)
@@ -126,20 +132,39 @@ func (v *concView) SetSize(w, h int) {
 	v.nav.fix(len(v.lines()), v.listHeight())
 }
 
+// requestArgs returns the arguments of the current page request
+func (v *concView) requestArgs() api.ConcordanceArgs {
+	args := api.ConcordanceArgs{
+		Query:         v.query,
+		Subcorpus:     v.corpus.Subc,
+		RowsOffset:    v.rowsOffset,
+		MaxRows:       v.env.PageSize,
+		ContextWidth:  v.env.ContextWidth,
+		TokenContext:  v.env.concCtxStruct == ctxTokens,
+		ShowTextProps: v.env.concTextProps,
+		NoShuffle:     v.env.concNoShuffle,
+		ShowMarkup:    v.env.concMarkup,
+		Coll:          v.coll,
+		CollRange:     v.collRange,
+	}
+	if !args.TokenContext {
+		args.ContextStruct = v.env.concCtxStruct
+	}
+	return args
+}
+
 func (v *concView) fetch() tea.Cmd {
 	v.reqID++
 	v.loading = true
 	v.err = nil
 	reqID, viewID := v.reqID, v.id
 	client, ctx, corpusID := v.env.Client, v.ctx, v.corpus.ID
-	args := api.ConcordanceArgs{
-		Query:         v.query,
-		RowsOffset:    v.rowsOffset,
-		MaxRows:       v.env.PageSize,
-		ContextWidth:  v.env.ContextWidth,
-		ShowTextProps: 2,
-		Coll:          v.coll,
-		CollRange:     v.collRange,
+	args := v.requestArgs()
+	if resp := v.preloaded; resp != nil {
+		v.preloaded = nil
+		return func() tea.Msg {
+			return concLoadedMsg{viewID: viewID, reqID: reqID, resp: resp}
+		}
 	}
 	return tea.Batch(
 		v.spinner.Tick,
@@ -222,7 +247,7 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		if msg.viewID != v.id || msg.err != nil {
 			return v, nil // attr order is not essential; we fall back to alphabetical
 		}
-		v.env.attrCache[msg.corpusID] = msg.attrs
+		v.env.storeCorpusInfo(msg)
 		v.infoAttrs = attrNames(msg.attrs)
 		v.updateAttrs()
 		return v, nil
@@ -236,6 +261,9 @@ func (v *concView) Update(msg tea.Msg) (ResultView, tea.Cmd) {
 		return v, cmd
 
 	case tea.KeyMsg:
+		if v.optsForm != nil {
+			return v.updateOptions(msg)
+		}
 		if v.attrPicker != nil {
 			return v.updateAttrPicker(msg)
 		}
@@ -255,6 +283,10 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 		return v, tea.Quit
 	case "r":
 		return v, v.fetch()
+	case "o":
+		// (available also after an error, e.g. caused by the options)
+		v.optsForm = v.newOptionsForm()
+		return v, nil
 	}
 	if v.loading && v.resp == nil {
 		return v, nil
@@ -265,7 +297,8 @@ func (v *concView) updateList(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 	switch msg.String() {
 	case "right", "l", "n":
 		if v.hasNextPage() && !v.loading {
-			v.rowsOffset += v.env.PageSize
+			// (a preloaded page may differ in size from PageSize)
+			v.rowsOffset += len(v.resp.Lines)
 			return v, v.fetch()
 		}
 	case "left", "h", "p":
@@ -365,6 +398,9 @@ func (v *concView) updateAttrPicker(msg tea.KeyMsg) (ResultView, tea.Cmd) {
 
 func (v *concView) View() string {
 	body := v.baseView()
+	if v.optsForm != nil {
+		return placeOverlay(body, v.optsForm.View(v.width), v.width, v.height)
+	}
 	if v.attrPicker != nil {
 		return placeOverlay(body, v.attrPicker.View(v.width), v.width, v.height)
 	}
@@ -377,7 +413,7 @@ func (v *concView) View() string {
 func (v *concView) baseView() string {
 	if v.err != nil {
 		return errorStyle.Render(v.err.Error()) + "\n\n" +
-			mutedStyle.Render("r retry • esc edit query")
+			mutedStyle.Render("r retry • o options • esc edit query")
 	}
 	if v.resp == nil {
 		return v.spinner.View() + " searching…"
@@ -411,6 +447,9 @@ func (v *concView) summary() string {
 		fmt.Sprintf("page %d/%d", page, max(1, pages)),
 		"showing: " + accentStyle.Render(v.dispAttrName()),
 	}
+	if opts := v.optionsSummary(); opts != "" {
+		parts = append(parts, mutedStyle.Render(opts))
+	}
 	if v.note != "" {
 		parts = append(parts, mutedStyle.Render(v.note))
 	}
@@ -442,11 +481,12 @@ func (v *concView) renderRow(idx int, line concordance.Line, selected bool, numW
 
 // kwicLayout renders a line with KWIC starting at a fixed column
 // (left context is right-aligned, right context is left-aligned).
+// Structural markup (if present) is part of the contexts and KWIC.
 func (v *concView) kwicLayout(line concordance.Line, base lipgloss.Style, avail int) string {
-	toks := line.Text.Tokens()
+	elms := line.Text
 	kFirst, kLast := -1, -1
-	for i, t := range toks {
-		if t.MatchType == concordance.MatchTypeKWIC {
+	for i, e := range elms {
+		if t, ok := e.(*concordance.Token); ok && t.MatchType == concordance.MatchTypeKWIC {
 			if kFirst < 0 {
 				kFirst = i
 			}
@@ -455,19 +495,37 @@ func (v *concView) kwicLayout(line concordance.Line, base lipgloss.Style, avail 
 	}
 	attr := v.dispAttrName()
 	if kFirst < 0 {
-		return fitRight(renderTokens(toks, base, attr), avail, base)
+		return fitRight(renderElements(elms, base, attr), avail, base)
 	}
 	leftW := max(5, (avail-2)*2/5)
-	kwic := renderTokens(toks[kFirst:kLast+1], base, attr)
+	kwic := renderElements(elms[kFirst:kLast+1], base, attr)
 	maxKwic := max(1, avail-leftW-2-5)
 	if ansi.StringWidth(kwic) > maxKwic {
 		kwic = ansi.Truncate(kwic, maxKwic, "…")
 	}
-	rightW := max(0, avail-leftW-2-ansi.StringWidth(kwic))
-	sp := base.Render(" ")
-	return fitLeft(renderTokens(toks[:kFirst], base, attr), leftW, base) +
-		sp + kwic + sp +
-		fitRight(renderTokens(toks[kLast+1:], base, attr), rightW, base)
+	// glue around KWIC (e.g. before a comma) replaces the separating space
+	// by a wider context, so KWIC stays in its column
+	leftSp, rightSp := base.Render(" "), base.Render(" ")
+	if isGlue(elms[:kFirst], len(elms[:kFirst])-1) {
+		leftSp = ""
+		leftW++
+	}
+	rightW := max(0, avail-leftW-1-ansi.StringWidth(leftSp)-ansi.StringWidth(kwic))
+	if isGlue(elms[kLast+1:], 0) {
+		rightSp = ""
+		rightW++
+	}
+	return fitLeft(renderElements(elms[:kFirst], base, attr), leftW, base) +
+		leftSp + kwic + rightSp +
+		fitRight(renderElements(elms[kLast+1:], base, attr), rightW, base)
+}
+
+func isGlue(elms []concordance.LineElement, i int) bool {
+	if i < 0 || i >= len(elms) {
+		return false
+	}
+	st, ok := elms[i].(*concordance.Struct)
+	return ok && st.IsSelfClose && st.Name == glueStruct
 }
 
 func tokenValue(t *concordance.Token, attr string) string {
@@ -480,21 +538,49 @@ func tokenValue(t *concordance.Token, attr string) string {
 	return t.Word
 }
 
-func renderTokens(toks []*concordance.Token, base lipgloss.Style, attr string) string {
+// glueStruct is a self-closing structure meaning "no space between
+// the surrounding tokens" (typically before punctuation)
+const glueStruct = "g"
+
+// renderElements renders tokens and structural markup (as muted tags;
+// glue structures join the surrounding tokens instead)
+func renderElements(elms []concordance.LineElement, base lipgloss.Style, attr string) string {
 	var b strings.Builder
 	sp := base.Render(" ")
-	for i, t := range toks {
-		if i > 0 {
+	tagStyle := base.Foreground(colMuted)
+	first, glue := true, false
+	for i, e := range elms {
+		var s string
+		switch e := e.(type) {
+		case *concordance.Token:
+			st := base
+			switch e.MatchType {
+			case concordance.MatchTypeKWIC:
+				st = kwicStyle.Background(base.GetBackground())
+			case concordance.MatchTypeColl:
+				st = collStyle.Background(base.GetBackground())
+			}
+			s = st.Render(tokenValue(e, attr))
+		case *concordance.Struct:
+			if isGlue(elms, i) {
+				glue = true
+				continue
+			}
+			if e.IsSelfClose {
+				s = tagStyle.Render("<" + e.Name + "/>")
+			} else {
+				s = tagStyle.Render("<" + e.Name + ">")
+			}
+		case *concordance.CloseStruct:
+			s = tagStyle.Render("</" + e.Name + ">")
+		default:
+			continue
+		}
+		if !first && !glue {
 			b.WriteString(sp)
 		}
-		st := base
-		switch t.MatchType {
-		case concordance.MatchTypeKWIC:
-			st = kwicStyle.Background(base.GetBackground())
-		case concordance.MatchTypeColl:
-			st = collStyle.Background(base.GetBackground())
-		}
-		b.WriteString(st.Render(tokenValue(t, attr)))
+		b.WriteString(s)
+		first, glue = false, false
 	}
 	return b.String()
 }
@@ -627,6 +713,9 @@ func (v *concView) tokensContent(width int) string {
 }
 
 func (v *concView) Help() string {
+	if v.optsForm != nil {
+		return v.optsForm.Help()
+	}
 	if v.attrPicker != nil {
 		return v.attrPicker.Help()
 	}
@@ -637,7 +726,7 @@ func (v *concView) Help() string {
 		}
 		return v.detail.Help() + " • ←/→ prev/next line • " + other + " • esc close • q quit"
 	}
-	return "↑/↓ move • enter tokens • t text types • a displayed attribute • ←/→ page • r reload • esc edit query • q quit"
+	return "↑/↓ move • enter tokens • t text types • a displayed attribute • o options • ←/→ page • r reload • esc edit query • q quit"
 }
 
 // ---------------------------------- helpers

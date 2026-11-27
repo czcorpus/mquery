@@ -20,6 +20,9 @@ type querySubmittedMsg struct {
 
 type changeCorpusMsg struct{}
 
+// openSubcPickerMsg asks for the subcorpus picker
+type openSubcPickerMsg struct{}
+
 // query screen input fields
 const (
 	fieldQuery = iota
@@ -46,6 +49,10 @@ type queryModel struct {
 	windowInput textinput.Model
 	// focus is one of fieldQuery, fieldColl, fieldWindow
 	focus int
+
+	// corpusID and subcSummary describe the search target (set by the app)
+	corpusID    string
+	subcSummary string
 }
 
 func newTextInput(prompt string, limit int) textinput.Model {
@@ -86,6 +93,11 @@ func (m *queryModel) Reset(f Feature, value, coll string, window [2]int) tea.Cmd
 	m.windowInput.SetValue(windowValue(window))
 	m.windowInput.CursorEnd()
 	return m.setFocus(fieldQuery)
+}
+
+// SetTarget sets the corpus and subcorpus shown above the inputs
+func (m *queryModel) SetTarget(corpusID, subcSummary string) {
+	m.corpusID, m.subcSummary = corpusID, subcSummary
 }
 
 // Blur removes focus from all the fields
@@ -180,6 +192,8 @@ func (m queryModel) Update(msg tea.Msg) (queryModel, tea.Cmd) {
 			return m, goBack
 		case "ctrl+o":
 			return m, func() tea.Msg { return changeCorpusMsg{} }
+		case "ctrl+s":
+			return m, func() tea.Msg { return openSubcPickerMsg{} }
 		case "tab":
 			return m, m.cycleFocus(1)
 		case "shift+tab":
@@ -216,6 +230,10 @@ func (m queryModel) fieldLabel(field int, text string) string {
 
 func (m queryModel) View() string {
 	var b strings.Builder
+	if m.corpusID != "" {
+		b.WriteString(mutedStyle.Render("Corpus: ") + accentStyle.Render(m.corpusID) +
+			mutedStyle.Render("  ·  Subcorpus: ") + accentStyle.Render(m.subcSummary) + "\n\n")
+	}
 	b.WriteString(m.fieldLabel(fieldQuery, m.label) + "\n\n")
 	b.WriteString(m.input.View() + "\n")
 	if m.hasColl {
@@ -240,6 +258,6 @@ func (m queryModel) Help() string {
 	if m.useHistory && m.focus == fieldQuery {
 		parts = append(parts, "↑/↓ history")
 	}
-	parts = append(parts, "ctrl+o change corpus", "esc back to menu", "ctrl+c quit")
+	parts = append(parts, "ctrl+o change corpus", "ctrl+s subcorpus", "esc back to menu", "ctrl+c quit")
 	return strings.Join(parts, " • ")
 }

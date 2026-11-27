@@ -12,12 +12,12 @@ func TestEnvFileArgs(t *testing.T) {
 		path string
 		skip bool
 	}{
-		{nil, ".env", false},
-		{[]string{"-no-env-file"}, ".env", true},
-		{[]string{"--no-env-file=false"}, ".env", false},
+		{nil, "", false},
+		{[]string{"-no-env-file"}, "", true},
+		{[]string{"--no-env-file=false"}, "", false},
 		{[]string{"-api", "http://x", "-env-file", "a.env"}, "a.env", false},
 		{[]string{"--env-file=b.env", "-no-env-file"}, "b.env", true},
-		{[]string{"--", "-no-env-file"}, ".env", false},
+		{[]string{"--", "-no-env-file"}, "", false},
 	}
 	for _, c := range cases {
 		p, s := envFileArgs(c.args)

@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"mquery/cmd/mymquery/agent"
 	"mquery/cmd/mymquery/api"
+	"mquery/cmd/mymquery/storage"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -13,12 +15,41 @@ type Env struct {
 	Lang         string
 	PageSize     int
 	ContextWidth int
-	// HistoryPath is a file storing submitted queries ("" = no persistence)
-	HistoryPath string
+	// DB is a local database (query history etc.; nil = no persistence)
+	DB          *storage.DB
 	HistorySize int
+
+	// Chat is an AI chat session (nil = the chat is not configured)
+	Chat *agent.Session
+	// ChatUnavailable explains why Chat is nil
+	ChatUnavailable string
+	// ChatNotice is an info shown at the start of the chat transcript
+	// (e.g. about helper tools)
+	ChatNotice string
+	// ChatBackends are the AI chat backends the user can choose from
+	ChatBackends []ChatBackend
+	// ChatConfigure creates a new chat session for a setup chosen in the UI
+	// (it returns a notice for the user, e.g. about the saved setup)
+	ChatConfigure func(setup ChatSetup) (*agent.Session, string, error)
+	// ChatCurrent is the current setup (without the API key)
+	ChatCurrent ChatSetup
+	// ChatConfigPath is where the setup can be saved ("" = unknown)
+	ChatConfigPath string
+
+	// StartupNotice is a warning shown in the menu at startup
+	// (e.g. about configuration files readable by other users)
+	StartupNotice string
 
 	// attrCache maps corpus ID => ordered positional attributes
 	attrCache map[string][]corpusAttr
+	// structCache maps corpus ID => structures (loaded along with attrCache)
+	structCache map[string][]corpusAttr
+
+	// concordance settings (PageSize and ContextWidth above too)
+	concCtxStruct string // "" = corpus default, ctxTokens = no structure, or a structure name
+	concNoShuffle bool
+	concTextProps int // 0 = none, 1 = basic, 2 = all
+	concMarkup    bool
 
 	// token frequency settings (kept for the whole session)
 	freqAttr      map[string]string // corpus ID => attribute
@@ -48,6 +79,8 @@ func NewEnv(client *api.Client, lang string, pageSize, contextWidth int) *Env {
 		ContextWidth:  contextWidth,
 		HistorySize:   DefaultHistorySize,
 		attrCache:     make(map[string][]corpusAttr),
+		structCache:   make(map[string][]corpusAttr),
+		concTextProps: 2,
 		freqAttr:      make(map[string]string),
 		freqMaxItems:  freqMaxItemsSteps[0],
 		freqFLimit:    1,
@@ -81,6 +114,8 @@ type ResultView interface {
 
 // Feature is a single application function (concordance, freqs, ...)
 type Feature struct {
+	// ID is a stable identifier (e.g. stored with the query history)
+	ID               string
 	Title            string
 	Description      string
 	InputLabel       string
@@ -93,7 +128,27 @@ type Feature struct {
 	// the view returned by NewView must implement collFilterable
 	HasColl bool
 	// NewView creates a result view; nil means "not implemented yet"
-	NewView func(env *Env, corpus api.CorpusItem, query string) ResultView
+	NewView func(env *Env, corpus searchTarget, query string) ResultView
+	// Chat marks the AI chat (which has its own screen instead of
+	// the query + result views)
+	Chat bool
+}
+
+// searchTarget is a corpus queries run in, optionally restricted
+// to a subcorpus. Nested views (drill-downs) inherit it.
+type searchTarget struct {
+	api.CorpusItem
+	// Subc is a subcorpus ID (a configured alias or a saved subcorpus;
+	// "" = the whole corpus)
+	Subc string
+}
+
+// Label is a short identification for the header (`corpus` or `corpus / subc`)
+func (t searchTarget) Label() string {
+	if t.Subc == "" {
+		return t.ID
+	}
+	return t.ID + " / " + t.Subc
 }
 
 // collFilterable is implemented by views supporting a collocate filter
@@ -105,7 +160,7 @@ type collFilterable interface {
 }
 
 func (f Feature) Implemented() bool {
-	return f.NewView != nil
+	return f.NewView != nil || f.Chat
 }
 
 const queryTypeCQL = "cql"
@@ -113,6 +168,7 @@ const queryTypeCQL = "cql"
 func DefaultFeatures() []Feature {
 	return []Feature{
 		{
+			ID:               "conc",
 			Title:            "Concordance",
 			Description:      "search for a query and show matching lines (KWIC)",
 			InputLabel:       "CQL query",
@@ -122,6 +178,7 @@ func DefaultFeatures() []Feature {
 			NewView:          newConcView,
 		},
 		{
+			ID:               "freqs",
 			Title:            "Token frequencies",
 			Description:      "frequency distribution of a positional attribute",
 			InputLabel:       "CQL query",
@@ -130,6 +187,7 @@ func DefaultFeatures() []Feature {
 			NewView:          newFreqsView,
 		},
 		{
+			ID:               "ttypes",
 			Title:            "Text type frequencies",
 			Description:      "frequency distribution by text metadata",
 			InputLabel:       "CQL query",
@@ -138,12 +196,19 @@ func DefaultFeatures() []Feature {
 			NewView:          newTTypesView,
 		},
 		{
+			ID:               "colls",
 			Title:            "Collocations",
 			Description:      "collocation candidates of a query",
 			InputLabel:       "CQL query",
 			InputPlaceholder: `e.g. [lemma="house"]`,
 			QueryType:        queryTypeCQL,
 			NewView:          newCollsView,
+		},
+		{
+			ID:          "chat",
+			Title:       "AI chat",
+			Description: "ask a language model which queries the corpora for you",
+			Chat:        true,
 		},
 	}
 }
@@ -152,3 +217,33 @@ func DefaultFeatures() []Feature {
 type backMsg struct{}
 
 func goBack() tea.Msg { return backMsg{} }
+
+// ChatBackend describes an AI chat backend
+type ChatBackend struct {
+	ID    string
+	Label string
+	// DefaultModels is a comma separated list of the default models
+	DefaultModels string
+	// KeyName is the variable with the API key
+	KeyName string
+	// KeyOptional means the backend works without an API key
+	KeyOptional bool
+	// HasURL means the backend needs a server URL (see ChatSetup.URL)
+	HasURL bool
+	// DefaultURL is the URL used if none is set
+	DefaultURL string
+}
+
+// ChatSetup is an AI chat configuration chosen by the user
+type ChatSetup struct {
+	Backend string
+	// Models is a comma separated list of models ("" = the defaults)
+	Models string
+	// APIKey is the key ("" = the currently configured one)
+	APIKey string
+	// URL is the server of a backend with ChatBackend.HasURL
+	// ("" = ChatBackend.DefaultURL)
+	URL string
+	// Save saves the setup (incl. the key) to the user's configuration
+	Save bool
+}
